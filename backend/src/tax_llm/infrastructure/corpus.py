@@ -381,11 +381,14 @@ def keyword_match(keywords: Iterable[str], haystack: str) -> bool:
 
 def transaction_type_matches(transaction_type: str, authority: AuthorityRecord) -> bool:
     lowered = normalize_phrase(transaction_type)
+    transaction_type_tags = list(getattr(authority, "transaction_type_tags", []) or [])
+    structure_tags = list(getattr(authority, "structure_tags", []) or [])
+    tags = list(getattr(authority, "tags", []) or [])
     haystack_parts = (
-        authority.tags
+        tags
         + authority.issue_buckets
-        + authority.transaction_type_tags
-        + authority.structure_tags
+        + transaction_type_tags
+        + structure_tags
         + [authority.title, authority.citation]
     )
     normalized_haystack = " ".join(normalize_phrase(part) for part in haystack_parts)
@@ -427,8 +430,12 @@ def rank_authority(
     citation_keywords: list[str],
 ) -> float:
     score = authority.authority_weight
-    normalized_structure_tags = [normalize_phrase(tag) for tag in authority.structure_tags]
-    normalized_transaction_tags = [normalize_phrase(tag) for tag in authority.transaction_type_tags]
+    structure_tags = list(getattr(authority, "structure_tags", []) or [])
+    transaction_type_tags = list(getattr(authority, "transaction_type_tags", []) or [])
+    tags = list(getattr(authority, "tags", []) or [])
+    procedural_or_substantive = getattr(authority, "procedural_or_substantive", "substantive")
+    normalized_structure_tags = [normalize_phrase(tag) for tag in structure_tags]
+    normalized_transaction_tags = [normalize_phrase(tag) for tag in transaction_type_tags]
 
     bucket_terms: list[str] = []
     for bucket in issue_buckets:
@@ -436,10 +443,10 @@ def rank_authority(
             score += 2.4
             bucket_terms.extend(BUCKET_CONTEXT_TERMS.get(bucket, []))
     if transaction_type and normalize_phrase(transaction_type) in " ".join(
-        normalized_transaction_tags + [normalize_phrase(tag) for tag in authority.tags]
+        normalized_transaction_tags + [normalize_phrase(tag) for tag in tags]
     ):
         score += 0.6
-    for tag in authority.tags:
+    for tag in tags:
         if tag.lower() in query_text:
             score += 0.35
     for structure_tag in normalized_structure_tags:
@@ -466,7 +473,7 @@ def rank_authority(
         else:
             score -= 1.2
 
-    if authority.procedural_or_substantive == "procedural":
+    if procedural_or_substantive == "procedural":
         if any(
             term in query_text
             for term in ["election", "joint election", "form", "instruction", "filing", "deadline"]
@@ -477,7 +484,7 @@ def rank_authority(
             for term in ["basis", "consequence", "seller", "buyer", "gain", "continuity", "boot", "cobe"]
         ):
             score -= 0.35
-    elif authority.procedural_or_substantive == "substantive" and any(
+    elif procedural_or_substantive == "substantive" and any(
         term in query_text
         for term in ["basis", "consequence", "seller", "buyer", "gain", "continuity", "boot", "cobe"]
     ):
@@ -528,7 +535,7 @@ def rank_authority(
             term in query_text for term in financing_terms
         ):
             score += 0.45
-        authority_text = " ".join(authority.tags + [authority.title, authority.citation]).lower()
+        authority_text = " ".join(tags + [authority.title, authority.citation]).lower()
         if authority.authority_id not in {"code-163j", "notice-2018-28", "code-1274-483", "code-279", "reg-1-1001-3"} and not any(
             term in authority_text for term in ["debt", "financing", "interest", "seller note", "leverage"]
         ):

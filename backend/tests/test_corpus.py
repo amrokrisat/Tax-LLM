@@ -1,7 +1,8 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 from tax_llm.domain.models import RetrievalFilters, TransactionFacts
-from tax_llm.infrastructure.corpus import AuthorityCorpusLoader, corpus_root
+from tax_llm.infrastructure.corpus import AuthorityCorpusLoader, corpus_root, rank_authority
 from tax_llm.infrastructure.repositories import AuthorityCorpusRepository
 
 
@@ -271,3 +272,28 @@ def test_336e_facts_pull_specific_336e_rules_ahead_of_338h10():
     assert results
     assert results[0].authority_id in {"reg-1-336-1", "reg-1-336-2", "code-336e"}
     assert results[0].authority_id != "reg-1-338h10-1"
+
+
+def test_rank_authority_tolerates_legacy_authority_objects_missing_new_metadata():
+    legacy_authority = SimpleNamespace(
+        authority_id="legacy-1060",
+        source_type="code",
+        title="IRC Section 1060",
+        citation="IRC Section 1060",
+        excerpt="Allocation rules for applicable asset acquisitions.",
+        issue_buckets=["asset_sale"],
+        authority_weight=1.0,
+        tags=[],
+    )
+
+    score = rank_authority(
+        authority=legacy_authority,
+        priority_order=["code", "regs", "irs_guidance", "cases", "forms", "internal"],
+        query_text="direct asset purchase basis step-up allocation residual method form 8594",
+        issue_buckets=["asset_sale"],
+        transaction_type="asset sale",
+        title_keywords=["asset", "allocation"],
+        citation_keywords=["1060", "8594"],
+    )
+
+    assert score > 0
