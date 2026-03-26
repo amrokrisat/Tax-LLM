@@ -30,7 +30,7 @@ body {
 }
 
 .page-shell {
-  max-width: 1280px;
+  max-width: 1480px;
   margin: 0 auto;
   padding: 48px 20px 64px;
 }
@@ -90,7 +90,7 @@ h1 {
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(360px, 0.9fr) minmax(540px, 1.1fr);
+  grid-template-columns: minmax(380px, 0.9fr) minmax(700px, 1.2fr);
   gap: 24px;
   align-items: start;
 }
@@ -313,6 +313,12 @@ textarea {
 }
 
 .two-col {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.analysis-two-col {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
@@ -593,6 +599,7 @@ ul {
   .workspace-grid,
   .metrics-row,
   .two-col,
+  .analysis-two-col,
   .check-grid,
   .coverage-grid,
   .alternatives-grid,
@@ -612,9 +619,14 @@ ul {
 
 @media (max-width: 1500px) {
   .workspace-grid,
-  .two-col,
   .coverage-grid,
   .alternatives-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 1320px) {
+  .analysis-two-col {
     grid-template-columns: 1fr;
   }
 }

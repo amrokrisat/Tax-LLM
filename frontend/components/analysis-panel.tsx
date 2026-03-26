@@ -272,7 +272,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
         </ul>
       </div>
 
-      <div className="two-col">
+      <div className="analysis-two-col">
         <div className="subpanel">
           <h3>Issues</h3>
           <ul className="list-tight">

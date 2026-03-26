@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 
+export const runtime = "nodejs";
+export const maxDuration = 30;
+
 function backendBaseUrl() {
   return (
+    process.env.BACKEND_API_BASE_URL ??
     process.env.NEXT_PUBLIC_API_BASE_URL ??
     "http://127.0.0.1:8000"
   ).replace(/\/$/, "");
@@ -17,6 +21,7 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify(payload),
       cache: "no-store",
+      next: { revalidate: 0 },
     });
 
     const text = await response.text();
