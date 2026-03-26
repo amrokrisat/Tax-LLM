@@ -119,8 +119,8 @@ export function IntakeForm({
           </div>
         </div>
         <p className="muted">
-          Submit editable facts to the backend. The analysis view only reflects live API
-          output from the retrieval-first pipeline.
+          Enter editable transaction facts and supporting notes. The analysis panel updates
+          from the live tax-analysis service.
         </p>
         <div className="chip-row">
           <span className={`mode-pill mode-${intakeMode}`}>
@@ -131,8 +131,8 @@ export function IntakeForm({
                 : "Customized from demo"}
           </span>
           <span className="microcopy">
-            Loading demo facts only pre-fills the form. You can edit any field before
-            running analysis.
+            Loading the demo simply pre-fills the form. Every field stays editable before
+            you run analysis.
           </span>
         </div>
         {error ? <p className="status-banner warn">{error}</p> : null}

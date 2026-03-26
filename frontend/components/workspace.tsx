@@ -11,6 +11,7 @@ import {
 } from "@/lib/api";
 import { AnalysisPanel } from "@/components/analysis-panel";
 import { IntakeForm } from "@/components/intake-form";
+import { embeddedDemoScenario } from "@/lib/demo-scenario";
 
 type IntakeMode = "custom" | "demo" | "demo_edited";
 
@@ -48,10 +49,9 @@ export function Workspace() {
       const scenario = await getDemoScenario();
       setRequest(scenario);
       setIntakeMode("demo");
-    } catch (loadError) {
-      setError(
-        loadError instanceof Error ? loadError.message : "Failed to load demo scenario.",
-      );
+    } catch {
+      setRequest(embeddedDemoScenario);
+      setIntakeMode("demo");
     } finally {
       setLoading(false);
     }
@@ -69,24 +69,25 @@ export function Workspace() {
       <section className="hero">
         <div className="hero-copy">
           <p className="eyebrow">Tax LLM</p>
-          <h1>Retrieval-first transactional tax analysis.</h1>
+          <h1>Transactional tax analysis, grounded in authority.</h1>
           <p className="lede">
-            Intake facts, classify issue buckets, retrieve tagged authorities, and
-            draft a citation-aware work product with explicit coverage warnings.
+            Capture deal facts, organize the transaction into tax issue areas, and
+            generate a citation-aware draft that shows where the analysis is strong and
+            where it remains preliminary.
           </p>
           <p className="muted">
-            The demo scenario is available as a form prefill, but custom facts remain the
-            default path and the form stays editable after loading the demo.
+            Project Atlas is available as a one-click sample matter, and the form remains
+            fully editable after loading it.
           </p>
         </div>
 
         <div className="hero-card">
-          <h2>Backend output</h2>
+          <h2>What the demo shows</h2>
           <ul className="list-tight">
-            <li>Issue bucket classification before drafting</li>
-            <li>Authority retrieval with source tags and metadata</li>
-            <li>Coverage validation and incomplete-analysis warnings</li>
-            <li>Citation-backed structural alternatives and memo sections</li>
+            <li>Fact-sensitive issue spotting for common transaction structures</li>
+            <li>Authority review with source types, citations, and excerpts</li>
+            <li>Coverage warnings where support is weak or incomplete</li>
+            <li>Side-by-side structural alternatives and memo-style analysis</li>
           </ul>
         </div>
       </section>
