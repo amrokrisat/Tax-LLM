@@ -235,7 +235,12 @@ export async function analyzeTransaction(
 
 async function parseMatterResponse(response: Response): Promise<MatterRecord> {
   if (!response.ok) {
-    throw new Error("The matter request could not be completed.");
+    const clone = response.clone();
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    const fallbackText = await clone
+      .text()
+      .catch(() => "");
+    throw new Error((payload?.detail ?? fallbackText) || "The matter request could not be completed.");
   }
 
   const data = (await response.json()) as { matter: MatterRecord };
