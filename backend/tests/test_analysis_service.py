@@ -149,7 +149,7 @@ def test_rollover_governance_terms_pull_more_sensitive_authorities():
         coverage for coverage in result.bucket_coverage if coverage.bucket == "rollover_equity"
     )
     rollover_ids = {authority.authority_id for authority in rollover_bucket.authorities}
-    assert "case-letulle" in rollover_ids or "reg-1-368-2k" in rollover_ids
+    assert "case-letulle" in rollover_ids or "reg-1-368-2-triangular" in rollover_ids
 
 
 def test_nol_facts_change_attribute_preservation_analysis():
@@ -464,7 +464,8 @@ def test_stock_vs_asset_wedge_produces_more_decision_useful_tradeoffs():
     alternative_names = [alternative.name for alternative in result.alternatives]
 
     assert "taxable stock acquisition path" in [name.lower() for name in alternative_names]
-    assert "taxable asset or deemed asset path" in [name.lower() for name in alternative_names]
+    assert "direct taxable asset acquisition path" in [name.lower() for name in alternative_names]
+    assert any("338" in name.lower() or "deemed asset election" in name.lower() for name in alternative_names)
     assert "basis step-up" in memo_text or "basis step up" in memo_text
     assert "seller tax cost" in memo_text or "immediate tax cost" in memo_text
     assert "deemed asset" in memo_text
@@ -491,7 +492,46 @@ def test_stock_and_deemed_asset_buckets_have_more_specific_memo_language():
         section for section in result.memo_sections if section.heading == "Deemed asset sale elections"
     )
     assert "carryover tax posture" in stock_section.body.lower() or "carryover basis" in stock_section.body.lower()
+    assert "seller" in stock_section.body.lower()
     assert "qualified stock purchase" in deemed_section.body.lower() or "seller would accept the deemed sale cost" in deemed_section.body.lower()
+
+
+def test_338h10_and_338g_paths_produce_different_tradeoff_language():
+    service = build_service()
+
+    h10_result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="338h10 Path",
+            summary="Buyer is testing a 338(h)(10) election and needs seller consent for a joint election.",
+            entities=["Buyer", "Target"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            consideration_mix="Cash",
+            proposed_steps="Buyer acquires stock and pursues a 338(h)(10) election.",
+            deemed_asset_sale_election=True,
+        ),
+        uploaded_documents=[],
+    )
+    g_result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="338g Path",
+            summary="Buyer is testing whether a qualified stock purchase can support a 338(g) election.",
+            entities=["Buyer", "Target"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            consideration_mix="Cash",
+            proposed_steps="Buyer completes a qualified stock purchase and models a 338(g) election.",
+            deemed_asset_sale_election=True,
+        ),
+        uploaded_documents=[],
+    )
+
+    h10_text = " ".join(section.body for section in h10_result.memo_sections).lower()
+    g_text = " ".join(section.body for section in g_result.memo_sections).lower()
+
+    assert "seller consent" in h10_text or "joint election" in h10_text
+    assert "qualified stock purchase" in g_text
+    assert "seller consent" not in g_text
 
 
 def test_stock_vs_asset_classification_and_missing_facts_are_more_decision_useful():
@@ -522,7 +562,72 @@ def test_stock_vs_asset_classification_and_missing_facts_are_more_decision_usefu
     assert "nominal stock deal" in classified["deemed_asset_sale_election"] or "asset-style tax results" in classified["deemed_asset_sale_election"]
     assert "338(h)(10)" in missing_fact_text or "336(e)" in missing_fact_text
     assert "basis step-up" in missing_fact_text
-    assert "stock-form deal with a possible deemed asset election" in facts_section.body.lower()
+    assert "stock-form deal with a possible section 338(h)(10) election" in facts_section.body.lower() or "stock-form deal with a possible deemed asset election" in facts_section.body.lower()
+
+
+def test_direct_asset_path_is_not_led_by_debt_modification_authority_without_debt_facts():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Asset Priority Deal",
+            summary="Buyer is evaluating a direct taxable asset purchase with purchase price allocation and basis step-up sensitivity.",
+            entities=["Buyer", "Seller"],
+            jurisdictions=["United States"],
+            transaction_type="asset sale",
+            consideration_mix="Cash",
+            proposed_steps="Direct asset acquisition with section 1060 allocation mechanics.",
+        ),
+        uploaded_documents=[],
+    )
+
+    asset_bucket = next(coverage for coverage in result.bucket_coverage if coverage.bucket == "asset_sale")
+    assert asset_bucket.authorities
+    assert asset_bucket.authorities[0].authority_id in {"code-1060", "reg-1-1060-1", "form-8594"}
+    assert asset_bucket.authorities[0].authority_id != "reg-1-1001-3"
+
+
+def test_stock_sale_analysis_is_not_reduced_to_attribute_preservation_framing():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Seller Preference Deal",
+            summary="Seller prefers stock treatment and the buyer wants to preserve entity history, contracts, and licenses while evaluating whether a stock acquisition is cleaner than an asset purchase.",
+            entities=["Buyer", "Target"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            consideration_mix="Cash",
+            proposed_steps="Single-step stock acquisition with possible election analysis.",
+        ),
+        uploaded_documents=[],
+    )
+
+    stock_section = next(section for section in result.memo_sections if section.heading == "Stock sale")
+    stock_text = stock_section.body.lower()
+    assert "seller" in stock_text
+    assert "contracts" in stock_text or "history" in stock_text or "stock form" in stock_text
+    assert "carryover basis" in stock_text or "carryover tax posture" in stock_text
+
+
+def test_direct_asset_and_deemed_asset_paths_are_distinct_when_both_are_supported():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Three Path Deal",
+            summary="Buyer is comparing a stock acquisition, a direct taxable asset purchase, and a possible 338(h)(10) election because basis step-up value may justify an election fork.",
+            entities=["Buyer", "Target"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            consideration_mix="Cash",
+            proposed_steps="Buyer acquires stock unless a direct asset deal or 338(h)(10) election produces better economics.",
+            deemed_asset_sale_election=True,
+        ),
+        uploaded_documents=[],
+    )
+
+    alternative_names = {alternative.name for alternative in result.alternatives}
+    assert "Taxable stock acquisition path" in alternative_names
+    assert "Direct taxable asset acquisition path" in alternative_names
+    assert "Stock acquisition with possible Section 338(h)(10) election" in alternative_names
 
 
 def test_unsupported_buckets_trigger_visible_warnings():

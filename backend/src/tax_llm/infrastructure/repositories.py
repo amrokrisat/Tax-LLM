@@ -149,11 +149,39 @@ class AuthorityCorpusRepository:
             "attribute_preservation": ["attribute", "ownership", "loss", "credit", "built-in"],
             "debt_overlay": ["interest", "debt", "financing", "refinancing", "modification"],
             "earnout_overlay": ["earnout", "installment", "deferred"],
-            "deemed_asset_sale_election": ["338", "deemed asset"],
-            "asset_sale": ["asset", "allocation", "residual"],
-            "merger_reorganization": ["reorganization", "continuity", "business purpose", "triangular"],
-            "rollover_equity": ["rollover", "continuity", "governance", "redemption"],
-            "stock_sale": ["stock", "acquisition"],
+            "deemed_asset_sale_election": [
+                "338",
+                "338(h)(10)",
+                "338(g)",
+                "deemed asset",
+                "qualified stock purchase",
+                "old target",
+                "new target",
+                "joint election",
+                "agub",
+                "adsp",
+            ],
+            "asset_sale": [
+                "asset",
+                "asset purchase",
+                "allocation",
+                "residual",
+                "purchase price allocation",
+                "basis step-up",
+                "asset basis",
+                "seller gain",
+            ],
+            "merger_reorganization": ["reorganization", "continuity", "business purpose", "triangular", "cobe", "boot", "plan of reorganization"],
+            "rollover_equity": ["rollover", "continuity", "governance", "redemption", "boot", "securities"],
+            "stock_sale": [
+                "stock",
+                "stock acquisition",
+                "stock form",
+                "carryover basis",
+                "entity history",
+                "seller stock preference",
+                "qualified stock purchase",
+            ],
         }
         result = keywords.get(issue_bucket, []).copy()
         summary = f"{facts.summary} {facts.consideration_mix} {facts.proposed_steps}".lower()
@@ -168,17 +196,54 @@ class AuthorityCorpusRepository:
             "attribute_preservation": ["382", "383", "384"],
             "debt_overlay": ["163(j)", "279", "1.1001-3"],
             "earnout_overlay": ["453", "1274", "483"],
-            "deemed_asset_sale_election": ["338"],
-            "asset_sale": ["1060", "8594"],
-            "merger_reorganization": ["368", "1.368-2(k)"],
-            "rollover_equity": ["368", "351", "1.368-2(k)"],
+            "deemed_asset_sale_election": [
+                "338",
+                "1.338-1",
+                "1.338(h)(10)-1",
+                "8023",
+                "8883",
+                "agub",
+                "adsp",
+            ],
+            "asset_sale": ["1060", "1.1060-1", "8594", "residual method", "allocation", "asset basis"],
+            "merger_reorganization": ["368", "1.368-1", "1.368-2"],
+            "rollover_equity": ["368", "351", "1.368-1", "1.368-2", "356"],
             "contribution_transactions": ["351", "721"],
             "partnership_issues": ["721", "707"],
+            "stock_sale": ["stock form", "carryover basis", "stock acquisition", "338", "qualified stock purchase"],
         }
         result = keywords.get(issue_bucket, []).copy()
         summary = f"{facts.summary} {facts.stated_goals}".lower()
+        steps = facts.proposed_steps.lower()
         if issue_bucket in {"stock_sale", "attribute_preservation"} and (
             "nol" in summary or "attribute" in summary
         ):
             result.append("382")
+        if issue_bucket == "deemed_asset_sale_election":
+            if "338(h)(10)" in summary or "338(h)(10)" in steps:
+                result.append("1.338(h)(10)-1")
+                result.extend(["8023", "8883"])
+            if "338(g)" in summary or "338(g)" in steps:
+                result.extend(["1.338-1", "8883"])
+            if "qualified stock purchase" in summary or "qualified stock purchase" in steps:
+                result.extend(["1.338-1", "8023"])
+            if any(term in summary + " " + steps for term in ["basis step-up", "allocation", "agub", "adsp"]):
+                result.extend(["8883", "1060"])
+        if issue_bucket == "asset_sale":
+            if any(
+                term in summary + " " + steps
+                for term in ["basis step-up", "allocation", "residual method", "form 8594", "asset purchase"]
+            ):
+                result.extend(["1.1060-1", "8594"])
+        if issue_bucket == "stock_sale":
+            if any(
+                term in summary + " " + steps
+                for term in ["seller prefers stock", "stock form", "qualified stock purchase", "contracts", "licenses"]
+            ):
+                result.extend(["338", "1.338-1"])
+        if issue_bucket == "merger_reorganization":
+            if any(term in summary + " " + steps for term in ["triangular", "merger sub", "reverse triangular", "forward triangular"]):
+                result.append("1.368-2")
+            if any(term in summary + " " + steps for term in ["continuity", "cobe", "business purpose"]):
+                result.append("1.368-1")
         return result

@@ -48,6 +48,17 @@ AUTHORITY_GATING_TERMS: dict[str, list[str]] = {
     "code-382": ["nol", "net operating loss", "attribute", "ownership change", "built-in loss", "built in gain"],
     "reg-1-382": ["nol", "attribute", "ownership change", "five-percent shareholder", "testing period"],
     "notice-2003-65": ["built-in gain", "built in loss", "382", "attribute"],
+    "reg-1-338-1": ["qualified stock purchase", "purchasing corporation", "purchase date", "338"],
+    "reg-1-338-2": ["old target", "deemed sale", "seller tax cost", "338"],
+    "reg-1-338-4": ["new target", "basis", "buyer-side", "338"],
+    "reg-1-338-5": ["agub", "adsp", "allocation", "338"],
+    "reg-1-338-6": ["agub", "adsp", "allocation", "basis"],
+    "reg-1-338h10-1": ["338(h)(10)", "joint election", "seller consent", "old target", "new target"],
+    "reg-1-1060-1": ["allocation", "residual method", "8594", "basis step-up"],
+    "reg-1-368-1-framework": ["business purpose", "plan of reorganization", "reorganization"],
+    "reg-1-368-1-continuity": ["continuity", "continuity of interest", "cobe", "continuity of business enterprise"],
+    "reg-1-368-2-framework": ["statutory merger", "acquisitive reorganization", "boot", "stock vs securities"],
+    "reg-1-368-2-triangular": ["triangular merger", "forward triangular", "reverse triangular", "merger sub"],
     "code-163j": ["debt", "financing", "interest", "leverage", "refinancing"],
     "notice-2018-28": ["debt", "financing", "interest", "refinancing"],
     "code-279": ["debt", "financing", "acquisition indebtedness", "subordinated debt"],
@@ -58,6 +69,7 @@ AUTHORITY_GATING_TERMS: dict[str, list[str]] = {
     "reg-1-368-2k": ["merger sub", "triangular merger", "parent stock", "reorganization"],
     "case-letulle": ["debt-like", "security", "redemption", "preferred", "continuity"],
     "case-minnesota-tea": ["continuity", "stock consideration", "mixed consideration", "reorganization"],
+    "case-gregory": ["business purpose", "substance over form", "reorganization"],
     "code-383": ["credits", "attribute", "ownership change", "nol"],
     "code-384": ["built-in gain", "preacquisition loss", "attribute", "gain recognition"],
 }
@@ -152,10 +164,16 @@ class AuthorityCorpusLoader:
             citation=metadata.get("citation") or path.stem,
             excerpt=metadata.get("excerpt") or compact_excerpt(body),
             issue_buckets=normalize_list(metadata.get("issue_buckets")),
+            transaction_type_tags=normalize_list(metadata.get("transaction_type_tags")),
+            structure_tags=normalize_list(metadata.get("structure_tags")),
             jurisdiction=string_or_none(metadata.get("jurisdiction")),
             effective_date=string_or_none(metadata.get("effective_date")),
             tax_year=string_or_none(metadata.get("tax_year")),
             date_range=string_or_none(metadata.get("date_range")),
+            procedural_or_substantive=string_or_none(
+                metadata.get("procedural_or_substantive")
+            )
+            or "substantive",
             authority_weight=float(metadata.get("authority_weight", 1.0)),
             file_path=str(path),
             source_url=string_or_none(metadata.get("source_url")),
@@ -358,7 +376,13 @@ def keyword_match(keywords: Iterable[str], haystack: str) -> bool:
 
 def transaction_type_matches(transaction_type: str, authority: AuthorityRecord) -> bool:
     lowered = normalize_phrase(transaction_type)
-    haystack_parts = authority.tags + authority.issue_buckets + [authority.title, authority.citation]
+    haystack_parts = (
+        authority.tags
+        + authority.issue_buckets
+        + authority.transaction_type_tags
+        + authority.structure_tags
+        + [authority.title, authority.citation]
+    )
     normalized_haystack = " ".join(normalize_phrase(part) for part in haystack_parts)
     if lowered in normalized_haystack:
         return True
@@ -398,19 +422,28 @@ def rank_authority(
     citation_keywords: list[str],
 ) -> float:
     score = authority.authority_weight
+    normalized_structure_tags = [normalize_phrase(tag) for tag in authority.structure_tags]
+    normalized_transaction_tags = [normalize_phrase(tag) for tag in authority.transaction_type_tags]
 
     bucket_terms: list[str] = []
     for bucket in issue_buckets:
         if bucket in authority.issue_buckets:
             score += 2.4
             bucket_terms.extend(BUCKET_CONTEXT_TERMS.get(bucket, []))
-    if transaction_type and transaction_type.lower() in " ".join(authority.tags).lower():
+    if transaction_type and normalize_phrase(transaction_type) in " ".join(
+        normalized_transaction_tags + [normalize_phrase(tag) for tag in authority.tags]
+    ):
         score += 0.6
     for tag in authority.tags:
         if tag.lower() in query_text:
             score += 0.35
+    for structure_tag in normalized_structure_tags:
+        if structure_tag and structure_tag in query_text:
+            score += 0.6
     for term in bucket_terms:
-        if term in query_text and any(term in item.lower() for item in authority.tags + [authority.title, authority.citation]):
+        if term in query_text and any(
+            term in item.lower() for item in authority.tags + [authority.title, authority.citation]
+        ):
             score += 0.55
     if title_keywords and keyword_match(title_keywords, authority.title):
         score += 0.5
@@ -427,6 +460,40 @@ def rank_authority(
             score += 0.7
         else:
             score -= 1.2
+
+    if authority.procedural_or_substantive == "procedural":
+        if any(
+            term in query_text
+            for term in ["election", "joint election", "form", "instruction", "filing", "deadline"]
+        ):
+            score += 0.45
+        elif any(
+            term in query_text
+            for term in ["basis", "consequence", "seller", "buyer", "gain", "continuity", "boot", "cobe"]
+        ):
+            score -= 0.35
+    elif authority.procedural_or_substantive == "substantive" and any(
+        term in query_text
+        for term in ["basis", "consequence", "seller", "buyer", "gain", "continuity", "boot", "cobe"]
+    ):
+        score += 0.3
+
+    specific_signal_groups = {
+        "338h10": ["338(h)(10)", "338 h 10", "joint election", "seller consent"],
+        "338g": ["338(g)", "338 g"],
+        "qualified_stock_purchase": ["qualified stock purchase", "purchasing corporation", "purchase date"],
+        "allocation": ["1060", "8594", "residual method", "allocation", "agub", "adsp"],
+        "triangular": ["triangular", "merger sub", "forward triangular", "reverse triangular"],
+        "continuity": ["continuity", "continuity of interest", "continuity of business enterprise", "cobe"],
+        "business_purpose": ["business purpose", "plan of reorganization"],
+        "boot": ["boot", "mixed consideration", "other property", "securities"],
+    }
+    for terms in specific_signal_groups.values():
+        if any(term in query_text for term in terms):
+            if any(normalize_phrase(term) in normalized_structure_tags for term in terms):
+                score += 0.8
+            elif authority.authority_id in {"code-338", "code-368", "reg-1-368-2-framework"}:
+                score -= 0.65
 
     if any(bucket in issue_buckets for bucket in {"debt_overlay", "earnout_overlay", "merger_reorganization"}) and authority.authority_id in {"code-382", "reg-1-382", "notice-2003-65"}:
         score -= 1.0
@@ -465,7 +532,7 @@ def rank_authority(
             term in query_text for term in ["redemption", "preferred", "protection", "put", "fixed return", "debt-like"]
         ):
             score -= 0.6
-        if authority.authority_id in {"reg-1-368-2k", "case-minnesota-tea"} and any(
+        if authority.authority_id in {"reg-1-368-2-triangular", "case-minnesota-tea"} and any(
             term in query_text for term in ["merger sub", "triangular", "mixed consideration", "rollover", "equity"]
         ):
             score += 0.45
@@ -474,6 +541,108 @@ def rank_authority(
             term in query_text for term in ["credit", "built-in gain", "asset sale", "attribute", "gain recognition"]
         ):
             score += 0.45
+    if "deemed_asset_sale_election" in issue_buckets:
+        if authority.authority_id == "code-338" and any(
+            term in query_text for term in ["338", "338(h)(10)", "338(g)", "qualified stock purchase", "deemed asset"]
+        ):
+            score += 1.3
+        if authority.authority_id == "reg-1-338h10-1" and any(
+            term in query_text for term in ["338(h)(10)", "338 h 10", "seller consent", "joint election"]
+        ):
+            score += 1.15
+        if authority.authority_id == "reg-1-338-1" and any(
+            term in query_text for term in ["qualified stock purchase", "purchasing corporation", "purchase date"]
+        ):
+            score += 0.95
+        if authority.authority_id in {"reg-1-338-5", "reg-1-338-6"} and any(
+            term in query_text for term in ["agub", "adsp", "basis", "allocation"]
+        ):
+            score += 0.8
+        if authority.authority_id in {"form-8023", "form-8883"} and not any(
+            term in query_text for term in ["election", "form", "filing", "allocation", "agub", "adsp"]
+        ):
+            score -= 0.35
+    if "asset_sale" in issue_buckets:
+        asset_terms = [
+            "asset purchase",
+            "asset acquisition",
+            "basis step-up",
+            "basis step up",
+            "allocation",
+            "residual method",
+            "purchase price allocation",
+            "seller gain",
+            "asset basis",
+            "8594",
+            "1060",
+        ]
+        debt_central_terms = [
+            "refinancing",
+            "debt modification",
+            "amendment",
+            "debt instrument",
+            "seller note",
+            "assumption of debt",
+        ]
+        election_terms = [
+            "338",
+            "338(h)(10)",
+            "338(g)",
+            "qualified stock purchase",
+            "deemed asset",
+            "old target",
+            "new target",
+            "joint election",
+            "8023",
+            "8883",
+        ]
+        if authority.authority_id in {"code-1060", "reg-1-1060-1", "form-8594"} and any(
+            term in query_text for term in asset_terms + ["agub", "adsp"]
+        ):
+            score += 1.2
+        if authority.authority_id == "reg-1-1001-3" and not any(
+            term in query_text for term in debt_central_terms
+        ):
+            score -= 2.0
+        if authority.authority_id in {"code-338", "reg-1-338-1", "reg-1-338h10-1", "form-8023", "form-8883"} and not any(
+            term in query_text for term in election_terms
+        ):
+            score -= 1.35
+    if "stock_sale" in issue_buckets:
+        stock_tradeoff_terms = [
+            "stock form",
+            "seller preference",
+            "seller prefers stock",
+            "carryover basis",
+            "entity history",
+            "contracts",
+            "licenses",
+            "qualified stock purchase",
+        ]
+        attribute_terms = ["nol", "attribute", "ownership change", "382", "383", "384", "credit", "built-in gain"]
+        if authority.authority_id in {"code-382", "code-383", "code-384"} and not any(
+            term in query_text for term in attribute_terms
+        ):
+            score -= 1.4
+        if authority.authority_id in {"code-338", "reg-1-338-1"} and any(
+            term in query_text for term in stock_tradeoff_terms
+        ):
+            score += 0.55
+    if "merger_reorganization" in issue_buckets:
+        if authority.authority_id == "reg-1-368-2-triangular" and any(
+            term in query_text for term in ["triangular", "merger sub", "forward triangular", "reverse triangular"]
+        ):
+            score += 1.05
+        if authority.authority_id == "reg-1-368-1-continuity" and any(
+            term in query_text for term in ["continuity", "continuity of interest", "cobe"]
+        ):
+            score += 1.5
+        if authority.authority_id == "reg-1-368-1-framework" and any(
+            term in query_text for term in ["business purpose", "plan of reorganization"]
+        ):
+            score += 0.7
+        if any(term in query_text for term in ["triangular", "merger sub", "forward triangular", "reverse triangular"]) and authority.authority_id in {"code-354", "code-356", "code-361"}:
+            score -= 1.0
     if "state_overlay" in issue_buckets and authority.source_type in {"code", "regs"}:
         if not any(term in query_text for term in ["state", "transfer tax", "bulk sale", "apportionment"]):
             score -= 0.5

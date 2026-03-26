@@ -13,6 +13,9 @@ def test_corpus_loader_reads_supported_files():
     assert any(path.endswith(".pdf") for path in result.pending_files)
     assert any(authority.source_url for authority in result.authorities)
     assert any(authority.primary_authority for authority in result.authorities)
+    assert any(authority.transaction_type_tags for authority in result.authorities)
+    assert any(authority.structure_tags for authority in result.authorities)
+    assert any(authority.procedural_or_substantive in {"procedural", "substantive", "mixed"} for authority in result.authorities)
 
 
 def test_repository_search_by_issue_bucket_prioritizes_code_and_regs():
@@ -137,3 +140,107 @@ New text.
     authority = result.authorities[0]
     assert authority.title == "New Section 338"
     assert authority.source_url == "https://example.com/new"
+
+
+def test_rule_level_338_and_368_entries_are_present():
+    result = AuthorityCorpusLoader(root_path=corpus_root()).load()
+    ids = {authority.authority_id for authority in result.authorities}
+
+    assert "reg-1-338-1" in ids
+    assert "reg-1-338-2" in ids
+    assert "reg-1-338-5" in ids
+    assert "reg-1-338h10-1" in ids
+    assert "reg-1-368-1-continuity" in ids
+    assert "reg-1-368-2-triangular" in ids
+
+
+def test_338h10_facts_pull_specific_regulation_ahead_of_broad_section_338():
+    repository = AuthorityCorpusRepository(root_path=corpus_root())
+    facts = TransactionFacts(
+        transaction_name="338(h)(10) Deal",
+        summary="Buyer is considering a 338(h)(10) joint election and needs seller consent mechanics.",
+        entities=["Buyer", "Target"],
+        jurisdictions=["United States"],
+        transaction_type="stock sale",
+        proposed_steps="Buyer acquires stock and evaluates a 338(h)(10) election.",
+        deemed_asset_sale_election=True,
+    )
+
+    results = repository.search_by_issue_bucket(
+        facts=facts,
+        documents=[],
+        issue_bucket="deemed_asset_sale_election",
+    )
+
+    assert results
+    assert results[0].authority_id == "reg-1-338h10-1"
+    assert any(authority.authority_id == "code-338" for authority in results)
+
+
+def test_triangular_merger_facts_pull_triangular_rules_ahead_of_general_continuity():
+    repository = AuthorityCorpusRepository(root_path=corpus_root())
+    facts = TransactionFacts(
+        transaction_name="Triangular Merger",
+        summary="Buyer is evaluating a reverse triangular merger with parent stock and merger-sub mechanics.",
+        entities=["Buyer", "Target", "Merger Sub"],
+        jurisdictions=["United States"],
+        transaction_type="merger",
+        consideration_mix="Parent stock plus cash",
+        proposed_steps="Reverse triangular merger through merger sub.",
+        rollover_equity=True,
+    )
+
+    results = repository.search_by_issue_bucket(
+        facts=facts,
+        documents=[],
+        issue_bucket="merger_reorganization",
+    )
+
+    assert results
+    assert results[0].authority_id == "reg-1-368-2-triangular"
+    assert any(authority.authority_id == "reg-1-368-1-continuity" for authority in results)
+
+
+def test_direct_asset_facts_prioritize_1060_framework_over_debt_modification():
+    repository = AuthorityCorpusRepository(root_path=corpus_root())
+    facts = TransactionFacts(
+        transaction_name="Direct Asset Deal",
+        summary="Buyer is considering a direct asset purchase and needs purchase price allocation, residual method, and basis step-up analysis.",
+        entities=["Buyer", "Seller"],
+        jurisdictions=["United States"],
+        transaction_type="asset sale",
+        consideration_mix="Cash",
+        proposed_steps="Direct taxable asset acquisition with section 1060 allocation.",
+    )
+
+    results = repository.search_by_issue_bucket(
+        facts=facts,
+        documents=[],
+        issue_bucket="asset_sale",
+    )
+
+    assert results
+    assert results[0].authority_id in {"code-1060", "reg-1-1060-1", "form-8594"}
+    assert "reg-1-1001-3" not in {authority.authority_id for authority in results[:2]}
+
+
+def test_stock_sale_without_attribute_facts_does_not_lead_with_section_382():
+    repository = AuthorityCorpusRepository(root_path=corpus_root())
+    facts = TransactionFacts(
+        transaction_name="Stock Form Deal",
+        summary="Buyer is evaluating a stock acquisition because the seller prefers stock treatment and the parties want to preserve contracts and entity history.",
+        entities=["Buyer", "Target"],
+        jurisdictions=["United States"],
+        transaction_type="stock sale",
+        consideration_mix="Cash",
+        proposed_steps="Single-step stock acquisition with possible election analysis later.",
+    )
+
+    results = repository.search_by_issue_bucket(
+        facts=facts,
+        documents=[],
+        issue_bucket="stock_sale",
+    )
+
+    assert results
+    assert results[0].authority_id != "code-382"
