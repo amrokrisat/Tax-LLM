@@ -117,7 +117,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
     <section className="panel stack">
       <div className="analysis-header">
         <p className="eyebrow">Analysis</p>
-        <h2>Backend-driven retrieval result</h2>
+        <h2>Analysis results</h2>
         <div className={`warning-strip ${analysis.retrieval_complete ? "ok" : "warn"}`}>
           <strong>{analysis.retrieval_complete ? "Coverage status:" : "Coverage warning:"}</strong>
           <span>{analysis.completeness_warning}</span>
