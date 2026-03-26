@@ -90,8 +90,9 @@ h1 {
 
 .workspace-grid {
   display: grid;
-  grid-template-columns: 0.95fr 1.4fr;
+  grid-template-columns: minmax(360px, 0.9fr) minmax(540px, 1.1fr);
   gap: 24px;
+  align-items: start;
 }
 
 .panel {
@@ -500,7 +501,7 @@ ul {
 
 .alternative-meta {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 16px;
 }
 
@@ -606,5 +607,21 @@ ul {
 
   h1 {
     max-width: unset;
+  }
+}
+
+@media (max-width: 1500px) {
+  .workspace-grid,
+  .two-col,
+  .coverage-grid,
+  .alternatives-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 1650px) {
+  .alternative-meta,
+  .authority-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

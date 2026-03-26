@@ -1,6 +1,3 @@
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
-
 export type UploadedDocumentInput = {
   file_name: string;
   document_type: string;
@@ -131,7 +128,7 @@ export type AnalysisResult = {
 };
 
 export async function getDemoScenario(): Promise<AnalyzeTransactionRequest> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/demo/scenario`, {
+  const response = await fetch(`/api/demo/scenario`, {
     cache: "no-store",
   });
 
@@ -145,7 +142,7 @@ export async function getDemoScenario(): Promise<AnalyzeTransactionRequest> {
 export async function analyzeTransaction(
   payload: AnalyzeTransactionRequest,
 ): Promise<AnalysisResult> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/intake/analyze`, {
+  const response = await fetch(`/api/intake/analyze`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

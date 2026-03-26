@@ -135,6 +135,7 @@ export function IntakeForm({
             running analysis.
           </span>
         </div>
+        {error ? <p className="status-banner warn">{error}</p> : null}
       </div>
 
       <label className="field">
