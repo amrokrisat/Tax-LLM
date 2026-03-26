@@ -3,6 +3,19 @@ export type UploadedDocumentInput = {
   document_type: string;
   content: string;
   source?: "pasted" | "uploaded";
+  mime_type?: string | null;
+  extraction_status?: "not_requested" | "pending" | "completed" | "needs_review";
+  extracted_text?: string | null;
+  extracted_facts?: ExtractedFact[];
+};
+
+export type ExtractedFact = {
+  fact_id: string;
+  label: string;
+  value: string;
+  source_document: string;
+  confidence: number;
+  status: "pending" | "confirmed" | "rejected";
 };
 
 export type TransactionFactsInput = {
@@ -134,6 +147,12 @@ export type AnalysisRun = {
   facts: TransactionFactsInput;
   uploaded_documents: UploadedDocumentInput[];
   result: AnalysisResult;
+  review_status: "unreviewed" | "in_review" | "reviewed";
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+  reviewer_notes: string[];
+  pinned_authority_ids: string[];
+  reviewed_sections: string[];
 };
 
 export type MatterRecord = {
@@ -153,6 +172,20 @@ export type MatterInput = {
   transaction_type: string;
   facts: TransactionFactsInput;
   uploaded_documents: UploadedDocumentInput[];
+};
+
+export type DocumentFactConfirmation = {
+  document_index: number;
+  fact_id: string;
+  status: "pending" | "confirmed" | "rejected";
+};
+
+export type RunReviewInput = {
+  review_status: "unreviewed" | "in_review" | "reviewed";
+  reviewed_by?: string;
+  note?: string;
+  pinned_authority_ids?: string[];
+  reviewed_sections?: string[];
 };
 
 export type UserRecord = {
@@ -300,6 +333,49 @@ export async function analyzeMatter(
     body: JSON.stringify(payload),
   });
   return parseMatterResponse(response);
+}
+
+export async function extractMatterDocuments(matterId: string): Promise<MatterRecord> {
+  const response = await fetch(`/api/matters/${matterId}/documents/extract`, {
+    method: "POST",
+  });
+  return parseMatterResponse(response);
+}
+
+export async function confirmExtractedFacts(
+  matterId: string,
+  confirmations: DocumentFactConfirmation[],
+): Promise<MatterRecord> {
+  const response = await fetch(`/api/matters/${matterId}/documents/confirm-facts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmations }),
+  });
+  return parseMatterResponse(response);
+}
+
+export async function reviewRun(
+  matterId: string,
+  runId: string,
+  payload: RunReviewInput,
+): Promise<MatterRecord> {
+  const response = await fetch(`/api/matters/${matterId}/runs/${runId}/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseMatterResponse(response);
+}
+
+export async function exportRunMarkdown(matterId: string, runId: string): Promise<string> {
+  const response = await fetch(`/api/matters/${matterId}/runs/${runId}/export`, {
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error("The report could not be exported.");
+  }
+  const data = (await response.json()) as { format: string; content: string };
+  return data.content;
 }
 
 export const emptyRequest: AnalyzeTransactionRequest = {

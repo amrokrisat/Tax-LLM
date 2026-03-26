@@ -175,6 +175,7 @@ class AnalysisRun(BaseModel):
     reviewed_by: str | None = None
     reviewer_notes: List[str] = Field(default_factory=list)
     pinned_authority_ids: List[str] = Field(default_factory=list)
+    reviewed_sections: List[str] = Field(default_factory=list)
 
 
 class MatterRecord(BaseModel):

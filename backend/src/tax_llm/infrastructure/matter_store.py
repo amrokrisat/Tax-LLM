@@ -158,9 +158,9 @@ class MatterStore:
                 INSERT INTO analysis_runs (
                     run_id, matter_id, created_at, facts_json, uploaded_documents_json,
                     result_json, review_status, reviewed_at, reviewed_by,
-                    reviewer_notes_json, pinned_authority_ids_json
+                    reviewer_notes_json, pinned_authority_ids_json, reviewed_sections_json
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run.run_id,
@@ -174,6 +174,7 @@ class MatterStore:
                     run.reviewed_by,
                     self._dump(run.reviewer_notes),
                     self._dump(run.pinned_authority_ids),
+                    self._dump(run.reviewed_sections),
                 ),
             )
         matter.facts = facts
@@ -222,6 +223,7 @@ class MatterStore:
         reviewed_by: str | None,
         note: str | None,
         pinned_authority_ids: list[str] | None,
+        reviewed_sections: list[str] | None,
     ) -> MatterRecord:
         matter = self.get_matter(matter_id, user_id=user_id)
         run = next((item for item in matter.analysis_runs if item.run_id == run_id), None)
@@ -236,7 +238,7 @@ class MatterStore:
                 """
                 UPDATE analysis_runs
                 SET review_status = ?, reviewed_at = ?, reviewed_by = ?,
-                    reviewer_notes_json = ?, pinned_authority_ids_json = ?
+                    reviewer_notes_json = ?, pinned_authority_ids_json = ?, reviewed_sections_json = ?
                 WHERE run_id = ? AND matter_id = ?
                 """,
                 (
@@ -245,6 +247,7 @@ class MatterStore:
                     reviewed_by or run.reviewed_by,
                     self._dump(notes),
                     self._dump(pinned_authority_ids or run.pinned_authority_ids),
+                    self._dump(reviewed_sections or run.reviewed_sections),
                     run_id,
                     matter_id,
                 ),
@@ -285,10 +288,16 @@ class MatterStore:
                     reviewed_at TEXT,
                     reviewed_by TEXT,
                     reviewer_notes_json TEXT NOT NULL DEFAULT '[]',
-                    pinned_authority_ids_json TEXT NOT NULL DEFAULT '[]'
+                    pinned_authority_ids_json TEXT NOT NULL DEFAULT '[]',
+                    reviewed_sections_json TEXT NOT NULL DEFAULT '[]'
                 );
                 """
             )
+            columns = {row["name"] for row in connection.execute("PRAGMA table_info(analysis_runs)").fetchall()}
+            if "reviewed_sections_json" not in columns:
+                connection.execute(
+                    "ALTER TABLE analysis_runs ADD COLUMN reviewed_sections_json TEXT NOT NULL DEFAULT '[]'"
+                )
 
     def _migrate_legacy_json(self, base_dir: Path | None) -> None:
         legacy_dir = None
@@ -333,9 +342,9 @@ class MatterStore:
                         INSERT OR IGNORE INTO analysis_runs (
                             run_id, matter_id, created_at, facts_json, uploaded_documents_json,
                             result_json, review_status, reviewed_at, reviewed_by,
-                            reviewer_notes_json, pinned_authority_ids_json
+                            reviewer_notes_json, pinned_authority_ids_json, reviewed_sections_json
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             run.run_id,
@@ -349,6 +358,7 @@ class MatterStore:
                             run.reviewed_by,
                             self._dump(run.reviewer_notes),
                             self._dump(run.pinned_authority_ids),
+                            self._dump(run.reviewed_sections),
                         ),
                     )
 
@@ -358,7 +368,7 @@ class MatterStore:
                 """
                 SELECT run_id, created_at, facts_json, uploaded_documents_json, result_json,
                        review_status, reviewed_at, reviewed_by,
-                       reviewer_notes_json, pinned_authority_ids_json
+                       reviewer_notes_json, pinned_authority_ids_json, reviewed_sections_json
                 FROM analysis_runs
                 WHERE matter_id = ?
                 ORDER BY created_at DESC
@@ -386,6 +396,7 @@ class MatterStore:
                     reviewed_by=run["reviewed_by"],
                     reviewer_notes=list(json.loads(run["reviewer_notes_json"])),
                     pinned_authority_ids=list(json.loads(run["pinned_authority_ids_json"])),
+                    reviewed_sections=list(json.loads(run["reviewed_sections_json"])),
                 )
                 for run in runs
             ],
@@ -404,4 +415,3 @@ class MatterStore:
         if hasattr(payload, "model_dump"):
             return json.dumps(payload.model_dump(mode="json"), indent=2)
         return json.dumps(payload, indent=2)
-

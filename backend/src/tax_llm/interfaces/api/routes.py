@@ -269,6 +269,7 @@ def review_run(
             reviewed_by=payload.reviewed_by or None,
             note=payload.note or None,
             pinned_authority_ids=payload.pinned_authority_ids,
+            reviewed_sections=payload.reviewed_sections,
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Matter or run not found.") from exc

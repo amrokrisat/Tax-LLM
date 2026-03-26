@@ -74,6 +74,7 @@ class RunReviewInput(BaseModel):
     reviewed_by: str = ""
     note: str = ""
     pinned_authority_ids: List[str] = Field(default_factory=list)
+    reviewed_sections: List[str] = Field(default_factory=list)
 
 
 class ExportMemoResponse(BaseModel):
