@@ -153,11 +153,17 @@ class AuthorityCorpusRepository:
                 "338",
                 "338(h)(10)",
                 "338(g)",
+                "336(e)",
                 "deemed asset",
                 "qualified stock purchase",
+                "qualified stock disposition",
                 "old target",
                 "new target",
                 "joint election",
+                "election statement",
+                "protective election",
+                "s corporation",
+                "domestic corporation seller",
                 "agub",
                 "adsp",
             ],
@@ -181,6 +187,7 @@ class AuthorityCorpusRepository:
                 "entity history",
                 "seller stock preference",
                 "qualified stock purchase",
+                "qualified stock disposition",
             ],
         }
         result = keywords.get(issue_bucket, []).copy()
@@ -200,6 +207,9 @@ class AuthorityCorpusRepository:
                 "338",
                 "1.338-1",
                 "1.338(h)(10)-1",
+                "336(e)",
+                "1.336-1",
+                "1.336-2",
                 "8023",
                 "8883",
                 "agub",
@@ -225,6 +235,8 @@ class AuthorityCorpusRepository:
                 result.extend(["8023", "8883"])
             if "338(g)" in summary or "338(g)" in steps:
                 result.extend(["1.338-1", "8883"])
+            if "336(e)" in summary or "336(e)" in steps or "qualified stock disposition" in summary + " " + steps:
+                result.extend(["1.336-1", "1.336-2", "336(e)"])
             if "qualified stock purchase" in summary or "qualified stock purchase" in steps:
                 result.extend(["1.338-1", "8023"])
             if any(term in summary + " " + steps for term in ["basis step-up", "allocation", "agub", "adsp"]):
@@ -238,9 +250,9 @@ class AuthorityCorpusRepository:
         if issue_bucket == "stock_sale":
             if any(
                 term in summary + " " + steps
-                for term in ["seller prefers stock", "stock form", "qualified stock purchase", "contracts", "licenses"]
+                for term in ["seller prefers stock", "stock form", "qualified stock purchase", "qualified stock disposition", "contracts", "licenses", "s corporation"]
             ):
-                result.extend(["338", "1.338-1"])
+                result.extend(["338", "1.338-1", "336(e)", "1.336-1"])
         if issue_bucket == "merger_reorganization":
             if any(term in summary + " " + steps for term in ["triangular", "merger sub", "reverse triangular", "forward triangular"]):
                 result.append("1.368-2")

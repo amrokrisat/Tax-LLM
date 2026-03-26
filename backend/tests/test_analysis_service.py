@@ -534,6 +534,33 @@ def test_338h10_and_338g_paths_produce_different_tradeoff_language():
     assert "seller consent" not in g_text
 
 
+def test_336e_path_produces_distinct_seller_profile_language():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="336e Path",
+            summary="Seller is testing whether a qualified stock disposition of an S corporation target can support a 336(e) election and buyer-side step-up.",
+            entities=["Buyer", "Target", "Seller"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            consideration_mix="Cash",
+            proposed_steps="Seller disposes of target stock and evaluates a 336(e) election statement.",
+            deemed_asset_sale_election=True,
+        ),
+        uploaded_documents=[],
+    )
+
+    deemed_section = next(
+        section for section in result.memo_sections if section.heading == "Deemed asset sale elections"
+    )
+    deemed_text = deemed_section.body.lower()
+    alternative_names = {alternative.name for alternative in result.alternatives}
+
+    assert "336(e)" in deemed_text
+    assert "qualified stock disposition" in deemed_text or "seller-target profile" in deemed_text or "seller and target profile" in deemed_text
+    assert "Stock acquisition with possible Section 336(e) election" in alternative_names
+
+
 def test_stock_vs_asset_classification_and_missing_facts_are_more_decision_useful():
     service = build_service()
     result = service.analyze(
@@ -584,6 +611,27 @@ def test_direct_asset_path_is_not_led_by_debt_modification_authority_without_deb
     assert asset_bucket.authorities
     assert asset_bucket.authorities[0].authority_id in {"code-1060", "reg-1-1060-1", "form-8594"}
     assert asset_bucket.authorities[0].authority_id != "reg-1-1001-3"
+
+
+def test_direct_asset_path_mentions_seller_side_gain_and_recapture_tension():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Asset Seller Tension",
+            summary="Buyer is evaluating a direct taxable asset purchase with section 1060 allocation issues and meaningful seller-side gain sensitivity.",
+            entities=["Buyer", "Seller"],
+            jurisdictions=["United States"],
+            transaction_type="asset sale",
+            consideration_mix="Cash",
+            proposed_steps="Direct asset acquisition with allocation and basis step-up modeling.",
+        ),
+        uploaded_documents=[],
+    )
+
+    asset_section = next(section for section in result.memo_sections if section.heading == "Asset sale")
+    asset_text = asset_section.body.lower()
+    assert "gain-character" in asset_text or "seller" in asset_text
+    assert "recapture" in asset_text or "allocation" in asset_text
 
 
 def test_stock_sale_analysis_is_not_reduced_to_attribute_preservation_framing():

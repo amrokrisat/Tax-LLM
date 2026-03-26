@@ -152,6 +152,9 @@ def test_rule_level_338_and_368_entries_are_present():
     assert "reg-1-338h10-1" in ids
     assert "reg-1-368-1-continuity" in ids
     assert "reg-1-368-2-triangular" in ids
+    assert "code-336e" in ids
+    assert "reg-1-336-1" in ids
+    assert "reg-1-336-2" in ids
 
 
 def test_338h10_facts_pull_specific_regulation_ahead_of_broad_section_338():
@@ -244,3 +247,27 @@ def test_stock_sale_without_attribute_facts_does_not_lead_with_section_382():
 
     assert results
     assert results[0].authority_id != "code-382"
+
+
+def test_336e_facts_pull_specific_336e_rules_ahead_of_338h10():
+    repository = AuthorityCorpusRepository(root_path=corpus_root())
+    facts = TransactionFacts(
+        transaction_name="336e Deal",
+        summary="Seller is evaluating whether a qualified stock disposition of an S corporation target can support a 336(e) election statement.",
+        entities=["Buyer", "Target", "Seller"],
+        jurisdictions=["United States"],
+        transaction_type="stock sale",
+        consideration_mix="Cash",
+        proposed_steps="Seller disposes of target stock and evaluates a 336(e) election.",
+        deemed_asset_sale_election=True,
+    )
+
+    results = repository.search_by_issue_bucket(
+        facts=facts,
+        documents=[],
+        issue_bucket="deemed_asset_sale_election",
+    )
+
+    assert results
+    assert results[0].authority_id in {"reg-1-336-1", "reg-1-336-2", "code-336e"}
+    assert results[0].authority_id != "reg-1-338h10-1"

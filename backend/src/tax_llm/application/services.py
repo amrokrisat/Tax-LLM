@@ -216,6 +216,7 @@ class AnalysisService:
             or "338(h)(10)" in text
             or "338(g)" in text
             or "336(e)" in text
+            or "qualified stock disposition" in text
             or "deemed asset" in text
             or "qualified stock purchase" in text
         )
@@ -226,6 +227,18 @@ class AnalysisService:
     def _has_338g_signal(self, text: str) -> bool:
         return "338(g)" in text or "338 g" in text
 
+    def _has_336e_signal(self, text: str) -> bool:
+        return "336(e)" in text or "336 e" in text or "qualified stock disposition" in text
+
+    def _seller_target_profile_text(self, text: str) -> str:
+        if self._contains_any(text, ["s corporation", "s corp"]):
+            return "The current record suggests an S corporation profile, which can make section 336(e) or 338(h)(10) seller-target mechanics much more important than a generic stock-versus-asset comparison."
+        if self._contains_any(text, ["consolidated group", "affiliate", "subsidiary", "parent corporation", "domestic corporation seller"]):
+            return "The current record suggests a corporate seller or affiliate structure, so seller identity and target profile matter directly to whether a joint or seller-driven election path is actually available."
+        if self._contains_any(text, ["distribution", "qualified stock disposition"]):
+            return "The current record suggests a qualified stock disposition or similar seller-profile nuance, so election availability depends on the actual seller-target mechanics rather than on buyer-side step-up value alone."
+        return "The seller and target profile still need to be pinned down because election availability depends on who is selling the stock, what kind of target is being sold, and whether the required election mechanics fit that profile."
+
     def _structure_posture(self, facts: TransactionFacts) -> str:
         facts_text = self._facts_text(facts)
         stock_like = self._has_stock_form(facts_text, facts)
@@ -235,6 +248,8 @@ class AnalysisService:
             return "stock-form deal with a possible section 338(h)(10) election"
         if self._has_338g_signal(facts_text):
             return "stock-form deal with a possible section 338(g) election"
+        if self._has_336e_signal(facts_text):
+            return "stock-form deal with a possible section 336(e) election"
         if deemed_like:
             return "stock-form deal with a possible deemed asset election"
         if stock_like and asset_like:
@@ -301,6 +316,8 @@ class AnalysisService:
                 deemed_reason = "Facts suggest the parties may be testing whether a stock deal can still produce asset-style tax results through a section 338(h)(10) election, making seller consent, ownership profile, and old-target/new-target consequences central gating issues."
             elif self._has_338g_signal(text):
                 deemed_reason = "Facts suggest the buyer may be testing a section 338(g) path, making qualified stock purchase status, target-level deemed-sale cost, and basis mechanics central gating issues."
+            elif self._has_336e_signal(text):
+                deemed_reason = "Facts suggest the parties may be testing a section 336(e) path, making qualified stock disposition status, seller identity, target profile, and election-statement mechanics central gating issues."
             add(
                 "deemed_asset_sale_election",
                 deemed_reason,
@@ -446,7 +463,7 @@ class AnalysisService:
         if bucket == "stock_sale":
             if self._contains_any(facts_text, ["nol", "attribute", "ownership change"]):
                 return (
-                    "The current facts point to a stock path that may preserve entity-level history, contracts, licenses, and tax attributes in stock form, while leaving the buyer with carryover basis and inherited tax posture; if an election fork is available, that stock-form baseline still has to be weighed against a possible step-up alternative."
+                    "The current facts point to a stock path that may preserve entity-level history, contracts, licenses, and tax attributes in stock form, while leaving the buyer with carryover basis and inherited tax posture; seller-side preference for stock treatment and any realistic election fork still have to be weighed against that inherited profile."
                 )
             return (
                 "The current facts point to a stock path that may preserve legal continuity, contracts, and stock-sale economics for the seller, but the buyer-side cost of inheriting carryover basis and existing tax posture still has to be weighed against any available election or asset-style alternative."
@@ -457,7 +474,7 @@ class AnalysisService:
                     "The current facts suggest that a direct asset transfer could produce buyer-favorable basis step-up, but the analysis should be anchored in section 1060 allocation, seller-level current tax cost, and possible state transfer-tax friction rather than in stock-election mechanics."
                 )
             return (
-                "The current facts point to a direct asset transfer, so residual allocation, buyer basis step-up, seller gain character, and asset-level execution burden should be tested together as the core direct-purchase tradeoff."
+                "The current facts point to a direct asset transfer, so residual allocation, buyer basis step-up, seller gain character, recapture sensitivity, and asset-level execution burden should be tested together as the core direct-purchase tradeoff."
             )
         if bucket == "deemed_asset_sale_election":
             if self._has_338h10_signal(facts_text):
@@ -467,6 +484,10 @@ class AnalysisService:
             if self._has_338g_signal(facts_text):
                 return (
                     "The election analysis should focus on whether a section 338(g) path is truly available through a qualified stock purchase, how the old-target and new-target deemed-sale consequences affect the target rather than a consenting seller, and whether the buyer-side basis benefit is worth the resulting tax cost and compliance burden."
+                )
+            if self._has_336e_signal(facts_text):
+                return (
+                    "The election analysis should focus on whether a section 336(e) path is actually available through a qualified stock disposition, whether the seller and target profile fit the seller-driven election mechanics, how ADADP and AGUB consequences affect the economics, and whether the buyer-side step-up case is strong enough to justify the seller-side deemed-sale burden."
                 )
             return (
                 "The election analysis should focus on whether a qualified stock purchase or similar election path is actually available, whether the target and seller profile fit the election mechanics, whether the buyer values the step-up enough to pay for it, and whether the seller would accept deemed sale cost in a nominal stock deal."
@@ -511,7 +532,7 @@ class AnalysisService:
             )
         if coverage.bucket == "asset_sale":
             return (
-                f"The direct asset-acquisition analysis currently relies most heavily on {lead.citation}, because the core tax tradeoff is whether a current taxable asset transfer produces enough buyer-side step-up and allocation value under the section 1060 framework to justify the seller's immediate tax cost and the operational burden of asset-level execution. "
+                f"The direct asset-acquisition analysis currently relies most heavily on {lead.citation}, because the core tax tradeoff is whether a current taxable asset transfer produces enough buyer-side step-up and allocation value under the section 1060 framework to justify the seller's immediate tax cost, gain-character and recapture exposure, and the operational burden of asset-level execution. "
                 f"{fact_anchor}"
             )
         if coverage.bucket == "deemed_asset_sale_election":
@@ -525,6 +546,11 @@ class AnalysisService:
                 return (
                     f"The section 338(g) analysis currently relies most heavily on {lead.citation}, because the buyer may be able to reframe a qualified stock purchase as a deemed asset transaction without the joint-election seller mechanics of section 338(h)(10). The critical issues are whether the purchase is truly qualified, whether the old-target/new-target consequences fit the parties' economics, and whether the resulting basis and attribute profile is actually better than a straight stock path. "
                     f"{fact_anchor}"
+                )
+            if self._has_336e_signal(facts_text):
+                return (
+                    f"The section 336(e) analysis currently relies most heavily on {lead.citation}, because the deal may fit a seller-driven deemed asset election path that depends on qualified-stock-disposition status and the seller-target profile rather than on the purchasing-corporation mechanics that dominate section 338. The critical issues are whether the seller and target profile really fit the regulation, whether the election statement and procedural mechanics can actually be satisfied, and whether ADADP and AGUB consequences make the path better than either a straight stock purchase or a direct asset acquisition. "
+                    f"{fact_anchor} {self._seller_target_profile_text(facts_text)}"
                 )
             return (
                 f"The deemed-asset-election analysis currently relies most heavily on {lead.citation}, because the transaction may need to be modeled as a nominal stock deal with asset-style tax consequences. The practical gating question is whether the legal ownership profile and party consent actually permit that election, rather than whether asset-style economics are attractive in the abstract. "
@@ -625,7 +651,7 @@ class AnalysisService:
                     buckets=["stock_sale", "attribute_preservation", "debt_overlay"],
                     consequence_texts=[
                         "This path is often strongest when preserving target-level contracts, licenses, permits, and stock-sale execution matters more than an immediate buyer-side basis step-up, and when the seller strongly prefers stock treatment over current asset-sale economics.",
-                        "The main tax tradeoff is that the buyer inherits the target's basis and tax profile while the seller may get more favorable stock-sale economics; if the buyer is really paying for step-up, amortization, or allocation value, a straight stock path can become a staging point for an election fork rather than the final answer.",
+                        "The main tax tradeoff is that the buyer inherits the target's basis and tax profile while the seller may get more favorable stock-sale economics and legal continuity; if the buyer is really paying for step-up, amortization, or allocation value, a straight stock path can become a staging point for a 338 or 336(e) election fork rather than the final answer.",
                     ],
                     assumptions=[
                         "The transaction can be priced and documented in stock form without needing an asset-style election.",
@@ -653,7 +679,7 @@ class AnalysisService:
                     buckets=["asset_sale", "state_overlay", "withholding_overlay"],
                     consequence_texts=[
                         "This path is strongest when the buyer materially values depreciation, amortization, and gain-shielding from a basis step-up and the parties can support a section 1060 allocation without destabilizing price or execution.",
-                        "The central tradeoff is that direct asset purchase economics are usually more buyer-favorable on basis and allocation, but they can become seller-unfriendly once current gain recognition, ordinary-income recapture, transfer-tax friction, and asset-by-asset transfer burden are modeled together.",
+                        "The central tradeoff is that direct asset purchase economics are usually more buyer-favorable on basis and allocation, but they can become sharply seller-unfriendly once current gain recognition, ordinary-income recapture, character sensitivity, transfer-tax friction, and asset-by-asset transfer burden are modeled together.",
                     ],
                     assumptions=[
                         "The parties can actually transfer the relevant assets directly without legal or commercial obstacles overwhelming the tax benefit.",
@@ -661,7 +687,7 @@ class AnalysisService:
                     ],
                     missing_facts=[
                         "How large the buyer's expected basis step-up benefit really is under the proposed allocation.",
-                        "What seller-side current tax cost, recapture exposure, or transfer-tax burden the seller would actually accept in a direct asset transfer.",
+                        "What seller-side current tax cost, gain-character profile, recapture exposure, or transfer-tax burden the seller would actually accept in a direct asset transfer.",
                         "Whether consents, permits, or contract-assignment frictions make a direct asset transfer commercially weaker than a stock-form structure.",
                     ],
                     risk_texts=[
@@ -722,6 +748,33 @@ class AnalysisService:
                         ],
                         risk_texts=[
                             "This path weakens if the purchase fails qualified-stock-purchase status, if the target-level deemed-sale cost overwhelms the basis benefit, or if the allocation assumptions behind AGUB and ADSP are not supportable.",
+                        ],
+                        coverage_map=coverage_map,
+                    )
+                )
+            elif self._has_336e_signal(facts_text):
+                alternatives.append(
+                    self._build_alternative(
+                        name="Stock acquisition with possible Section 336(e) election",
+                        description=(
+                            "This path preserves stock-form execution while testing whether a seller-driven section 336(e) election can produce deemed asset-sale consequences and buyer-side basis step-up without relying on section 338 qualified-stock-purchase mechanics."
+                        ),
+                        buckets=["stock_sale", "deemed_asset_sale_election", "asset_sale", "attribute_preservation"],
+                        consequence_texts=[
+                            "This path is strongest when the seller-target profile actually supports section 336(e), the qualified-stock-disposition rules can be satisfied, and the buyer values basis step-up enough to justify the seller-side deemed-sale burden.",
+                            "The governing tradeoff is that a 336(e) path may preserve stock-form execution while still delivering asset-style basis consequences, but it weakens quickly if seller identity, target status, election-statement mechanics, or allocation economics do not fit the regulation.",
+                        ],
+                        assumptions=[
+                            "The stock disposition may fit the seller-driven section 336(e) framework rather than requiring a purchasing-corporation election under section 338.",
+                            "The parties are prepared to model ADADP, AGUB, and post-election basis consequences before treating the path as viable.",
+                        ],
+                        missing_facts=[
+                            "Exact seller identity, target profile, and disposition mechanics needed to determine whether section 336(e) is genuinely available.",
+                            "Whether the stock disposition actually fits the qualified-stock-disposition rules and whether the election statement can be made in the required manner.",
+                            "Whether the buyer's step-up economics are large enough to justify seller-side deemed-sale burden and any pricing adjustment.",
+                        ],
+                        risk_texts=[
+                            "This path becomes weak if the seller-target profile does not fit section 336(e), if the election statement and procedural mechanics are not supportable, or if the buyer-side basis case is too modest to justify seller-side tax cost.",
                         ],
                         coverage_map=coverage_map,
                     )

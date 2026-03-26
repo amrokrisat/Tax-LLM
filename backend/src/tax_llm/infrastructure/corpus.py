@@ -45,6 +45,11 @@ BUCKET_CONTEXT_TERMS: dict[str, list[str]] = {
 }
 
 AUTHORITY_GATING_TERMS: dict[str, list[str]] = {
+    "code-336e": ["336(e)", "qualified stock disposition", "domestic corporation seller", "s corporation target"],
+    "reg-1-336-1": ["336(e)", "qualified stock disposition", "seller", "target", "s corporation"],
+    "reg-1-336-2": ["336(e)", "election statement", "protective election", "qualified stock disposition", "seller"],
+    "reg-1-336-3": ["336(e)", "adadp", "allocation", "seller tax cost"],
+    "reg-1-336-4": ["336(e)", "agub", "basis step-up", "new target", "buyer economics"],
     "code-382": ["nol", "net operating loss", "attribute", "ownership change", "built-in loss", "built in gain"],
     "reg-1-382": ["nol", "attribute", "ownership change", "five-percent shareholder", "testing period"],
     "notice-2003-65": ["built-in gain", "built in loss", "382", "attribute"],
@@ -479,6 +484,7 @@ def rank_authority(
         score += 0.3
 
     specific_signal_groups = {
+        "336e": ["336(e)", "336 e", "qualified stock disposition", "protective election", "election statement", "s corporation"],
         "338h10": ["338(h)(10)", "338 h 10", "joint election", "seller consent"],
         "338g": ["338(g)", "338 g"],
         "qualified_stock_purchase": ["qualified stock purchase", "purchasing corporation", "purchase date"],
@@ -542,6 +548,22 @@ def rank_authority(
         ):
             score += 0.45
     if "deemed_asset_sale_election" in issue_buckets:
+        if authority.authority_id == "code-336e" and any(
+            term in query_text for term in ["336(e)", "336 e", "qualified stock disposition", "election statement"]
+        ):
+            score += 1.2
+        if authority.authority_id == "reg-1-336-1" and any(
+            term in query_text for term in ["336(e)", "qualified stock disposition", "seller profile", "s corporation", "domestic corporation seller"]
+        ):
+            score += 1.15
+        if authority.authority_id == "reg-1-336-2" and any(
+            term in query_text for term in ["336(e)", "election statement", "protective election", "seller profile", "target profile"]
+        ):
+            score += 1.15
+        if authority.authority_id in {"reg-1-336-3", "reg-1-336-4"} and any(
+            term in query_text for term in ["336(e)", "adadp", "agub", "allocation", "basis step-up", "buyer economics", "seller tax cost"]
+        ):
+            score += 0.9
         if authority.authority_id == "code-338" and any(
             term in query_text for term in ["338", "338(h)(10)", "338(g)", "qualified stock purchase", "deemed asset"]
         ):
@@ -562,6 +584,10 @@ def rank_authority(
             term in query_text for term in ["election", "form", "filing", "allocation", "agub", "adsp"]
         ):
             score -= 0.35
+        if any(term in query_text for term in ["336(e)", "336 e", "qualified stock disposition", "election statement"]) and authority.authority_id in {"code-338", "reg-1-338-1", "reg-1-338h10-1", "form-8023"}:
+            score -= 0.85
+        if any(term in query_text for term in ["338(h)(10)", "338 h 10", "seller consent", "qualified stock purchase"]) and authority.authority_id in {"code-336e", "reg-1-336-1", "reg-1-336-2"}:
+            score -= 0.6
     if "asset_sale" in issue_buckets:
         asset_terms = [
             "asset purchase",
@@ -628,6 +654,10 @@ def rank_authority(
             term in query_text for term in stock_tradeoff_terms
         ):
             score += 0.55
+        if authority.authority_id in {"code-336e", "reg-1-336-1"} and any(
+            term in query_text for term in ["seller preference", "stock form", "qualified stock disposition", "s corporation", "domestic corporation seller"]
+        ):
+            score += 0.5
     if "merger_reorganization" in issue_buckets:
         if authority.authority_id == "reg-1-368-2-triangular" and any(
             term in query_text for term in ["triangular", "merger sub", "forward triangular", "reverse triangular"]
