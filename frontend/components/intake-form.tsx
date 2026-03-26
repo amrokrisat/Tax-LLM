@@ -318,7 +318,7 @@ export function IntakeForm({
       {error ? <p className="error-text">{error}</p> : null}
 
       <button className="button-primary" type="submit" disabled={loading}>
-        {loading ? "Analyzing..." : "Run Retrieval-First Analysis"}
+        {loading ? "Analyzing..." : "Generate Analysis"}
       </button>
     </form>
   );
