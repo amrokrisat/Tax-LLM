@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
+const AUTH_FETCH_TIMEOUT_MS = 5000;
 
 const SESSION_COOKIE = "tax_llm_session";
 
@@ -22,12 +23,21 @@ export async function GET() {
     return NextResponse.json({ detail: "Authentication required." }, { status: 401 });
   }
 
-  const response = await fetch(`${backendBaseUrl()}/api/v1/auth/me`, {
-    cache: "no-store",
-    headers: {
-      "X-Tax-Session": sessionToken,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${backendBaseUrl()}/api/v1/auth/me`, {
+      cache: "no-store",
+      headers: {
+        "X-Tax-Session": sessionToken,
+      },
+      signal: AbortSignal.timeout(AUTH_FETCH_TIMEOUT_MS),
+    });
+  } catch {
+    return NextResponse.json(
+      { detail: "Authentication service timed out." },
+      { status: 503 },
+    );
+  }
 
   const body = await response.text();
   return new NextResponse(body, {

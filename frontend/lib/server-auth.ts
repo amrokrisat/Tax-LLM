@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 const SESSION_COOKIE = "tax_llm_session";
+const AUTH_FETCH_TIMEOUT_MS = 5000;
 
 function backendBaseUrl() {
   return (
@@ -22,12 +23,18 @@ export async function getServerUser() {
     return null;
   }
 
-  const response = await fetch(`${backendBaseUrl()}/api/v1/auth/me`, {
-    cache: "no-store",
-    headers: {
-      "X-Tax-Session": sessionToken,
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${backendBaseUrl()}/api/v1/auth/me`, {
+      cache: "no-store",
+      headers: {
+        "X-Tax-Session": sessionToken,
+      },
+      signal: AbortSignal.timeout(AUTH_FETCH_TIMEOUT_MS),
+    });
+  } catch {
+    return null;
+  }
 
   if (!response.ok) {
     return null;
