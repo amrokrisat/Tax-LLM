@@ -1,0 +1,18 @@
+{
+  "id": "fact_sensitivity_rollover",
+  "title": "Rollover equity should change retrieval and issue coverage",
+  "baseline_facts": {
+    "transaction_type": "stock sale",
+    "summary": "Buyer proposes a cash stock purchase.",
+    "signals": ["cash only"]
+  },
+  "variant_facts": {
+    "transaction_type": "stock sale",
+    "summary": "Buyer proposes a stock purchase with seller rollover equity.",
+    "signals": ["rollover equity", "continuing seller stake"]
+  },
+  "expectations": {
+    "new_bucket_required": "rollover_equity",
+    "authority_set_must_change": true
+  }
+}

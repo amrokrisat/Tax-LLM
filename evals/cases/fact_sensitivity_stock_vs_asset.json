@@ -1,0 +1,18 @@
+{
+  "id": "fact_sensitivity_stock_vs_asset",
+  "title": "Changing stock sale facts to asset sale facts should change bucket classification",
+  "baseline_facts": {
+    "transaction_type": "stock sale",
+    "summary": "Buyer is pursuing a stock acquisition of a domestic target.",
+    "signals": ["stock purchase"]
+  },
+  "variant_facts": {
+    "transaction_type": "asset sale",
+    "summary": "Buyer instead acquires assets directly and expects allocation work.",
+    "signals": ["asset purchase", "allocation", "basis step-up"]
+  },
+  "expectations": {
+    "bucket_changes_required": ["stock_sale", "asset_sale"],
+    "retrieval_set_must_change": true
+  }
+}

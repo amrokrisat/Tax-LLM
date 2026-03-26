@@ -1,0 +1,12 @@
+---
+authority_id: case-cottage-savings
+title: Material difference realization standard
+citation: Cottage Savings Ass'n v. Commissioner, 499 U.S. 554 (1991)
+issue_buckets: [merger_reorganization, contribution_transactions]
+jurisdiction: United States
+effective_date: 1991-05-20
+date_range: 1991-forward
+authority_weight: 0.82
+tags: [exchange, restructuring, realization]
+---
+The case discusses the realization standard for materially different properties and can inform exchange and restructuring analysis around whether a change in property rights produces taxable realization. While not a direct M&A roadmap authority, it remains useful background support where a structure comparison turns on whether changes in legal rights and instruments create realization consequences.

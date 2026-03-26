@@ -1,0 +1,28 @@
+{
+  "authorities": [
+    {
+      "authority_id": "rev-rul-99-6",
+      "title": "Classification of LLC acquisition transactions",
+      "citation": "Rev. Rul. 99-6",
+      "issue_buckets": ["asset_sale", "partnership_issues"],
+      "jurisdiction": "United States",
+      "effective_date": "1999-01-01",
+      "date_range": "1999-forward",
+      "authority_weight": 0.88,
+      "tags": ["llc", "asset sale", "partnership", "disregarded entity"],
+      "body": "Revenue Ruling 99-6 addresses federal income tax treatment of certain acquisitions involving single-member LLCs and the deemed asset consequences of those transactions. It is highly practical in transactional work because it bridges formal equity transfers and asset-style tax results."
+    },
+    {
+      "authority_id": "notice-2018-28",
+      "title": "Corporate interest limitation guidance",
+      "citation": "Notice 2018-28",
+      "issue_buckets": ["debt_overlay"],
+      "jurisdiction": "United States",
+      "effective_date": "2018-04-02",
+      "date_range": "2018-forward",
+      "authority_weight": 0.8,
+      "tags": ["debt", "interest limitation", "financing"],
+      "body": "Notice 2018-28 provides early guidance on the business interest limitation rules, often relevant in leveraged acquisition planning where debt is pushed into operating groups or compared across acquisition structures."
+    }
+  ]
+}

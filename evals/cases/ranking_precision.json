@@ -1,0 +1,14 @@
+{
+  "id": "ranking_precision",
+  "title": "Ranking precision should suppress overbroad Section 382 retrieval and improve debt specificity",
+  "facts": {
+    "transaction_type": "merger",
+    "summary": "Buyer is considering a merger with refinancing but no identified NOL preservation objective.",
+    "signals": ["merger", "refinancing", "no explicit attributes"]
+  },
+  "expectations": {
+    "section_382_should_not_dominate_debt_bucket": true,
+    "debt_bucket_should_pull_financing_authority": true,
+    "memo_should_reference_fact_specific_financing_context": true
+  }
+}

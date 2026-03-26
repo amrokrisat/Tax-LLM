@@ -1,0 +1,19 @@
+{
+  "id": "project_cascade",
+  "title": "Taxable asset acquisition with purchase price allocation sensitivity",
+  "facts": {
+    "transaction_type": "asset acquisition",
+    "summary": "Buyer prefers an asset deal for basis step-up, but seller is focused on minimizing current tax leakage.",
+    "signals": [
+      "asset purchase",
+      "basis step-up interest",
+      "allocation sensitivity",
+      "state transfer tax exposure"
+    ]
+  },
+  "expected_issue_themes": [
+    "gain recognition",
+    "purchase price allocation",
+    "transfer taxes"
+  ]
+}

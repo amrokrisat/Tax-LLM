@@ -1,0 +1,19 @@
+{
+  "id": "project_atlas",
+  "title": "Domestic merger with NOL preservation concerns",
+  "facts": {
+    "transaction_type": "merger",
+    "summary": "Buyer plans a mixed consideration acquisition of a domestic target with legacy NOLs and possible refinancing steps.",
+    "signals": [
+      "mixed cash and equity consideration",
+      "historic tax attributes",
+      "possible ownership change concerns",
+      "compressed execution timeline"
+    ]
+  },
+  "expected_issue_themes": [
+    "reorganization qualification",
+    "section 382 limitations",
+    "debt placement and basis alignment"
+  ]
+}

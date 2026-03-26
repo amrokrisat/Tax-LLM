@@ -1,0 +1,12 @@
+---
+authority_id: internal-state-transfer-checklist
+title: State transfer tax checklist
+citation: Internal SALT Checklist 2024-03
+issue_buckets: [state_overlay, asset_sale]
+jurisdiction: United States
+effective_date: 2024-03-01
+date_range: 2024-forward
+authority_weight: 0.3
+tags: [state tax, transfer tax, bulk sale]
+---
+Internal diligence checklists routinely flag transfer taxes, bulk sale rules, and apportionment traps in asset-heavy transactions, but these materials should not be treated as primary authority.

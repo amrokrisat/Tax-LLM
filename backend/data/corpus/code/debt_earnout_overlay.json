@@ -1,0 +1,40 @@
+{
+  "authorities": [
+    {
+      "authority_id": "code-163j",
+      "title": "Limitation on business interest expense",
+      "citation": "IRC Section 163(j)",
+      "issue_buckets": ["debt_overlay"],
+      "jurisdiction": "United States",
+      "effective_date": "2025-01-01",
+      "tax_year": "2025",
+      "authority_weight": 0.92,
+      "tags": ["debt", "financing", "interest limitation", "leveraged acquisition"],
+      "body": "Section 163(j) limits business interest deductions and is a recurring overlay in leveraged acquisitions, debt pushdown planning, and comparisons between structures that place financing in different entities."
+    },
+    {
+      "authority_id": "code-453",
+      "title": "Installment method relevance for contingent purchase price",
+      "citation": "IRC Section 453",
+      "issue_buckets": ["earnout_overlay"],
+      "jurisdiction": "United States",
+      "effective_date": "2025-01-01",
+      "tax_year": "2025",
+      "authority_weight": 0.82,
+      "tags": ["earnout", "installment sale", "contingent consideration"],
+      "body": "Section 453 is relevant where contingent consideration, seller notes, or deferred purchase price may require installment-method analysis, affecting timing and characterization in transaction models."
+    },
+    {
+      "authority_id": "code-1274-483",
+      "title": "Original issue discount and imputed interest rules for deferred consideration",
+      "citation": "IRC Sections 1274 and 483",
+      "issue_buckets": ["earnout_overlay"],
+      "jurisdiction": "United States",
+      "effective_date": "2025-01-01",
+      "tax_year": "2025",
+      "authority_weight": 0.8,
+      "tags": ["earnout", "deferred consideration", "seller note", "imputed interest", "debt"],
+      "body": "Sections 1274 and 483 can recharacterize portions of deferred consideration as interest, making them important in earnout, seller-note, and financing-sensitive acquisition structures."
+    }
+  ]
+}

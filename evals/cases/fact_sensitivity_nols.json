@@ -1,0 +1,18 @@
+{
+  "id": "fact_sensitivity_nols",
+  "title": "NOL facts should strengthen attribute-preservation analysis",
+  "baseline_facts": {
+    "transaction_type": "stock sale",
+    "summary": "Buyer proposes a stock purchase.",
+    "signals": ["stock purchase"]
+  },
+  "variant_facts": {
+    "transaction_type": "stock sale",
+    "summary": "Buyer proposes a stock purchase of a target with significant NOLs and prior ownership shifts.",
+    "signals": ["NOLs", "ownership shifts", "attribute preservation"]
+  },
+  "expectations": {
+    "attribute_authority_expected": "code-382",
+    "authority_ranking_should_shift": true
+  }
+}

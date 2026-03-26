@@ -1,0 +1,28 @@
+{
+  "authorities": [
+    {
+      "authority_id": "code-383",
+      "title": "Limitation on certain tax credits and other attributes after ownership change",
+      "citation": "IRC Section 383",
+      "issue_buckets": ["attribute_preservation", "stock_sale"],
+      "jurisdiction": "United States",
+      "effective_date": "2025-01-01",
+      "tax_year": "2025",
+      "authority_weight": 0.88,
+      "tags": ["382", "383", "credits", "attribute preservation", "ownership change"],
+      "body": "Section 383 extends ownership-change style limitations to specified credits and similar attributes. In deal work, it is a useful reminder that an attribute-preservation analysis should not stop with NOLs; credit carryforwards and related items may also lose practical value if the stock path produces an ownership change."
+    },
+    {
+      "authority_id": "code-384",
+      "title": "Limits on use of preacquisition losses against built-in gains",
+      "citation": "IRC Section 384",
+      "issue_buckets": ["attribute_preservation", "merger_reorganization", "stock_sale"],
+      "jurisdiction": "United States",
+      "effective_date": "2025-01-01",
+      "tax_year": "2025",
+      "authority_weight": 0.84,
+      "tags": ["384", "built-in gain", "attribute preservation", "acquisition", "loss corporation"],
+      "body": "Section 384 addresses situations in which preacquisition losses are expected to shelter gain recognized after an acquisition. For transaction planning, it sharpens the analysis where the buyer expects asset sales, integration steps, or gain recognition after closing and wants to understand whether preserved losses will actually offset that income."
+    }
+  ]
+}

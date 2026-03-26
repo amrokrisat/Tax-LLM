@@ -1,0 +1,14 @@
+{
+  "id": "retrieval_first_merger",
+  "title": "Merger analysis should retrieve before drafting",
+  "facts": {
+    "transaction_type": "merger",
+    "summary": "Buyer considers a merger with rollover equity and acquisition debt.",
+    "signals": ["merger", "rollover equity", "debt financing"]
+  },
+  "expectations": {
+    "must_retrieve_before_drafting": true,
+    "required_issue_buckets": ["merger_reorganization", "rollover_equity", "debt_overlay"],
+    "citations_required_by_bucket": true
+  }
+}

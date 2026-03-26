@@ -1,0 +1,158 @@
+{
+  "authorities": [
+    {
+      "authority_id": "code-368",
+      "source_type": "code",
+      "title": "Reorganization provisions",
+      "citation": "IRC Sections 354, 356, 361, 368",
+      "excerpt": "Qualification turns on statutory form, continuity, business purpose, and related requirements.",
+      "date": null,
+      "jurisdiction": "United States",
+      "issue_buckets": ["merger_reorganization", "rollover_equity"],
+      "tags": ["merger", "reorganization", "rollover", "equity consideration"]
+    },
+    {
+      "authority_id": "reg-1-368",
+      "source_type": "regulations",
+      "title": "Continuity regulations",
+      "citation": "Treas. Reg. 1.368-1",
+      "excerpt": "The regulations address continuity of business enterprise, continuity of interest, and plan requirements.",
+      "date": null,
+      "jurisdiction": "United States",
+      "issue_buckets": ["merger_reorganization", "rollover_equity"],
+      "tags": ["continuity", "merger", "reorganization", "stock"]
+    },
+    {
+      "authority_id": "code-382",
+      "source_type": "code",
+      "title": "Limitation on net operating loss carryforwards",
+      "citation": "IRC Section 382",
+      "excerpt": "Ownership changes can materially limit the use of pre-change losses and other attributes.",
+      "date": null,
+      "jurisdiction": "United States",
+      "issue_buckets": ["stock_sale", "merger_reorganization", "debt_overlay"],
+      "tags": ["stock", "merger", "nol", "attributes", "ownership change"]
+    },
+    {
+      "authority_id": "code-1060",
+      "source_type": "code",
+      "title": "Applicable asset acquisition allocation rules",
+      "citation": "IRC Section 1060",
+      "excerpt": "Purchase price allocation rules affect basis and future tax attributes in applicable asset acquisitions.",
+      "date": null,
+      "jurisdiction": "United States",
+      "issue_buckets": ["asset_sale", "deemed_asset_sale_election"],
+      "tags": ["asset acquisition", "allocation", "basis", "purchase price"]
+    },
+    {
+      "authority_id": "code-338",
+      "source_type": "code",
+      "title": "Certain stock purchases treated as asset acquisitions",
+      "citation": "IRC Section 338",
+      "excerpt": "Section 338 provides election mechanics for certain qualified stock purchases.",
+      "date": null,
+      "jurisdiction": "United States",
+      "issue_buckets": ["deemed_asset_sale_election", "stock_sale"],
+      "tags": ["338(h)(10)", "336(e)", "deemed asset", "stock purchase"]
+    },
+    {
+      "authority_id": "rev-rul-99-6",
+      "source_type": "irs_guidance",
+      "title": "Classification of LLC acquisition transactions",
+      "citation": "Rev. Rul. 99-6",
+      "excerpt": "Guidance addresses income tax treatment of sales involving single-member LLC interests and underlying assets.",
+      "date": "1999-01-01",
+      "jurisdiction": "United States",
+      "issue_buckets": ["asset_sale", "partnership_issues"],
+      "tags": ["llc", "asset sale", "partnership", "disregarded entity"]
+    },
+    {
+      "authority_id": "code-721",
+      "source_type": "code",
+      "title": "Nonrecognition on contributions to partnerships",
+      "citation": "IRC Section 721",
+      "excerpt": "Section 721 governs nonrecognition on certain contributions to partnerships.",
+      "date": null,
+      "jurisdiction": "United States",
+      "issue_buckets": ["contribution_transactions", "partnership_issues"],
+      "tags": ["contribution", "partnership", "nonrecognition"]
+    },
+    {
+      "authority_id": "reg-1-707",
+      "source_type": "regulations",
+      "title": "Disguised sale regulations",
+      "citation": "Treas. Reg. 1.707-3",
+      "excerpt": "The disguised sale rules address transfers of property to partnerships and related distributions.",
+      "date": null,
+      "jurisdiction": "United States",
+      "issue_buckets": ["partnership_issues", "contribution_transactions", "debt_overlay"],
+      "tags": ["disguised sale", "partnership", "liability allocation", "contribution"]
+    },
+    {
+      "authority_id": "case-cottage-savings",
+      "source_type": "cases",
+      "title": "Material difference realization standard",
+      "citation": "Cottage Savings Ass'n v. Commissioner, 499 U.S. 554 (1991)",
+      "excerpt": "The case addresses realization concepts that can inform exchange and restructuring analysis.",
+      "date": "1991-05-20",
+      "jurisdiction": "United States",
+      "issue_buckets": ["merger_reorganization", "contribution_transactions"],
+      "tags": ["exchange", "restructuring", "realization"]
+    },
+    {
+      "authority_id": "form-8594",
+      "source_type": "forms_instructions",
+      "title": "Asset acquisition statement instructions",
+      "citation": "Form 8594 and Instructions",
+      "excerpt": "The form instructions reflect reporting expectations for applicable asset acquisitions and allocations.",
+      "date": "2025-01-01",
+      "jurisdiction": "United States",
+      "issue_buckets": ["asset_sale", "deemed_asset_sale_election"],
+      "tags": ["form 8594", "allocation", "asset acquisition"]
+    },
+    {
+      "authority_id": "memo-rollover",
+      "source_type": "internal_memo",
+      "title": "Internal precedent on rollover equity governance sensitivity",
+      "citation": "Internal Precedent Memo 2025-07",
+      "excerpt": "Prior deal work suggests rollover governance terms can alter continuity and value-allocation conclusions.",
+      "date": "2025-07-15",
+      "jurisdiction": "United States",
+      "issue_buckets": ["rollover_equity", "merger_reorganization"],
+      "tags": ["rollover equity", "governance", "continuity"]
+    },
+    {
+      "authority_id": "memo-state-transfer",
+      "source_type": "internal_memo",
+      "title": "State transfer tax checklist",
+      "citation": "Internal SALT Checklist 2024-03",
+      "excerpt": "Internal precedent flags transfer taxes and bulk sale rules as recurring diligence items in asset-heavy deals.",
+      "date": "2024-03-01",
+      "jurisdiction": "United States",
+      "issue_buckets": ["state_overlay", "asset_sale"],
+      "tags": ["state tax", "transfer tax", "bulk sale"]
+    },
+    {
+      "authority_id": "notice-interest",
+      "source_type": "irs_guidance",
+      "title": "Corporate interest limitation guidance",
+      "citation": "Notice 2018-28",
+      "excerpt": "The notice provides preliminary guidance related to the business interest limitation rules.",
+      "date": "2018-04-02",
+      "jurisdiction": "United States",
+      "issue_buckets": ["debt_overlay"],
+      "tags": ["debt", "interest limitation", "financing"]
+    },
+    {
+      "authority_id": "form-w8",
+      "source_type": "forms_instructions",
+      "title": "Withholding certificate instructions",
+      "citation": "Form W-8BEN-E Instructions",
+      "excerpt": "The instructions support payee classification and documentation for withholding purposes.",
+      "date": "2025-01-01",
+      "jurisdiction": "United States",
+      "issue_buckets": ["withholding_overlay", "international_overlay"],
+      "tags": ["withholding", "foreign", "certificate", "international"]
+    }
+  ]
+}

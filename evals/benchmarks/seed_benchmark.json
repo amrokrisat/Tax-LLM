@@ -1,0 +1,83 @@
+{
+  "benchmark_name": "v1_seeded_demo",
+  "description": "Seed benchmark for the initial scaffold.",
+  "cases": [
+    {
+      "case_id": "project_atlas",
+      "minimum_expectations": {
+        "issues_detected": 3,
+        "citations_in_memo": 1,
+        "missing_fact_questions": 2
+      }
+    },
+    {
+      "case_id": "project_cascade",
+      "minimum_expectations": {
+        "issues_detected": 2,
+        "citations_in_memo": 1,
+        "missing_fact_questions": 2
+      }
+    },
+    {
+      "case_id": "retrieval_first_merger",
+      "minimum_expectations": {
+        "retrieval_before_drafting": 1,
+        "issue_bucket_citation_coverage": 2,
+        "unsupported_conclusion_flags": 0
+      }
+    },
+    {
+      "case_id": "incomplete_coverage_warning",
+      "minimum_expectations": {
+        "under_supported_bucket_warning": 1,
+        "confidence_degraded": 1,
+        "unsupported_conclusion_flags": 1
+      }
+    },
+    {
+      "case_id": "fact_sensitivity_stock_vs_asset",
+      "minimum_expectations": {
+        "bucket_classification_changes": 1,
+        "retrieval_set_changes": 1
+      }
+    },
+    {
+      "case_id": "fact_sensitivity_rollover",
+      "minimum_expectations": {
+        "rollover_bucket_added": 1,
+        "authority_set_changes": 1
+      }
+    },
+    {
+      "case_id": "fact_sensitivity_nols",
+      "minimum_expectations": {
+        "attribute_authority_appears": 1,
+        "attribute_analysis_strengthens": 1
+      }
+    },
+    {
+      "case_id": "fact_sensitivity_financing_overlay",
+      "minimum_expectations": {
+        "overlay_buckets_added": 2,
+        "warning_if_unsupported": 1
+      }
+    },
+    {
+      "case_id": "ranking_precision",
+      "minimum_expectations": {
+        "section_382_not_overranked_outside_attribute_context": 1,
+        "debt_retrieval_financing_specific": 1,
+        "memo_fact_specificity_improves": 1
+      }
+    },
+    {
+      "case_id": "substantive_depth_project_atlas",
+      "minimum_expectations": {
+        "rollover_analysis_mentions_governance_or_continuity": 1,
+        "debt_bucket_includes_financing_specific_authority": 1,
+        "attribute_analysis_not_limited_to_section_382": 1,
+        "memo_avoids_old_template_phrase": 1
+      }
+    }
+  ]
+}

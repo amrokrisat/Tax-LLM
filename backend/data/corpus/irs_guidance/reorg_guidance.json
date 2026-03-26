@@ -1,0 +1,28 @@
+{
+  "authorities": [
+    {
+      "authority_id": "rev-rul-2001-46",
+      "title": "Integrated acquisition steps treated as reorganization",
+      "citation": "Rev. Rul. 2001-46",
+      "issue_buckets": ["merger_reorganization", "rollover_equity"],
+      "jurisdiction": "United States",
+      "effective_date": "2001-08-06",
+      "date_range": "2001-forward",
+      "authority_weight": 0.84,
+      "tags": ["reorganization", "step transaction", "merger", "integrated steps"],
+      "body": "Revenue Ruling 2001-46 addresses when steps involving a merger subsidiary and target can be integrated and treated as a single reorganization transaction, making it especially useful in multi-step acquisition planning."
+    },
+    {
+      "authority_id": "notice-2003-65",
+      "title": "Section 382 built-in gain and built-in loss guidance",
+      "citation": "Notice 2003-65",
+      "issue_buckets": ["stock_sale", "attribute_preservation"],
+      "jurisdiction": "United States",
+      "effective_date": "2003-10-15",
+      "date_range": "2003-forward",
+      "authority_weight": 0.82,
+      "tags": ["382", "built in gain", "built in loss", "attribute preservation"],
+      "body": "Notice 2003-65 provides practical approaches for recognized built-in gain and built-in loss determinations under Section 382, making it useful in diligence and post-change modeling."
+    }
+  ]
+}

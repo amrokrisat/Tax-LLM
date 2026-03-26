@@ -1,0 +1,13 @@
+.DS_Store
+.next/
+.venv/
+__pycache__/
+*.pyc
+node_modules/
+dist/
+coverage/
+.pytest_cache/
+.mypy_cache/
+frontend/.next/
+backend/.ruff_cache/
+backend/.pytest_cache/

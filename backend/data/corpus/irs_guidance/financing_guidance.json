@@ -1,0 +1,16 @@
+{
+  "authorities": [
+    {
+      "authority_id": "rev-rul-72-238",
+      "title": "Debt assumption and liability treatment in acquisition structuring",
+      "citation": "Rev. Rul. 72-238",
+      "issue_buckets": ["debt_overlay", "merger_reorganization"],
+      "jurisdiction": "United States",
+      "effective_date": "1972-01-01",
+      "date_range": "1972-forward",
+      "authority_weight": 0.68,
+      "tags": ["debt", "liabilities", "acquisition structure", "reorganization"],
+      "body": "Revenue Ruling 72-238 is a useful financing-adjacent authority when transaction modeling turns on how liabilities are treated as part of the acquisitive structure. It helps keep debt and assumed-liability questions connected to the selected form rather than treating them as an afterthought."
+    }
+  ]
+}

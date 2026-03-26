@@ -1,0 +1,28 @@
+{
+  "authorities": [
+    {
+      "authority_id": "code-1060",
+      "title": "Applicable asset acquisition allocation rules",
+      "citation": "IRC Section 1060",
+      "issue_buckets": ["asset_sale", "deemed_asset_sale_election"],
+      "jurisdiction": "United States",
+      "effective_date": "2025-01-01",
+      "tax_year": "2025",
+      "authority_weight": 1.0,
+      "tags": ["asset acquisition", "allocation", "basis", "purchase price"],
+      "body": "Section 1060 governs allocation mechanics in applicable asset acquisitions and directly affects basis modeling and future deduction profiles."
+    },
+    {
+      "authority_id": "code-338",
+      "title": "Certain stock purchases treated as asset acquisitions",
+      "citation": "IRC Section 338",
+      "issue_buckets": ["deemed_asset_sale_election", "stock_sale"],
+      "jurisdiction": "United States",
+      "effective_date": "2025-01-01",
+      "tax_year": "2025",
+      "authority_weight": 1.0,
+      "tags": ["338(h)(10)", "336(e)", "deemed asset", "stock purchase"],
+      "body": "Section 338 provides election mechanics that can convert a qualified stock purchase into deemed asset sale consequences for federal income tax purposes."
+    }
+  ]
+}

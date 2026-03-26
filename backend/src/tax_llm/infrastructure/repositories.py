@@ -1,0 +1,184 @@
+from __future__ import annotations
+
+from functools import lru_cache
+from pathlib import Path
+
+from tax_llm.domain.models import AuthorityRecord, RetrievalFilters, SourceType, TransactionFacts, UploadedDocument
+from tax_llm.infrastructure.corpus import (
+    AuthorityIndex,
+    INTERNAL_ONLY_TYPES,
+    PRIMARY_SUPPORT_TYPES,
+    SECONDARY_SUPPORT_TYPES,
+    SOURCE_PRIORITY,
+    corpus_root,
+)
+
+DEFAULT_SOURCE_PRIORITY: list[SourceType] = [
+    "code",
+    "regs",
+    "irs_guidance",
+    "cases",
+    "forms",
+    "internal",
+]
+
+
+class AuthorityCorpusRepository:
+    def __init__(self, root_path: Path | None = None) -> None:
+        self.root_path = root_path or corpus_root()
+
+    @lru_cache(maxsize=1)
+    def _index(self) -> AuthorityIndex:
+        return AuthorityIndex.build(root_path=self.root_path)
+
+    def pending_files(self) -> list[str]:
+        return self._index().pending_files
+
+    def search(
+        self,
+        facts: TransactionFacts,
+        documents: list[UploadedDocument],
+        filters: RetrievalFilters,
+        limit: int = 6,
+    ) -> list[AuthorityRecord]:
+        query_text = " ".join(
+            [
+                facts.transaction_type,
+                facts.summary,
+                facts.consideration_mix,
+                facts.proposed_steps,
+                " ".join(facts.stated_goals),
+                " ".join(facts.constraints),
+                " ".join(document.content for document in documents),
+            ]
+        )
+        return self._index().search(
+            issue_buckets=filters.issue_buckets,
+            transaction_type=(
+                None
+                if filters.transaction_type == "__any__"
+                else filters.transaction_type
+                if filters.transaction_type is not None
+                else facts.transaction_type
+            ),
+            source_types=filters.source_types,
+            priority_order=filters.priority_order or DEFAULT_SOURCE_PRIORITY,
+            jurisdictions=filters.jurisdictions or facts.jurisdictions,
+            title_keywords=filters.title_keywords,
+            citation_keywords=filters.citation_keywords,
+            effective_date_from=filters.effective_date_from,
+            effective_date_to=filters.effective_date_to,
+            query_text=query_text,
+            limit=limit,
+        )
+
+    def search_by_issue_bucket(
+        self,
+        *,
+        facts: TransactionFacts,
+        documents: list[UploadedDocument],
+        issue_bucket: str,
+        source_priority: list[SourceType] | None = None,
+        limit: int = 6,
+    ) -> list[AuthorityRecord]:
+        return self.search(
+            facts=facts,
+            documents=documents,
+            filters=RetrievalFilters(
+                issue_buckets=[issue_bucket],
+                transaction_type=self._transaction_type_scope(issue_bucket, facts),
+                jurisdictions=facts.jurisdictions,
+                priority_order=source_priority or DEFAULT_SOURCE_PRIORITY,
+                title_keywords=self._title_keywords_for_bucket(issue_bucket, facts),
+                citation_keywords=self._citation_keywords_for_bucket(issue_bucket, facts),
+            ),
+            limit=limit,
+        )
+
+    def search_by_transaction_type(
+        self,
+        *,
+        facts: TransactionFacts,
+        documents: list[UploadedDocument],
+        source_priority: list[SourceType] | None = None,
+        limit: int = 8,
+    ) -> list[AuthorityRecord]:
+        return self.search(
+            facts=facts,
+            documents=documents,
+            filters=RetrievalFilters(
+                transaction_type=facts.transaction_type,
+                jurisdictions=facts.jurisdictions,
+                priority_order=source_priority or DEFAULT_SOURCE_PRIORITY,
+            ),
+            limit=limit,
+        )
+
+    def support_warning(self, authorities: list[AuthorityRecord]) -> str | None:
+        if not authorities:
+            return "No retrieved authority supports this bucket yet."
+        source_types = {authority.source_type for authority in authorities}
+        if source_types.issubset(INTERNAL_ONLY_TYPES):
+            return "Support currently comes only from internal materials. Add primary authority before treating conclusions as complete."
+        if source_types.isdisjoint(PRIMARY_SUPPORT_TYPES):
+            return "Support currently lacks Code or Regulations. Conclusions should remain preliminary until primary authority is retrieved."
+        if source_types.issubset(SECONDARY_SUPPORT_TYPES | INTERNAL_ONLY_TYPES):
+            return "Support currently relies on secondary or internal materials without primary authority priority."
+        return None
+
+    def source_rank(self, source_type: SourceType) -> int:
+        return SOURCE_PRIORITY[source_type]
+
+    def _transaction_type_scope(
+        self, issue_bucket: str, facts: TransactionFacts
+    ) -> str | None:
+        transaction_form_buckets = {
+            "stock_sale",
+            "asset_sale",
+            "deemed_asset_sale_election",
+            "merger_reorganization",
+        }
+        if issue_bucket in transaction_form_buckets:
+            return facts.transaction_type
+        return "__any__"
+
+    def _title_keywords_for_bucket(
+        self, issue_bucket: str, facts: TransactionFacts
+    ) -> list[str]:
+        keywords: dict[str, list[str]] = {
+            "attribute_preservation": ["attribute", "ownership", "loss", "credit", "built-in"],
+            "debt_overlay": ["interest", "debt", "financing", "refinancing", "modification"],
+            "earnout_overlay": ["earnout", "installment", "deferred"],
+            "deemed_asset_sale_election": ["338", "deemed asset"],
+            "asset_sale": ["asset", "allocation", "residual"],
+            "merger_reorganization": ["reorganization", "continuity", "business purpose", "triangular"],
+            "rollover_equity": ["rollover", "continuity", "governance", "redemption"],
+            "stock_sale": ["stock", "acquisition"],
+        }
+        result = keywords.get(issue_bucket, []).copy()
+        summary = f"{facts.summary} {facts.consideration_mix} {facts.proposed_steps}".lower()
+        if "nol" in summary or "attribute" in summary:
+            result.append("ownership")
+        return result
+
+    def _citation_keywords_for_bucket(
+        self, issue_bucket: str, facts: TransactionFacts
+    ) -> list[str]:
+        keywords: dict[str, list[str]] = {
+            "attribute_preservation": ["382", "383", "384"],
+            "debt_overlay": ["163(j)", "279", "1.1001-3"],
+            "earnout_overlay": ["453", "1274", "483"],
+            "deemed_asset_sale_election": ["338"],
+            "asset_sale": ["1060", "8594"],
+            "merger_reorganization": ["368", "1.368-2(k)"],
+            "rollover_equity": ["368", "351", "1.368-2(k)"],
+            "contribution_transactions": ["351", "721"],
+            "partnership_issues": ["721", "707"],
+        }
+        result = keywords.get(issue_bucket, []).copy()
+        summary = f"{facts.summary} {facts.stated_goals}".lower()
+        if issue_bucket in {"stock_sale", "attribute_preservation"} and (
+            "nol" in summary or "attribute" in summary
+        ):
+            result.append("382")
+        return result

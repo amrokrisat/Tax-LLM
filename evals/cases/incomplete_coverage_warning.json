@@ -1,0 +1,14 @@
+{
+  "id": "incomplete_coverage_warning",
+  "title": "Unsupported coverage should degrade the draft",
+  "facts": {
+    "transaction_type": "stock sale",
+    "summary": "Cross-border stock purchase with earnout and withholding.",
+    "signals": ["foreign seller", "earnout", "withholding"]
+  },
+  "expectations": {
+    "must_flag_under_supported_buckets": ["earnout_overlay"],
+    "must_lower_confidence": true,
+    "must_include_warning": true
+  }
+}

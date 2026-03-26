@@ -1,0 +1,24 @@
+{
+  "case_id": "substantive_depth_project_atlas",
+  "title": "Project Atlas substantive depth and memo quality",
+  "description": "Checks that Project Atlas analysis goes beyond template output by surfacing rollover-governance sensitivity, deeper financing overlays, and more nuanced attribute analysis.",
+  "facts": {
+    "transaction_name": "Project Atlas",
+    "summary": "Buyer is considering a merger with rollover equity, target NOLs, compressed timing, and post-closing refinancing flexibility.",
+    "entities": ["Atlas Parent", "TargetCo", "Merger Sub"],
+    "jurisdictions": ["United States"],
+    "transaction_type": "merger",
+    "stated_goals": ["Preserve tax attributes where possible", "Support financing flexibility"],
+    "constraints": ["Seller requests partial equity consideration", "Closing timeline is compressed"],
+    "consideration_mix": "Cash plus rollover equity",
+    "proposed_steps": "Merger through merger sub followed by post-closing refinancing",
+    "rollover_equity": true,
+    "debt_financing": true
+  },
+  "expectations": {
+    "rollover_analysis_mentions_governance_or_continuity": 1,
+    "debt_bucket_includes_financing_specific_authority": 1,
+    "attribute_analysis_not_limited_to_section_382": 1,
+    "memo_avoids_old_template_phrase": 1
+  }
+}

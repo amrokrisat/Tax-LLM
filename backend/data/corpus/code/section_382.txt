@@ -1,0 +1,14 @@
+---
+authority_id: code-382
+title: Limitation on net operating loss carryforwards
+citation: IRC Section 382
+issue_buckets: [stock_sale, attribute_preservation]
+jurisdiction: United States
+effective_date: 2025-01-01
+tax_year: 2025
+authority_weight: 1.0
+tags: [stock, merger, nol, attributes, ownership change, debt]
+---
+Section 382 limits the use of pre-change losses and certain other attributes following an ownership change, making it central to acquisition structuring where historic NOLs are material. The provision is especially important in stock acquisitions and reorganization structures because preserving target-level attribute history is often one of the commercial reasons for preferring a stock path over a taxable asset path.
+
+From a planning perspective, Section 382 should trigger diligence on cap table movements, prior financings, warrants, preferred equity, debt instruments that may be treated as stock, and any pre-signing transactions that could affect the ownership-change analysis. It also informs modeling of whether a buyer should pay for target NOLs at all, and whether alternative structures meaningfully improve or reduce attribute preservation outcomes.

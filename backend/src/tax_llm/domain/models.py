@@ -1,0 +1,146 @@
+from __future__ import annotations
+
+from typing import List, Literal
+
+from pydantic import BaseModel, Field
+
+SourceType = Literal[
+    "code",
+    "regs",
+    "irs_guidance",
+    "cases",
+    "forms",
+    "internal",
+]
+
+CoverageStatus = Literal["covered", "under_supported"]
+
+
+class UploadedDocument(BaseModel):
+    file_name: str
+    document_type: str
+    content: str
+
+
+class TransactionFacts(BaseModel):
+    transaction_name: str
+    summary: str
+    entities: List[str] = Field(default_factory=list)
+    jurisdictions: List[str] = Field(default_factory=list)
+    transaction_type: str
+    stated_goals: List[str] = Field(default_factory=list)
+    constraints: List[str] = Field(default_factory=list)
+    consideration_mix: str = ""
+    proposed_steps: str = ""
+    rollover_equity: bool = False
+    deemed_asset_sale_election: bool = False
+    contribution_transactions: bool = False
+    partnership_issues: bool = False
+    debt_financing: bool = False
+    earnout: bool = False
+    withholding: bool = False
+    state_tax: bool = False
+    international: bool = False
+
+
+class TransactionBucket(BaseModel):
+    bucket: str
+    label: str
+    reason: str
+
+
+class RetrievalFilters(BaseModel):
+    source_types: List[SourceType] = Field(default_factory=list)
+    jurisdictions: List[str] = Field(default_factory=list)
+    issue_buckets: List[str] = Field(default_factory=list)
+    transaction_type: str | None = None
+    priority_order: List[SourceType] = Field(default_factory=list)
+    title_keywords: List[str] = Field(default_factory=list)
+    citation_keywords: List[str] = Field(default_factory=list)
+    effective_date_from: str | None = None
+    effective_date_to: str | None = None
+
+
+class AuthorityRecord(BaseModel):
+    authority_id: str
+    source_type: SourceType
+    title: str
+    citation: str
+    excerpt: str
+    issue_buckets: List[str] = Field(default_factory=list)
+    jurisdiction: str | None = None
+    effective_date: str | None = None
+    tax_year: str | None = None
+    date_range: str | None = None
+    authority_weight: float = 1.0
+    file_path: str
+    tags: List[str] = Field(default_factory=list)
+    relevance_score: float = 0.0
+
+
+class BucketCoverage(BaseModel):
+    bucket: str
+    label: str
+    status: CoverageStatus
+    authorities: List[AuthorityRecord] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+    source_priority_warning: str | None = None
+
+
+class TaxIssue(BaseModel):
+    bucket: str
+    name: str
+    description: str
+    severity: str
+    supported: bool
+    authorities: List[AuthorityRecord] = Field(default_factory=list)
+    notes: List[str] = Field(default_factory=list)
+
+
+class SupportedStatement(BaseModel):
+    text: str
+    citations: List[AuthorityRecord] = Field(default_factory=list)
+    supported: bool = True
+    note: str | None = None
+
+
+class StructuralAlternative(BaseModel):
+    name: str
+    description: str
+    governing_authorities: List[AuthorityRecord] = Field(default_factory=list)
+    tax_consequences: List[SupportedStatement] = Field(default_factory=list)
+    assumptions: List[str] = Field(default_factory=list)
+    missing_facts: List[str] = Field(default_factory=list)
+    risks_uncertainty: List[SupportedStatement] = Field(default_factory=list)
+    unsupported_assertions: List[str] = Field(default_factory=list)
+
+
+class MemoSection(BaseModel):
+    heading: str
+    body: str
+    citations: List[AuthorityRecord] = Field(default_factory=list)
+    supported: bool = True
+    note: str | None = None
+
+
+class MissingFactQuestion(BaseModel):
+    bucket: str
+    question: str
+    rationale: str
+
+
+class AnalysisResult(BaseModel):
+    facts: TransactionFacts
+    parsed_documents: List[UploadedDocument] = Field(default_factory=list)
+    classification: List[TransactionBucket] = Field(default_factory=list)
+    authorities_reviewed: List[AuthorityRecord] = Field(default_factory=list)
+    bucket_coverage: List[BucketCoverage] = Field(default_factory=list)
+    covered_buckets: List[str] = Field(default_factory=list)
+    under_supported_buckets: List[str] = Field(default_factory=list)
+    issues: List[TaxIssue] = Field(default_factory=list)
+    alternatives: List[StructuralAlternative] = Field(default_factory=list)
+    memo_sections: List[MemoSection] = Field(default_factory=list)
+    missing_facts: List[MissingFactQuestion] = Field(default_factory=list)
+    completeness_warning: str
+    confidence_label: Literal["high", "medium", "low"]
+    retrieval_complete: bool
