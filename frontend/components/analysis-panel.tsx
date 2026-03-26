@@ -107,7 +107,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
     internal: analysis.bucket_coverage.filter((bucket) => supportLabel(bucket) === "internal"),
     unsupported: analysis.bucket_coverage.filter((bucket) => supportLabel(bucket) === "unsupported"),
   };
-  const bucketSupport = new Map(
+  const bucketSupport = new Map<string, SupportLabel>(
     analysis.bucket_coverage.map((bucket) => [bucket.bucket, supportLabel(bucket)]),
   );
   const primaryCount = coverageGroups.primary.length;
@@ -280,7 +280,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
               <li key={issue.bucket}>
                 <strong>{issue.name}</strong>: {issue.description}
                 <div className="microcopy">
-                  Severity: {issue.severity} | {supportCopy(bucketSupport.get(issue.bucket) ?? "unsupported")}
+                  Severity: {issue.severity} | {supportCopy(bucketSupport.get(issue.bucket) ?? ("unsupported" as SupportLabel))}
                 </div>
               </li>
             ))}
