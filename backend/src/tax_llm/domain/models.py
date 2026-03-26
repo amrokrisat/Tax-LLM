@@ -15,6 +15,18 @@ SourceType = Literal[
 
 CoverageStatus = Literal["covered", "under_supported"]
 DocumentSource = Literal["pasted", "uploaded"]
+ExtractionStatus = Literal["not_requested", "pending", "completed", "needs_review"]
+ExtractedFactStatus = Literal["pending", "confirmed", "rejected"]
+ReviewStatus = Literal["unreviewed", "in_review", "reviewed"]
+
+
+class ExtractedFact(BaseModel):
+    fact_id: str
+    label: str
+    value: str
+    source_document: str
+    confidence: float = 0.0
+    status: ExtractedFactStatus = "pending"
 
 
 class UploadedDocument(BaseModel):
@@ -22,6 +34,10 @@ class UploadedDocument(BaseModel):
     document_type: str
     content: str
     source: DocumentSource = "pasted"
+    mime_type: str | None = None
+    extraction_status: ExtractionStatus = "not_requested"
+    extracted_text: str | None = None
+    extracted_facts: List[ExtractedFact] = Field(default_factory=list)
 
 
 class TransactionFacts(BaseModel):
@@ -154,6 +170,11 @@ class AnalysisRun(BaseModel):
     facts: TransactionFacts
     uploaded_documents: List[UploadedDocument] = Field(default_factory=list)
     result: AnalysisResult
+    review_status: ReviewStatus = "unreviewed"
+    reviewed_at: str | None = None
+    reviewed_by: str | None = None
+    reviewer_notes: List[str] = Field(default_factory=list)
+    pinned_authority_ids: List[str] = Field(default_factory=list)
 
 
 class MatterRecord(BaseModel):

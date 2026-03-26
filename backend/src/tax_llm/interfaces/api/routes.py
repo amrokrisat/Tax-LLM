@@ -5,8 +5,10 @@ import json
 from fastapi import APIRouter, Depends, Header
 from fastapi import HTTPException
 
+from tax_llm.application.reporting import export_run_markdown
 from tax_llm.domain.models import TransactionFacts, UploadedDocument
 from tax_llm.infrastructure.auth_store import AuthStore
+from tax_llm.infrastructure.document_extraction import DocumentExtractionService
 from tax_llm.infrastructure.matter_store import MatterStore
 from tax_llm.infrastructure.paths import backend_data_path
 from tax_llm.interfaces.api.dependencies import (
@@ -20,10 +22,13 @@ from tax_llm.interfaces.api.schemas import (
     AuthSessionResponse,
     AnalyzeTransactionRequest,
     AnalyzeTransactionResponse,
+    DocumentFactConfirmationRequest,
+    ExportMemoResponse,
     GoogleAuthInput,
     MatterInput,
     MatterListResponse,
     MatterResponse,
+    RunReviewInput,
 )
 from tax_llm.application.use_cases import AnalyzeTransactionUseCase
 
@@ -64,6 +69,10 @@ def analyze_transaction(
 
 def _matter_store() -> MatterStore:
     return MatterStore()
+
+
+def _document_extraction_service() -> DocumentExtractionService:
+    return DocumentExtractionService()
 
 
 @router.post("/auth/signup", response_model=AuthSessionResponse)
@@ -210,3 +219,70 @@ def analyze_matter(
         raise HTTPException(status_code=404, detail="Matter not found.") from exc
 
     return MatterResponse(matter=matter)
+
+
+@router.post("/matters/{matter_id}/documents/extract", response_model=MatterResponse)
+def extract_documents(
+    matter_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    store = _matter_store()
+    try:
+        matter = store.get_matter(matter_id, user_id=current_user_id)
+        extracted = _document_extraction_service().extract(matter.uploaded_documents)
+        updated = store.update_document_extractions(matter_id, current_user_id, extracted)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Matter not found.") from exc
+    return MatterResponse(matter=updated)
+
+
+@router.post("/matters/{matter_id}/documents/confirm-facts", response_model=MatterResponse)
+def confirm_document_facts(
+    matter_id: str,
+    payload: DocumentFactConfirmationRequest,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    try:
+        matter = _matter_store().update_extracted_fact_statuses(
+            matter_id,
+            current_user_id,
+            [(item.document_index, item.fact_id, item.status) for item in payload.confirmations],
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Matter not found.") from exc
+    return MatterResponse(matter=matter)
+
+
+@router.post("/matters/{matter_id}/runs/{run_id}/review", response_model=MatterResponse)
+def review_run(
+    matter_id: str,
+    run_id: str,
+    payload: RunReviewInput,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    try:
+        matter = _matter_store().update_run_review(
+            matter_id=matter_id,
+            user_id=current_user_id,
+            run_id=run_id,
+            review_status=payload.review_status,
+            reviewed_by=payload.reviewed_by or None,
+            note=payload.note or None,
+            pinned_authority_ids=payload.pinned_authority_ids,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Matter or run not found.") from exc
+    return MatterResponse(matter=matter)
+
+
+@router.get("/matters/{matter_id}/runs/{run_id}/export", response_model=ExportMemoResponse)
+def export_run(
+    matter_id: str,
+    run_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    try:
+        run = _matter_store().get_run(matter_id, current_user_id, run_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Matter or run not found.") from exc
+    return ExportMemoResponse(format="markdown", content=export_run_markdown(run))

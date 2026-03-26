@@ -59,6 +59,28 @@ class MatterListResponse(BaseModel):
     matters: List[MatterRecord]
 
 
+class DocumentFactConfirmationInput(BaseModel):
+    document_index: int
+    fact_id: str
+    status: str
+
+
+class DocumentFactConfirmationRequest(BaseModel):
+    confirmations: List[DocumentFactConfirmationInput] = Field(default_factory=list)
+
+
+class RunReviewInput(BaseModel):
+    review_status: str
+    reviewed_by: str = ""
+    note: str = ""
+    pinned_authority_ids: List[str] = Field(default_factory=list)
+
+
+class ExportMemoResponse(BaseModel):
+    format: str
+    content: str
+
+
 class AuthCredentialsInput(BaseModel):
     email: str
     password: str

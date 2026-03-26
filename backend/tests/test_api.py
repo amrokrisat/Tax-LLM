@@ -133,3 +133,92 @@ def test_matter_workflow(monkeypatch, tmp_path):
     assert unauthorized_response.status_code == 401
 
     app.dependency_overrides.clear()
+
+
+def test_v2_document_review_and_export_workflow(monkeypatch, tmp_path):
+    monkeypatch.setattr(routes, "_matter_store", lambda: MatterStore(base_dir=tmp_path / "matters"))
+    app.dependency_overrides[get_auth_store] = lambda: AuthStore(base_dir=tmp_path / "auth")
+
+    auth_response = client.post(
+        "/api/v1/auth/signup",
+        json={"email": "reviewer@example.com", "password": "secret123", "name": "Reviewer"},
+    )
+    session_token = auth_response.json()["session_token"]
+    headers = {"X-Tax-Session": session_token}
+
+    payload = {
+        "matter_name": "Atlas Matter",
+        "transaction_type": "merger",
+        "facts": {
+            "transaction_name": "Atlas Matter",
+            "summary": "Saved matter workflow test.",
+            "entities": ["Atlas Parent", "TargetCo"],
+            "jurisdictions": ["United States"],
+            "transaction_type": "merger",
+            "stated_goals": ["Preserve attributes"],
+            "constraints": ["Tight timing"],
+            "consideration_mix": "Cash and rollover equity",
+            "proposed_steps": "Merger followed by refinancing",
+            "rollover_equity": True,
+            "deemed_asset_sale_election": False,
+            "contribution_transactions": False,
+            "partnership_issues": False,
+            "debt_financing": True,
+            "earnout": False,
+            "withholding": False,
+            "state_tax": True,
+            "international": False,
+        },
+        "uploaded_documents": [
+            {
+                "file_name": "LOI.txt",
+                "document_type": "letter_of_intent",
+                "content": "Buyer proposes a merger with rollover equity and target NOLs.",
+                "source": "uploaded",
+            }
+        ],
+    }
+
+    matter_id = client.post("/api/v1/matters", json=payload, headers=headers).json()["matter"]["matter_id"]
+    analyzed = client.post(f"/api/v1/matters/{matter_id}/analyze", json=payload, headers=headers)
+    run_id = analyzed.json()["matter"]["analysis_runs"][0]["run_id"]
+
+    extracted = client.post(f"/api/v1/matters/{matter_id}/documents/extract", headers=headers)
+    assert extracted.status_code == 200
+    extracted_document = extracted.json()["matter"]["uploaded_documents"][0]
+    assert extracted_document["extraction_status"] == "completed"
+    assert len(extracted_document["extracted_facts"]) >= 1
+
+    fact_id = extracted_document["extracted_facts"][0]["fact_id"]
+    confirmed = client.post(
+        f"/api/v1/matters/{matter_id}/documents/confirm-facts",
+        json={"confirmations": [{"document_index": 0, "fact_id": fact_id, "status": "confirmed"}]},
+        headers=headers,
+    )
+    assert confirmed.status_code == 200
+    confirmed_fact = confirmed.json()["matter"]["uploaded_documents"][0]["extracted_facts"][0]
+    assert confirmed_fact["status"] == "confirmed"
+
+    reviewed = client.post(
+        f"/api/v1/matters/{matter_id}/runs/{run_id}/review",
+        json={
+            "review_status": "reviewed",
+            "reviewed_by": "Tax Reviewer",
+            "note": "Pinned the core reorganization and attribute authorities.",
+            "pinned_authority_ids": ["code-382"],
+        },
+        headers=headers,
+    )
+    assert reviewed.status_code == 200
+    reviewed_run = reviewed.json()["matter"]["analysis_runs"][0]
+    assert reviewed_run["review_status"] == "reviewed"
+    assert reviewed_run["pinned_authority_ids"] == ["code-382"]
+    assert reviewed_run["reviewer_notes"]
+
+    exported = client.get(f"/api/v1/matters/{matter_id}/runs/{run_id}/export", headers=headers)
+    assert exported.status_code == 200
+    body = exported.json()
+    assert body["format"] == "markdown"
+    assert "Facts And Issue Framing" in body["content"]
+
+    app.dependency_overrides.clear()
