@@ -184,11 +184,10 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
 
       <div className="subpanel stack">
         <div>
-          <h3>Authority review by issue bucket</h3>
+          <h3>Authority review</h3>
           <p className="muted">
-            This section shows what the backend actually reviewed before drafting. Use it
-            to judge whether a bucket is grounded in primary authority, secondary support,
-            internal materials, or not supported yet.
+            Click any issue area below to review the authorities, citations, and excerpts
+            supporting that part of the analysis.
           </p>
         </div>
         <div className="stack">
@@ -201,8 +200,8 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
                     <h4>{bucket.label}</h4>
                     <p className="microcopy">
                       {bucket.authorities.length > 0
-                        ? "Authorities reviewed before drafting"
-                        : "No authority retrieved yet"}
+                        ? "Click to review the authorities for this issue area"
+                        : "Click to review support status"}
                     </p>
                   </div>
                   <div className="summary-meta">
@@ -212,7 +211,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
                     </span>
                     <span className={`support-pill ${supportTone(label)}`}>{supportCopy(label)}</span>
                     <span className="summary-caret" aria-hidden="true">
-                      Review
+                      Open details
                     </span>
                   </div>
                 </summary>
