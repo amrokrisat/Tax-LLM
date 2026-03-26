@@ -204,6 +204,36 @@ class AnalysisService:
             return facts.transaction_type
         return "proposed transaction"
 
+    def _has_stock_form(self, text: str, facts: TransactionFacts) -> bool:
+        return "stock" in text or facts.transaction_type.lower() in {"stock sale", "stock acquisition", "merger"}
+
+    def _has_asset_form(self, text: str, facts: TransactionFacts) -> bool:
+        return "asset" in text or facts.transaction_type.lower() == "asset sale"
+
+    def _has_deemed_asset_signal(self, text: str, facts: TransactionFacts) -> bool:
+        return (
+            facts.deemed_asset_sale_election
+            or "338(h)(10)" in text
+            or "336(e)" in text
+            or "deemed asset" in text
+            or "qualified stock purchase" in text
+        )
+
+    def _structure_posture(self, facts: TransactionFacts) -> str:
+        facts_text = self._facts_text(facts)
+        stock_like = self._has_stock_form(facts_text, facts)
+        asset_like = self._has_asset_form(facts_text, facts)
+        deemed_like = self._has_deemed_asset_signal(facts_text, facts)
+        if deemed_like:
+            return "stock-form deal with a possible deemed asset election"
+        if stock_like and asset_like:
+            return "mixed stock-versus-asset comparison"
+        if asset_like:
+            return "taxable asset path"
+        if stock_like:
+            return "taxable stock path"
+        return "structure still being formed"
+
     def _classify_transaction(
         self, facts: TransactionFacts, uploaded_documents: list[UploadedDocument]
     ) -> list[TransactionBucket]:
@@ -229,8 +259,11 @@ class AnalysisService:
                     )
                 )
 
-        if "stock" in text:
-            add("stock_sale", "Facts mention a stock acquisition or stock sale form.")
+        if self._has_stock_form(text, facts):
+            add(
+                "stock_sale",
+                "Facts suggest the parties may preserve stock form and inherited target-level tax history rather than stepping directly into an asset transfer.",
+            )
         if any(
             term in text
             for term in [
@@ -246,15 +279,16 @@ class AnalysisService:
                 "attribute_preservation",
                 "Facts indicate tax attributes or ownership-change sensitivity that warrants dedicated attribute preservation analysis.",
             )
-        if "asset" in text:
-            add("asset_sale", "Facts mention an asset acquisition or asset sale form.")
-        if (
-            facts.deemed_asset_sale_election
-            or "338(h)(10)" in text
-            or "336(e)" in text
-            or "deemed asset" in text
-        ):
-            add("deemed_asset_sale_election", "Facts suggest a deemed asset sale election may be relevant.")
+        if self._has_asset_form(text, facts):
+            add(
+                "asset_sale",
+                "Facts suggest the buyer may want asset-style consequences, including basis step-up and purchase price allocation, even if seller tax cost rises.",
+            )
+        if self._has_deemed_asset_signal(text, facts):
+            add(
+                "deemed_asset_sale_election",
+                "Facts suggest the parties may be testing whether a nominal stock deal can still produce asset-style tax results through an available election.",
+            )
         if "merger" in text or "reorganization" in text or facts.transaction_type.lower() == "merger":
             add("merger_reorganization", "Facts indicate a merger or reorganization path may be available.")
         if facts.rollover_equity or "rollover" in text or "equity consideration" in text:
@@ -393,6 +427,26 @@ class AnalysisService:
             return (
                 "The current facts describe acquisition debt or refinancing, so interest-limitation, debt placement, and refinancing consequences should be analyzed separately from the structural qualification questions."
             )
+        if bucket == "stock_sale":
+            if self._contains_any(facts_text, ["nol", "attribute", "ownership change"]):
+                return (
+                    "The current facts point to a stock path that may preserve entity-level history, contracts, and tax attributes, but that same feature means the buyer inherits carryover basis and historic tax posture while the seller may prefer stock-sale treatment."
+                )
+            return (
+                "The current facts point to a stock path that may be cleaner legally and operationally, but the buyer-side cost of inheriting carryover basis and existing tax posture still has to be weighed against the seller's preference for stock-form exit economics."
+            )
+        if bucket == "asset_sale":
+            if self._contains_any(facts_text, ["transfer tax", "state tax", "338", "deemed asset"]):
+                return (
+                    "The current facts suggest that a buyer-favorable basis step-up may come with seller-level current tax cost, allocation negotiation, and possible state transfer-tax friction, so buyer and seller economics should be modeled together."
+                )
+            return (
+                "The current facts point to asset-style consequences, so residual allocation, buyer basis step-up, seller gain character, and attribute carryover limits should be tested together rather than as separate workstreams."
+            )
+        if bucket == "deemed_asset_sale_election":
+            return (
+                "The election analysis should focus on whether a qualified stock purchase or similar election path is actually available, whether the target and seller profile fit the election mechanics, whether the buyer values the step-up enough to pay for it, and whether the seller would accept deemed sale cost in a nominal stock deal."
+            )
         if bucket == "state_overlay":
             return (
                 "The fact pattern points to state or transfer-tax consequences, but the current support is only internal and should stay at issue-spotting level rather than recommendation level."
@@ -424,6 +478,21 @@ class AnalysisService:
         if coverage.bucket == "debt_overlay":
             return (
                 f"The financing analysis currently relies most heavily on {lead.citation}, because the submitted facts include debt-funded or refinanced economics that can materially change the after-tax profile of the selected structure. "
+                f"{fact_anchor}"
+            )
+        if coverage.bucket == "stock_sale":
+            return (
+                f"The stock-acquisition analysis currently relies most heavily on {lead.citation}, because the parties are evaluating whether to retain stock form and the target's tax history instead of moving directly into an asset-style transfer. On the buyer side, that usually means inheriting carryover basis, historic tax posture, and entity-level liabilities; on the seller side, stock form can be materially more attractive if it avoids current asset-sale style tax cost. "
+                f"{fact_anchor}"
+            )
+        if coverage.bucket == "asset_sale":
+            return (
+                f"The asset-acquisition analysis currently relies most heavily on {lead.citation}, because the core tax tradeoff is whether a current taxable transfer produces enough buyer-side step-up and allocation value to justify the seller's immediate tax cost and the operational burden of asset-level execution. "
+                f"{fact_anchor}"
+            )
+        if coverage.bucket == "deemed_asset_sale_election":
+            return (
+                f"The deemed-asset-election analysis currently relies most heavily on {lead.citation}, because the transaction may need to be modeled as a nominal stock deal with asset-style tax consequences. The practical gating question is whether the legal ownership profile and party consent actually permit that election, rather than whether asset-style economics are attractive in the abstract. "
                 f"{fact_anchor}"
             )
         return (
@@ -463,6 +532,7 @@ class AnalysisService:
                 if facts.proposed_steps
                 else ""
             )
+            + f"At a structural level, the current record looks most like a {self._structure_posture(facts)}. "
             + f"Based on the submitted facts, the analysis has been organized around {classified}.{emphasis}"
         )
 
@@ -512,25 +582,26 @@ class AnalysisService:
         if "attribute_preservation" in coverage_map or "debt_overlay" in coverage_map or "stock_sale" in coverage_map:
             alternatives.append(
                 self._build_alternative(
-                    name="Taxable equity acquisition path",
+                    name="Taxable stock acquisition path",
                     description=(
-                        "This path treats the deal as a taxable equity acquisition and measures the benefit of cleaner execution against the cost of attribute limitations and financing friction."
+                        "This path treats the deal as a taxable stock acquisition and measures the value of preserving legal form and target history against the cost of carryover tax posture, attribute limitations, and financing friction."
                     ),
                     buckets=["stock_sale", "attribute_preservation", "debt_overlay"],
                     consequence_texts=[
-                        "This path is often operationally cleaner under the current facts because it does not depend on satisfying merger qualification requirements, but it may leave the parties with less flexibility to argue for continuity-sensitive treatment.",
-                        "The main tax tradeoff is that attribute limitations and financing constraints must stand on their own economics; if the target's tax attributes matter, this path can be weaker than it first appears.",
+                        "This path is often strongest when preserving target-level contracts, licenses, and stock-sale execution matters more than an immediate buyer-side basis step-up, but it leaves the buyer with carryover tax posture unless another election applies.",
+                        "The main tax tradeoff is that the buyer inherits the target's basis and tax profile while the seller may get more favorable stock-sale economics; if the buyer is really paying for step-up, amortization, or allocation value, a straight stock path can be weaker than it first appears.",
                     ],
                     assumptions=[
-                        "The transaction can be priced and documented without relying on reorganization treatment.",
+                        "The transaction can be priced and documented in stock form without needing an asset-style election.",
                         "Debt refinancing remains a live part of the post-closing structure.",
                     ],
                     missing_facts=[
                         "Historic ownership movements and current NOL profile of the target.",
                         "Final acquisition debt placement, refinancing timing, and any seller note or contingent payment terms.",
+                        "Whether the buyer is actually pricing in basis step-up value or instead prioritizing legal simplicity and stock-form execution.",
                     ],
                     risk_texts=[
-                        "This path becomes less attractive if attribute diligence is incomplete or if the expected debt profile produces a larger interest-limitation cost than the parties modeled.",
+                        "This path becomes less attractive if attribute diligence is incomplete, if hidden tax liabilities sit inside the target, if the buyer really needs asset-level basis step-up, or if the expected debt profile produces a larger interest-limitation cost than the parties modeled.",
                     ],
                     coverage_map=coverage_map,
                 )
@@ -541,23 +612,24 @@ class AnalysisService:
                 self._build_alternative(
                     name="Taxable asset or deemed asset path",
                     description=(
-                        "This path emphasizes basis step-up and allocation economics, while accepting that current tax cost and transfer-tax friction may become more significant."
+                        "This path emphasizes buyer basis step-up and allocation economics, while accepting that seller tax cost, election eligibility, and transfer-tax friction may become more significant."
                     ),
                     buckets=["asset_sale", "deemed_asset_sale_election", "state_overlay", "withholding_overlay"],
                     consequence_texts=[
-                        "Basis step-up and purchase price allocation consequences should be modeled under the retrieved asset authorities tied to the current transaction form.",
-                        "Current tax cost, reporting friction, and state transfer tax sensitivity may increase relative to an equity path.",
+                        "This path is strongest when the buyer values depreciation, amortization, or gain-shielding from a step-up enough to justify either a direct asset transfer or a deemed asset election, and when the parties can actually implement that structure.",
+                        "The main tax tradeoff is that buyer-side basis and allocation upside may be offset by seller-side current tax cost, election ineligibility, allocation disputes, and transfer-tax exposure relative to a straight stock path.",
                     ],
                     assumptions=[
                         "The parties can implement an asset transfer or deemed asset election path.",
-                        "Purchase price allocation mechanics will be documented consistently.",
+                        "Purchase price allocation mechanics will be documented consistently, and any deemed asset route satisfies the ownership and election requirements needed to make it real rather than theoretical.",
                     ],
                     missing_facts=[
                         "Seller tax sensitivity to immediate gain recognition.",
                         "Whether a 338(h)(10) or 336(e) election is available and intended.",
+                        "Whether the buyer is paying for basis step-up and amortization value strongly enough to support any seller gross-up or election negotiation.",
                     ],
                     risk_texts=[
-                        "Unsupported election assumptions should not be treated as executable until ownership and eligibility facts are confirmed.",
+                        "This path becomes less attractive if election availability is uncertain, if the actual ownership profile does not support a deemed sale election, if gross-up discussions fail, or if state and transfer-tax costs erode the modeled step-up benefit.",
                     ],
                     coverage_map=coverage_map,
                 )
@@ -795,8 +867,16 @@ class AnalysisService:
                 "Attribute value cannot be assessed accurately without both the balance-sheet profile and the ownership-change history.",
             ),
             "deemed_asset_sale_election": (
-                "Which entities and owners would be eligible to make a deemed asset sale election, and is that election commercially acceptable to both sides?",
+                "Which entities and owners would be eligible to make a 338(h)(10) or 336(e) deemed asset sale election, and is that election commercially acceptable to both sides?",
                 "Election eligibility and party consent determine whether that alternative is real.",
+            ),
+            "stock_sale": (
+                "Is the buyer prioritizing stock-form execution and continuity of contracts, or is the buyer really paying for basis step-up and asset-level tax attributes?",
+                "That priority often determines whether a stock path is truly preferred or only a placeholder before an election or asset alternative is tested.",
+            ),
+            "asset_sale": (
+                "How large is the buyer's expected basis step-up benefit, and what seller tax cost, transfer-tax burden, or allocation dispute would the parties accept to get it?",
+                "The recommendation can change quickly once the buyer's step-up value is compared directly with seller-side current tax cost and allocation friction.",
             ),
             "rollover_equity": (
                 "What rights attach to the rollover instrument, including redemption, put/call, preferred return, downside protection, board rights, and liquidity arrangements?",

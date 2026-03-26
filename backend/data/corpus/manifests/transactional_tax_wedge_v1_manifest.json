@@ -1,0 +1,139 @@
+{
+  "pack_name": "transactional_tax_wedge_v1",
+  "generated_at": "2026-03-26T07:50:53+00:00",
+  "entries": [
+    {
+      "authority_id": "code-338",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/code/section_338.md",
+      "source_url": "https://www.law.cornell.edu/uscode/text/26/338",
+      "sha256": "69da98ebe4be08d81d7de521bcbe28c167dc8bb1e1a2b090b30536f15acc31f3",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "code-1060",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/code/section_1060.md",
+      "source_url": "https://www.law.cornell.edu/uscode/text/26/1060",
+      "sha256": "3dc343db8c47a31ca2d7737efdfff3323711973b59a48bf2ec596847851b9929",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "code-368",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/code/reorg_core.md",
+      "source_url": "https://www.law.cornell.edu/uscode/text/26/368",
+      "sha256": "8dbe5ad72551b2b870b80695b10ae7b5b5c71979a2666afe44f576e2de7be31a",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "code-382",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/code/section_382.md",
+      "source_url": "https://www.law.cornell.edu/uscode/text/26/382",
+      "sha256": "ced23f119b761c7aebb293c3b68c7721224b6ae8ccf67da03bf07ae983e08065",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "code-384",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/code/section_384.md",
+      "source_url": "https://www.law.cornell.edu/uscode/text/26/384",
+      "sha256": "d904fe8d8fd60d735324046715ceeeeab2763244467a3be2ed2b8bb217bb6413",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "reg-1-338",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/regs/section_338_regs.md",
+      "source_url": "https://www.law.cornell.edu/cfr/text/26/1.338-1",
+      "sha256": "c8e8d714b4ab119f2ee06b1e135aac144d38ae6800dbca9f449e3ca283f6ab5d",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "reg-1-338h10",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/regs/section_338_h10_regs.md",
+      "source_url": "https://www.law.cornell.edu/cfr/text/26/1.338(h)(10)-1",
+      "sha256": "81af8c860054d419e0225ddb197a067354fec436bbf49f98ce12c575a190cbdd",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "reg-1-1060",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/regs/section_1060_regs.md",
+      "source_url": "https://www.law.cornell.edu/cfr/text/26/1.1060-1",
+      "sha256": "00160ab2528e19ae51ecabf326f9240f22699db10bd980b7c6117dcaeadf5ad3",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "reg-1-368-1",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/regs/continuity_regulations.md",
+      "source_url": "https://www.law.cornell.edu/cfr/text/26/1.368-1",
+      "sha256": "d849b13f777968b4d7ba8cec39ccb5276f3510a727848876a3efd44910e8bb2b",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "reg-1-368-2k",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/regs/triangular_merger_regs.md",
+      "source_url": "https://www.law.cornell.edu/cfr/text/26/1.368-2",
+      "sha256": "8a559310e0988e05377a3fd5d5607294c8b63a7372568cc0bdef8f4605b62d5c",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "reg-1-1001-3",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/regs/debt_modification_regs.md",
+      "source_url": "https://www.law.cornell.edu/cfr/text/26/1.1001-3",
+      "sha256": "bba72dff6fc65ff479357c8a1a0c6f14cce8c24e5fb7470ebfb335c8e104a75b",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "rr-99-6",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/irs_guidance/rev_rul_99_6.md",
+      "source_url": "https://www.irs.gov/pub/irs-drop/rr-99-6.pdf",
+      "sha256": "08823ca268310d8cf33c4ff261c43f8990687ecb311947a16637e65d30bbca3b",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "rr-2001-46",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/irs_guidance/rev_rul_2001_46.md",
+      "source_url": "https://www.irs.gov/pub/irs-drop/rr-01-46.pdf",
+      "sha256": "2163c43c43770aae70e225e5097edf26777309b61c7b96d381d77ce4f9a87633",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "notice-2003-65",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/irs_guidance/notice_2003_65.md",
+      "source_url": "https://www.irs.gov/pub/irs-drop/n-03-65.pdf",
+      "sha256": "31011fbf4238bdb0caa43c116465c61a3f78ab784f107ffa9f4d24202f9cdf81",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "form-8594",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/forms/form_8594.md",
+      "source_url": "https://www.irs.gov/forms-pubs/about-form-8594",
+      "sha256": "31ccfdcb166961803dde477d78f119a36a2509c7b6e07b5a58b5cf28d8e0a8a0",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "form-8883",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/forms/form_8883.md",
+      "source_url": "https://www.irs.gov/forms-pubs/about-form-8883",
+      "sha256": "fc02f78a281a926bcd9398ffd7c5d3d33d4501b271f9dc764a02960d0f74a373",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "form-8023",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/forms/form_8023.md",
+      "source_url": "https://www.irs.gov/forms-pubs/about-form-8023",
+      "sha256": "3d570d85ea2faaa2f6cd538e0719f5265a9f4c779c0fa24e6a3b535cb0de005d",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "case-king-enterprises",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/cases/king_enterprises.md",
+      "source_url": "https://law.justia.com/cases/federal/appellate-courts/F2/418/511/214274/",
+      "sha256": "05ad0dcd25736b745b6b12f74751c1d4bf00ce1d40e81227f27969a00c7bc27c",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    },
+    {
+      "authority_id": "case-letulle",
+      "target_path": "/Users/amroalkrisat/Documents/Tax LLM/backend/data/corpus/cases/letulle.md",
+      "source_url": "https://supreme.justia.com/cases/federal/us/308/415/",
+      "sha256": "4c572ceae504a9065eeece2676367f1b834a2d9df1f75e236ba8c80f538d03cc",
+      "ingested_at": "2026-03-26T07:50:53+00:00"
+    }
+  ]
+}

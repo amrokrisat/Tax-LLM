@@ -1,23 +1,23 @@
 {
   "facts": {
     "transaction_name": "Project Atlas",
-    "summary": "US buyer is evaluating the acquisition of a domestic software target with significant NOLs and a desire to preserve optionality for future integration.",
-    "entities": ["Atlas Parent", "TargetCo", "Merger Sub"],
+    "summary": "US buyer is evaluating whether to acquire the stock of a domestic software target, negotiate a deemed asset sale election, or require a direct asset path where the target has significant NOLs and valuable amortizable intangibles.",
+    "entities": ["Atlas Parent", "TargetCo"],
     "jurisdictions": ["United States", "Delaware"],
-    "transaction_type": "merger",
+    "transaction_type": "stock sale",
     "stated_goals": [
-      "Preserve tax attributes where possible",
-      "Maintain execution certainty",
+      "Compare stock-form execution against basis step-up value",
+      "Preserve usable tax attributes where possible",
       "Support post-closing financing flexibility"
     ],
     "constraints": [
-      "Seller requests partial equity consideration",
-      "Closing timeline is compressed"
+      "Seller prefers stock-sale treatment",
+      "Buyer will pay more only if step-up economics are real"
     ],
-    "consideration_mix": "Cash plus rollover equity, with possible debt refinancing after closing.",
-    "proposed_steps": "Buyer forms merger sub, signs merger agreement, and may refinance target debt after closing.",
-    "rollover_equity": true,
-    "deemed_asset_sale_election": false,
+    "consideration_mix": "Cash consideration, with possible deemed asset election and post-closing refinancing.",
+    "proposed_steps": "Buyer acquires target stock, models a 338(h)(10) or 336(e) path if available, and may refinance debt after closing.",
+    "rollover_equity": false,
+    "deemed_asset_sale_election": true,
     "contribution_transactions": false,
     "partnership_issues": false,
     "debt_financing": true,
@@ -30,12 +30,12 @@
     {
       "file_name": "LOI.txt",
       "document_type": "letter_of_intent",
-      "content": "Buyer proposes a cash and rollover equity merger structure for the acquisition of TargetCo."
+      "content": "Buyer proposes a stock acquisition of TargetCo but may request a 338(h)(10) election if the step-up value justifies the added seller tax cost."
     },
     {
       "file_name": "Tax diligence notes.txt",
       "document_type": "diligence_notes",
-      "content": "TargetCo has legacy NOLs, prior ownership churn, and pending refinancing discussions."
+      "content": "TargetCo has legacy NOLs, prior ownership churn, significant amortizable software intangibles, and pending refinancing discussions."
     }
   ]
 }

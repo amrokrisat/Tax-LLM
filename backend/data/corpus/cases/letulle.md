@@ -1,14 +1,16 @@
 ---
 authority_id: case-letulle
-title: Debt-like consideration and continuity limits in reorganization analysis
+title: Debt-like consideration and continuity limits in acquisition structures
 citation: LeTulle v. Scofield, 308 U.S. 415 (1940)
-issue_buckets: [merger_reorganization, rollover_equity]
+issue_buckets: [merger_reorganization, rollover_equity, stock_sale]
 jurisdiction: United States
-effective_date: 1940-01-02
-date_range: 1940-forward
-authority_weight: 0.81
-tags: [continuity, debt consideration, securities, reorganization, rollover equity]
+effective_date: 1940-01-01
+authority_weight: 0.76
+source_url: https://supreme.justia.com/cases/federal/us/308/415/
+ingestion_timestamp: 2026-03-26T07:50:53+00:00
+primary_authority: false
+secondary_authority: true
+internal_only: false
+tags: [letulle, continuity, debt-like consideration, rollover overlap]
 ---
-LeTulle is a core cautionary case when transaction planners try to rely on debt-like or fixed-value instruments as part of a purported reorganization. It is frequently invoked in discussions about whether the seller's retained instrument reflects a genuine continuing proprietary stake or is closer to creditor treatment.
-
-That makes the case practical for modern rollover-equity work. If the retained instrument has redemption protection, debt-like economics, or other features that make it look less like meaningful equity participation, LeTulle helps explain why a continuity-sensitive structure may be weaker than the headline percentage alone suggests.
+LeTulle is useful when the wedge overlaps with rollover structures that may be too debt-like or too protected to support continuity-sensitive treatment. It is not a stock-versus-asset authority by itself, but it becomes relevant where the comparison includes a stock-form or merger path with seller equity that might actually behave more like debt. In that setting, it helps explain what facts would push the recommendation away from a rollover-sensitive path and toward a plainly taxable stock or asset result.

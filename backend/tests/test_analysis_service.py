@@ -443,6 +443,88 @@ def test_memo_avoids_repetitive_support_formulas_and_uses_live_facts():
     assert "current fact pattern:" not in memo_text
 
 
+def test_stock_vs_asset_wedge_produces_more_decision_useful_tradeoffs():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Stock Versus Asset",
+            summary="Buyer is evaluating whether to acquire stock, negotiate a deemed asset election, or move into a direct asset purchase.",
+            entities=["Buyer", "Target"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            consideration_mix="Cash",
+            proposed_steps="Buyer acquires target stock and is evaluating section 338 alternatives.",
+            deemed_asset_sale_election=True,
+            state_tax=True,
+        ),
+        uploaded_documents=[],
+    )
+
+    memo_text = " ".join(section.body for section in result.memo_sections).lower()
+    alternative_names = [alternative.name for alternative in result.alternatives]
+
+    assert "taxable stock acquisition path" in [name.lower() for name in alternative_names]
+    assert "taxable asset or deemed asset path" in [name.lower() for name in alternative_names]
+    assert "basis step-up" in memo_text or "basis step up" in memo_text
+    assert "seller tax cost" in memo_text or "immediate tax cost" in memo_text
+    assert "deemed asset" in memo_text
+
+
+def test_stock_and_deemed_asset_buckets_have_more_specific_memo_language():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Section 338 Memo",
+            summary="Buyer is considering a qualified stock purchase with a possible 338(h)(10) election to secure asset-style tax consequences.",
+            entities=["Buyer", "Target"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            consideration_mix="Cash",
+            proposed_steps="Buyer acquires stock and models a 338(h)(10) election.",
+            deemed_asset_sale_election=True,
+        ),
+        uploaded_documents=[],
+    )
+
+    stock_section = next(section for section in result.memo_sections if section.heading == "Stock sale")
+    deemed_section = next(
+        section for section in result.memo_sections if section.heading == "Deemed asset sale elections"
+    )
+    assert "carryover tax posture" in stock_section.body.lower() or "carryover basis" in stock_section.body.lower()
+    assert "qualified stock purchase" in deemed_section.body.lower() or "seller would accept the deemed sale cost" in deemed_section.body.lower()
+
+
+def test_stock_vs_asset_classification_and_missing_facts_are_more_decision_useful():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Structure Gating",
+            summary="Buyer is comparing a stock acquisition against an asset purchase and may ask for a 338(h)(10) election if the basis step-up economics justify it.",
+            entities=["Buyer", "Target"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            consideration_mix="Cash",
+            proposed_steps="Buyer acquires stock unless basis step-up value supports an election path.",
+            deemed_asset_sale_election=True,
+        ),
+        uploaded_documents=[],
+    )
+
+    classified = {bucket.bucket: bucket.reason.lower() for bucket in result.classification}
+    missing_fact_text = " ".join(question.question for question in result.missing_facts).lower()
+    facts_section = next(section for section in result.memo_sections if section.heading == "Facts And Issue Framing")
+
+    assert "stock_sale" in classified
+    assert "asset_sale" in classified
+    assert "deemed_asset_sale_election" in classified
+    assert "preserve stock form" in classified["stock_sale"] or "inherited target-level tax history" in classified["stock_sale"]
+    assert "asset-style consequences" in classified["asset_sale"] or "basis step-up" in classified["asset_sale"]
+    assert "nominal stock deal" in classified["deemed_asset_sale_election"] or "asset-style tax results" in classified["deemed_asset_sale_election"]
+    assert "338(h)(10)" in missing_fact_text or "336(e)" in missing_fact_text
+    assert "basis step-up" in missing_fact_text
+    assert "stock-form deal with a possible deemed asset election" in facts_section.body.lower()
+
+
 def test_unsupported_buckets_trigger_visible_warnings():
     service = build_service()
     result = service.analyze(

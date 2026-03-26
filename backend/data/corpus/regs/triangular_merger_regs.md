@@ -1,14 +1,16 @@
 ---
 authority_id: reg-1-368-2k
-title: Triangular merger regulations and related reorganization form constraints
-citation: Treas. Reg. 1.368-2(k)
-issue_buckets: [merger_reorganization, rollover_equity]
+title: Triangular merger rules relevant to stock-form acquisition structures
+citation: Treas. Reg. Section 1.368-2(k)
+issue_buckets: [merger_reorganization, rollover_equity, stock_sale]
 jurisdiction: United States
 effective_date: 2025-01-01
-tax_year: 2025
-authority_weight: 0.89
-tags: [merger sub, triangular merger, reorganization, continuity, stock consideration]
+authority_weight: 0.97
+source_url: https://www.law.cornell.edu/cfr/text/26/1.368-2
+ingestion_timestamp: 2026-03-26T07:50:53+00:00
+primary_authority: true
+secondary_authority: false
+internal_only: false
+tags: [1.368-2(k), triangular merger, merger sub, stock form, rollover overlap]
 ---
-Treas. Reg. 1.368-2(k) provides important form-specific rules for triangular mergers. It is especially useful when the transaction uses a merger subsidiary, parent equity, mixed consideration, or related steps that can complicate whether the deal remains within an intended reorganization form.
-
-For a transactional tax agent, this regulation adds edge-case discipline to merger analysis. It helps separate a generic “merger” label from the harder questions that arise when parent stock, subsidiary mechanics, post-closing integrations, or atypical consideration terms threaten the intended reorganization treatment.
+Section 1.368-2(k) matters when the stock-versus-asset wedge is being tested inside a merger-sub structure. It is especially useful where the buyer wants stock-form execution with parent equity or mixed consideration but still needs the structure to stay inside reorganization-sensitive rules. In this wedge, it helps distinguish a true stock-form merger path from a taxable stock acquisition or asset-style result by forcing the analysis back to form, consideration, and sequencing details.

@@ -130,11 +130,86 @@ For `.json`, provide either a single object or an `authorities` array with the s
 - Ranking favors this source priority: Code, Regulations, IRS guidance, Cases, Forms, Internal.
 - Analysis warns when a bucket is supported only by internal or otherwise non-primary material.
 
+### Public-Source Ingestion Workflow
+Tax LLM now includes a focused public-source ingestion workflow for the current transactional-tax wedge:
+- stock sale versus asset sale
+- deemed asset sale elections under Section 338
+- Section 1060 allocation
+- reorganization / rollover overlap
+- attribute-preservation overlap
+- directly relevant financing overlays tied to structure comparison
+
+The ingestion source-of-truth lives in:
+- `backend/data/ingestion/transactional_tax_wedge_v1.json`
+
+The workflow code lives in:
+- `backend/src/tax_llm/infrastructure/public_ingestion.py`
+- `backend/scripts/ingest_public_authorities.py`
+
+Run it with:
+
+```bash
+cd backend
+source .venv/bin/activate
+PYTHONPATH=src python scripts/ingest_public_authorities.py
+```
+
+The script:
+- reads the ingestion manifest
+- normalizes entries into the existing corpus folders
+- records `source_url`, `ingestion_timestamp`, and source-quality flags on each authority
+- writes a generated ingestion manifest summary to:
+  - `backend/data/corpus/manifests/transactional_tax_wedge_v1_manifest.json`
+
+### Sources Used In This Pass
+Primary-source targets for this pack:
+- Cornell LII Code pages
+- Cornell LII Treasury Regulation pages
+- IRS official pages and PDFs for rulings, notices, forms, and instructions
+
+Narrow additional public case sources:
+- Justia public case pages for selected case overlap authorities
+
+Domains that must be reachable when the ingestion script is fetching live sources:
+- `law.cornell.edu`
+- `www.law.cornell.edu`
+- `irs.gov`
+- `www.irs.gov`
+- `law.justia.com`
+- `supreme.justia.com`
+
+### Metadata And Quality Flags
+Authority records now support:
+- `source_type`
+- `title`
+- `citation`
+- `issue_buckets`
+- `jurisdiction`
+- `effective_date`
+- `authority_weight`
+- `source_url`
+- `ingestion_timestamp`
+- `primary_authority`
+- `secondary_authority`
+- `internal_only`
+
+### Duplicate And Stale-Version Safeguards
+- The corpus loader now deduplicates authorities by canonical authority identity.
+- When duplicates exist, the loader keeps the newest effective-date / ingestion-timestamp version with the stronger authority weight.
+- This is intended to prevent stale duplicates from older local files from outranking the newer public-source version of the same authority.
+
+### What Still Remains Manual
+- PDF text extraction is still not production-grade.
+- IRS PDF rulings and notices in this pass use manually normalized summaries with official provenance links, not full text extraction.
+- Public case ingestion is intentionally narrow and should still be reviewed by hand before broader expansion.
+- Citation normalization across all historical authority versions still needs more hardening.
+- This corpus pack is intentionally wedge-focused and does not claim comprehensive tax-law coverage.
+
 ## Current Corpus Gaps
 - PDF extraction is not implemented yet
 - There is no vector or hybrid semantic search yet
 - Deduplication, citation normalization, and corpus versioning still need hardening
-- The corpus now has a practical first-pass corporate transaction pack for reorganizations, Section 338, Section 382, Section 1060, Section 351/721, and financing overlays, but it is still thin on consolidated return rules, international subpart/FDII/GILTI issues, state-specific authorities, withholding statutes, debt-equity authorities, earnout case law, and bankruptcy/distressed M&A materials
+- The corpus now has a stronger public-source pack for stock-versus-asset comparisons, Section 338 elections, Section 1060 allocation, reorganization overlap, and attribute-preservation overlap, but it is still thin on consolidated return rules, international subpart/FDII/GILTI issues, state-specific authorities, withholding statutes, debt-equity authorities, earnout case law, and bankruptcy/distressed M&A materials
 
 ## Development Notes
 - Treat generated conclusions as draft analytical support, not legal advice.

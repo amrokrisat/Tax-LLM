@@ -11,6 +11,8 @@ def test_corpus_loader_reads_supported_files():
     assert len(result.authorities) >= 8
     assert any(authority.source_type == "code" for authority in result.authorities)
     assert any(path.endswith(".pdf") for path in result.pending_files)
+    assert any(authority.source_url for authority in result.authorities)
+    assert any(authority.primary_authority for authority in result.authorities)
 
 
 def test_repository_search_by_issue_bucket_prioritizes_code_and_regs():
@@ -96,3 +98,42 @@ Internal observations on earnout mechanics.
     )
 
     assert repository.support_warning(results) is not None
+
+
+def test_corpus_loader_prefers_newer_duplicate_authority_versions(tmp_path: Path):
+    (tmp_path / "code").mkdir(parents=True, exist_ok=True)
+    old_version = """---
+authority_id: code-338
+title: Old Section 338
+citation: IRC Section 338
+issue_buckets: [deemed_asset_sale_election]
+effective_date: 2024-01-01
+authority_weight: 0.8
+source_url: https://example.com/old
+ingestion_timestamp: 2026-03-20T00:00:00+00:00
+primary_authority: true
+---
+Old text.
+"""
+    new_version = """---
+authority_id: code-338
+title: New Section 338
+citation: IRC Section 338
+issue_buckets: [deemed_asset_sale_election]
+effective_date: 2025-01-01
+authority_weight: 1.0
+source_url: https://example.com/new
+ingestion_timestamp: 2026-03-26T00:00:00+00:00
+primary_authority: true
+---
+New text.
+"""
+    (tmp_path / "code" / "old.md").write_text(old_version, encoding="utf-8")
+    (tmp_path / "code" / "new.md").write_text(new_version, encoding="utf-8")
+
+    result = AuthorityCorpusLoader(root_path=tmp_path).load()
+
+    assert len(result.authorities) == 1
+    authority = result.authorities[0]
+    assert authority.title == "New Section 338"
+    assert authority.source_url == "https://example.com/new"

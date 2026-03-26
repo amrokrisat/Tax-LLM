@@ -92,6 +92,11 @@ class AuthorityRecord(BaseModel):
     date_range: str | None = None
     authority_weight: float = 1.0
     file_path: str
+    source_url: str | None = None
+    ingestion_timestamp: str | None = None
+    primary_authority: bool = False
+    secondary_authority: bool = False
+    internal_only: bool = False
     tags: List[str] = Field(default_factory=list)
     relevance_score: float = 0.0
 

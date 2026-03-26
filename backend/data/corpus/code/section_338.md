@@ -5,10 +5,12 @@ citation: IRC Section 338
 issue_buckets: [deemed_asset_sale_election, stock_sale, asset_sale]
 jurisdiction: United States
 effective_date: 2025-01-01
-tax_year: 2025
 authority_weight: 1.0
-tags: [section 338, 338 h 10, 336 e, deemed asset, stock sale, asset sale, qualified stock purchase]
+source_url: https://www.law.cornell.edu/uscode/text/26/338
+ingestion_timestamp: 2026-03-26T07:50:53+00:00
+primary_authority: true
+secondary_authority: false
+internal_only: false
+tags: [section 338, 338 h 10, 336 e, qualified stock purchase, deemed asset, stock vs asset]
 ---
-Section 338 governs when a qualifying stock purchase may be treated, for federal income tax purposes, as though the target sold its assets at a stepped-up price and then restarted with a new asset basis. In practice, it is one of the most important comparison authorities when buyers and sellers are evaluating whether to keep a deal in stock form, elect into deemed asset treatment, or negotiate an explicit asset acquisition instead.
-
-The section drives several transaction-structuring questions. Buyers focus on basis step-up, amortization and depreciation consequences, and whether tax benefits justify the election price. Sellers focus on whether deemed asset treatment creates an unacceptable corporate-level tax cost, changes the economics of attribute usage, or requires gross-up discussions. Section 338 also matters in diligence because election availability depends on a qualified stock purchase and the ownership profile of the target. It is therefore a key source for framing stock versus asset deal consequences and for identifying when a nominal stock sale may need to be modeled as an asset-style tax result.
+Section 338 is the central Code provision for testing whether a nominal stock acquisition can be modeled as a deemed asset acquisition. For the current wedge, it is the threshold authority for asking whether the buyer can obtain asset-style basis results without abandoning stock form. It matters because the election is not just a pricing question: the parties first need a qualified stock purchase and an ownership profile that actually permits the election mechanics. It also sharpens the buyer-seller tradeoff. Buyers focus on basis step-up, amortization, and future gain-shielding. Sellers focus on whether deemed sale treatment creates immediate tax cost that a straight stock sale might avoid.

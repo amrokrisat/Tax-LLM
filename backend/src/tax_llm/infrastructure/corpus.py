@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Iterable
 
@@ -101,7 +102,10 @@ class AuthorityCorpusLoader:
                     continue
                 authorities.extend(self._load_file(path, source_type))
 
-        return CorpusLoadResult(authorities=authorities, pending_files=pending_files)
+        return CorpusLoadResult(
+            authorities=dedupe_authorities(authorities),
+            pending_files=pending_files,
+        )
 
     def _load_file(self, path: Path, source_type: SourceType) -> list[AuthorityRecord]:
         if path.suffix.lower() == ".json":
@@ -148,12 +152,26 @@ class AuthorityCorpusLoader:
             citation=metadata.get("citation") or path.stem,
             excerpt=metadata.get("excerpt") or compact_excerpt(body),
             issue_buckets=normalize_list(metadata.get("issue_buckets")),
-            jurisdiction=metadata.get("jurisdiction"),
-            effective_date=metadata.get("effective_date"),
-            tax_year=metadata.get("tax_year"),
-            date_range=metadata.get("date_range"),
+            jurisdiction=string_or_none(metadata.get("jurisdiction")),
+            effective_date=string_or_none(metadata.get("effective_date")),
+            tax_year=string_or_none(metadata.get("tax_year")),
+            date_range=string_or_none(metadata.get("date_range")),
             authority_weight=float(metadata.get("authority_weight", 1.0)),
             file_path=str(path),
+            source_url=string_or_none(metadata.get("source_url")),
+            ingestion_timestamp=string_or_none(metadata.get("ingestion_timestamp")),
+            primary_authority=coerce_bool(
+                metadata.get("primary_authority"),
+                default=source_type in PRIMARY_SUPPORT_TYPES,
+            ),
+            secondary_authority=coerce_bool(
+                metadata.get("secondary_authority"),
+                default=source_type in SECONDARY_SUPPORT_TYPES,
+            ),
+            internal_only=coerce_bool(
+                metadata.get("internal_only"),
+                default=source_type in INTERNAL_ONLY_TYPES,
+            ),
             tags=normalize_list(metadata.get("tags")),
             relevance_score=0.0,
         )
@@ -247,6 +265,11 @@ def parse_front_matter(raw_text: str) -> tuple[dict, str]:
 
 
 def parse_front_matter_value(raw_value: str):
+    lowered = raw_value.lower()
+    if lowered in {"true", "false"}:
+        return lowered == "true"
+    if re.fullmatch(r"-?\d+(\.\d+)?", raw_value):
+        return float(raw_value) if "." in raw_value else int(raw_value)
     if raw_value.startswith("[") and raw_value.endswith("]"):
         return [
             item.strip().strip("\"'")
@@ -273,6 +296,59 @@ def compact_excerpt(text: str, max_length: int = 280) -> str:
 
 def slugify(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def coerce_bool(value: object, *, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower().strip() == "true"
+    return bool(value)
+
+
+def string_or_none(value: object) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def dedupe_authorities(authorities: list[AuthorityRecord]) -> list[AuthorityRecord]:
+    winners: dict[str, AuthorityRecord] = {}
+    for authority in authorities:
+        key = canonical_authority_key(authority)
+        current = winners.get(key)
+        if current is None or authority_sort_key(authority) > authority_sort_key(current):
+            winners[key] = authority
+    return list(winners.values())
+
+
+def canonical_authority_key(authority: AuthorityRecord) -> str:
+    if authority.authority_id:
+        return authority.authority_id
+    return slugify(
+        "|".join(
+            [
+                authority.source_type,
+                authority.citation or "",
+                authority.title or "",
+                authority.source_url or "",
+            ]
+        )
+    )
+
+
+def authority_sort_key(authority: AuthorityRecord) -> tuple[str, str, float]:
+    return (
+        authority.effective_date or "",
+        authority.ingestion_timestamp or current_timestamp(),
+        authority.authority_weight,
+    )
+
+
+def current_timestamp() -> str:
+    return datetime.now(UTC).replace(microsecond=0).isoformat()
 
 
 def keyword_match(keywords: Iterable[str], haystack: str) -> bool:
@@ -410,5 +486,12 @@ def rank_authority(
             score -= 0.2
     else:
         score += max(0.0, 1.0 - (SOURCE_PRIORITY[authority.source_type] * 0.1))
+
+    if authority.source_type in PRIMARY_SUPPORT_TYPES:
+        score += 0.45
+    elif authority.source_type in SECONDARY_SUPPORT_TYPES:
+        score -= 0.15
+    elif authority.source_type in INTERNAL_ONLY_TYPES:
+        score -= 0.5
 
     return round(max(score, 0.0), 3)
