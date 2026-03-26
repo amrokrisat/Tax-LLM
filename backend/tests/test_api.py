@@ -305,3 +305,55 @@ def test_matter_store_migrates_older_analysis_run_schema(monkeypatch, tmp_path):
     assert len(analyze_response.json()["matter"]["analysis_runs"]) == 1
 
     app.dependency_overrides.clear()
+
+
+def test_analyze_matter_surfaces_unhandled_errors(monkeypatch, tmp_path):
+    store = MatterStore(base_dir=tmp_path / "matters")
+    monkeypatch.setattr(routes, "_matter_store", lambda: store)
+    app.dependency_overrides[get_auth_store] = lambda: AuthStore(base_dir=tmp_path / "auth")
+
+    auth_response = client.post(
+        "/api/v1/auth/signup",
+        json={"email": "broken@example.com", "password": "secret123", "name": "Broken User"},
+    )
+    session_token = auth_response.json()["session_token"]
+    headers = {"X-Tax-Session": session_token}
+
+    payload = {
+        "matter_name": "Broken Matter",
+        "transaction_type": "stock sale",
+        "facts": {
+            "transaction_name": "Broken Matter",
+            "summary": "Buyer is evaluating stock and asset paths.",
+            "entities": ["Buyer", "Target"],
+            "jurisdictions": ["United States"],
+            "transaction_type": "stock sale",
+            "stated_goals": ["Preserve optionality"],
+            "constraints": ["Seller prefers stock"],
+            "consideration_mix": "Cash",
+            "proposed_steps": "Buyer acquires stock.",
+            "rollover_equity": False,
+            "deemed_asset_sale_election": False,
+            "contribution_transactions": False,
+            "partnership_issues": False,
+            "debt_financing": False,
+            "earnout": False,
+            "withholding": False,
+            "state_tax": False,
+            "international": False,
+        },
+        "uploaded_documents": [],
+    }
+
+    matter_id = client.post("/api/v1/matters", json=payload, headers=headers).json()["matter"]["matter_id"]
+
+    def _explode(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(store, "append_analysis_run", _explode)
+    analyze_response = client.post(f"/api/v1/matters/{matter_id}/analyze", json=payload, headers=headers)
+
+    assert analyze_response.status_code == 500
+    assert "Analyze matter failed: RuntimeError: boom" == analyze_response.json()["detail"]
+
+    app.dependency_overrides.clear()

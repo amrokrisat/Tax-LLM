@@ -200,14 +200,13 @@ def analyze_matter(
     use_case: AnalyzeTransactionUseCase = Depends(get_analyze_transaction_use_case),
     current_user_id: str = Depends(get_current_user_id),
 ):
-    facts = TransactionFacts(**payload.facts.model_dump())
-    uploaded_documents = [
-        UploadedDocument(**document.model_dump())
-        for document in payload.uploaded_documents
-    ]
-    result = use_case.execute(facts=facts, uploaded_documents=uploaded_documents)
-
     try:
+        facts = TransactionFacts(**payload.facts.model_dump())
+        uploaded_documents = [
+            UploadedDocument(**document.model_dump())
+            for document in payload.uploaded_documents
+        ]
+        result = use_case.execute(facts=facts, uploaded_documents=uploaded_documents)
         matter = _matter_store().append_analysis_run(
             matter_id=matter_id,
             user_id=current_user_id,
@@ -217,6 +216,11 @@ def analyze_matter(
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Matter not found.") from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Analyze matter failed: {type(exc).__name__}: {exc}",
+        ) from exc
 
     return MatterResponse(matter=matter)
 
