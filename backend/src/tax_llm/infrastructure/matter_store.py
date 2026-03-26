@@ -293,11 +293,28 @@ class MatterStore:
                 );
                 """
             )
-            columns = {row["name"] for row in connection.execute("PRAGMA table_info(analysis_runs)").fetchall()}
-            if "reviewed_sections_json" not in columns:
+            matter_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(matters)").fetchall()
+            }
+            if "owner_user_id" not in matter_columns:
                 connection.execute(
-                    "ALTER TABLE analysis_runs ADD COLUMN reviewed_sections_json TEXT NOT NULL DEFAULT '[]'"
+                    "ALTER TABLE matters ADD COLUMN owner_user_id TEXT NOT NULL DEFAULT ''"
                 )
+
+            analysis_run_columns = {
+                row["name"] for row in connection.execute("PRAGMA table_info(analysis_runs)").fetchall()
+            }
+            analysis_run_migrations = {
+                "review_status": "ALTER TABLE analysis_runs ADD COLUMN review_status TEXT NOT NULL DEFAULT 'unreviewed'",
+                "reviewed_at": "ALTER TABLE analysis_runs ADD COLUMN reviewed_at TEXT",
+                "reviewed_by": "ALTER TABLE analysis_runs ADD COLUMN reviewed_by TEXT",
+                "reviewer_notes_json": "ALTER TABLE analysis_runs ADD COLUMN reviewer_notes_json TEXT NOT NULL DEFAULT '[]'",
+                "pinned_authority_ids_json": "ALTER TABLE analysis_runs ADD COLUMN pinned_authority_ids_json TEXT NOT NULL DEFAULT '[]'",
+                "reviewed_sections_json": "ALTER TABLE analysis_runs ADD COLUMN reviewed_sections_json TEXT NOT NULL DEFAULT '[]'",
+            }
+            for column_name, ddl in analysis_run_migrations.items():
+                if column_name not in analysis_run_columns:
+                    connection.execute(ddl)
 
     def _migrate_legacy_json(self, base_dir: Path | None) -> None:
         legacy_dir = None
