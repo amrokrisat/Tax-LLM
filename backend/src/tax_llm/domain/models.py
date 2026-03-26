@@ -14,12 +14,14 @@ SourceType = Literal[
 ]
 
 CoverageStatus = Literal["covered", "under_supported"]
+DocumentSource = Literal["pasted", "uploaded"]
 
 
 class UploadedDocument(BaseModel):
     file_name: str
     document_type: str
     content: str
+    source: DocumentSource = "pasted"
 
 
 class TransactionFacts(BaseModel):
@@ -144,3 +146,39 @@ class AnalysisResult(BaseModel):
     completeness_warning: str
     confidence_label: Literal["high", "medium", "low"]
     retrieval_complete: bool
+
+
+class AnalysisRun(BaseModel):
+    run_id: str
+    created_at: str
+    facts: TransactionFacts
+    uploaded_documents: List[UploadedDocument] = Field(default_factory=list)
+    result: AnalysisResult
+
+
+class MatterRecord(BaseModel):
+    matter_id: str
+    owner_user_id: str = ""
+    matter_name: str
+    transaction_type: str
+    facts: TransactionFacts
+    uploaded_documents: List[UploadedDocument] = Field(default_factory=list)
+    latest_analysis: AnalysisResult | None = None
+    analysis_runs: List[AnalysisRun] = Field(default_factory=list)
+    created_at: str
+    updated_at: str
+
+
+class UserRecord(BaseModel):
+    user_id: str
+    email: str
+    password_hash: str
+    name: str
+    created_at: str
+    updated_at: str
+
+
+class SessionRecord(BaseModel):
+    session_token: str
+    user_id: str
+    created_at: str

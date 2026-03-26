@@ -11,3 +11,8 @@ coverage/
 frontend/.next/
 backend/.ruff_cache/
 backend/.pytest_cache/
+.env
+.env.local
+.env.*.local
+frontend/.env.local
+backend/.env

@@ -29,6 +29,11 @@ body {
   min-height: 100vh;
 }
 
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
 .page-shell {
   max-width: 1480px;
   margin: 0 auto;
@@ -41,6 +46,22 @@ body {
   gap: 24px;
   align-items: stretch;
   margin-bottom: 28px;
+}
+
+.matters-hero h1 {
+  max-width: 12ch;
+}
+
+.auth-shell .hero {
+  align-items: start;
+}
+
+.auth-panel {
+  padding: 28px;
+}
+
+.auth-toggle {
+  margin-bottom: 18px;
 }
 
 .hero-copy,
@@ -93,6 +114,24 @@ h1 {
   grid-template-columns: minmax(380px, 0.9fr) minmax(700px, 1.2fr);
   gap: 24px;
   align-items: start;
+}
+
+.matter-header {
+  margin-bottom: 24px;
+}
+
+.matter-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.matter-title {
+  font-size: clamp(2.1rem, 4vw, 3.4rem);
+  line-height: 0.98;
+  margin-bottom: 10px;
+  max-width: 14ch;
 }
 
 .panel {
@@ -206,6 +245,12 @@ textarea {
   flex-wrap: wrap;
 }
 
+.link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .actions-row,
 .row-between {
   display: flex;
@@ -219,6 +264,97 @@ textarea {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.matter-list {
+  display: grid;
+  gap: 16px;
+}
+
+.matter-list-card {
+  padding: 22px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--panel-strong);
+  box-shadow: 0 12px 22px rgba(73, 48, 25, 0.05);
+}
+
+.empty-state {
+  padding: 32px;
+  border-radius: 18px;
+  border: 1px dashed rgba(31, 30, 26, 0.18);
+  background: rgba(255, 250, 242, 0.55);
+}
+
+.run-history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.run-history-card {
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fffdf8;
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.run-history-card.active {
+  border-color: rgba(162, 77, 42, 0.34);
+  box-shadow: 0 10px 20px rgba(73, 48, 25, 0.08);
+}
+
+.comparison-card {
+  padding: 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: rgba(255, 253, 248, 0.82);
+}
+
+.comparison-card p {
+  margin: 0;
+}
+
+.comparison-card p + p {
+  margin-top: 10px;
+}
+
+.tab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tab-button {
+  border: 1px solid var(--line);
+  background: rgba(255, 253, 248, 0.88);
+  color: var(--muted);
+  padding: 10px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.tab-button.active {
+  color: var(--accent);
+  border-color: rgba(162, 77, 42, 0.22);
+  background: rgba(162, 77, 42, 0.08);
+}
+
+.file-input-button {
+  position: relative;
+  overflow: hidden;
+}
+
+.file-input-button input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
 }
 
 .checkbox {
@@ -637,6 +773,7 @@ ul {
 @media (max-width: 980px) {
   .hero,
   .workspace-grid,
+  .matter-layout,
   .metrics-row,
   .two-col,
   .analysis-two-col,

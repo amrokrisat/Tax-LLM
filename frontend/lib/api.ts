@@ -2,6 +2,7 @@ export type UploadedDocumentInput = {
   file_name: string;
   document_type: string;
   content: string;
+  source?: "pasted" | "uploaded";
 };
 
 export type TransactionFactsInput = {
@@ -127,6 +128,47 @@ export type AnalysisResult = {
   retrieval_complete: boolean;
 };
 
+export type AnalysisRun = {
+  run_id: string;
+  created_at: string;
+  facts: TransactionFactsInput;
+  uploaded_documents: UploadedDocumentInput[];
+  result: AnalysisResult;
+};
+
+export type MatterRecord = {
+  matter_id: string;
+  matter_name: string;
+  transaction_type: string;
+  facts: TransactionFactsInput;
+  uploaded_documents: UploadedDocumentInput[];
+  latest_analysis: AnalysisResult | null;
+  analysis_runs: AnalysisRun[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type MatterInput = {
+  matter_name: string;
+  transaction_type: string;
+  facts: TransactionFactsInput;
+  uploaded_documents: UploadedDocumentInput[];
+};
+
+export type UserRecord = {
+  user_id: string;
+  email: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AuthPayload = {
+  email: string;
+  password: string;
+  name?: string;
+};
+
 export async function getDemoScenario(): Promise<AnalyzeTransactionRequest> {
   const response = await fetch(`/api/demo/scenario`, {
     cache: "no-store",
@@ -156,6 +198,108 @@ export async function analyzeTransaction(
 
   const data = (await response.json()) as { result: AnalysisResult };
   return data.result;
+}
+
+async function parseMatterResponse(response: Response): Promise<MatterRecord> {
+  if (!response.ok) {
+    throw new Error("The matter request could not be completed.");
+  }
+
+  const data = (await response.json()) as { matter: MatterRecord };
+  return data.matter;
+}
+
+async function parseUserResponse(response: Response): Promise<UserRecord> {
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail ?? "Authentication request failed.");
+  }
+
+  const data = (await response.json()) as { user: UserRecord };
+  return data.user;
+}
+
+export async function signUp(payload: AuthPayload): Promise<UserRecord> {
+  const response = await fetch("/api/auth/signup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseUserResponse(response);
+}
+
+export async function signIn(payload: AuthPayload): Promise<UserRecord> {
+  const response = await fetch("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return parseUserResponse(response);
+}
+
+export async function signOut(): Promise<void> {
+  await fetch("/api/auth/logout", { method: "POST" });
+}
+
+export async function currentUser(): Promise<UserRecord | null> {
+  const response = await fetch("/api/auth/me", { cache: "no-store" });
+  if (response.status === 401) {
+    return null;
+  }
+  return parseUserResponse(response);
+}
+
+export async function listMatters(): Promise<MatterRecord[]> {
+  const response = await fetch("/api/matters", { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error("Failed to load matters.");
+  }
+  const data = (await response.json()) as { matters: MatterRecord[] };
+  return data.matters;
+}
+
+export async function createMatter(payload: MatterInput): Promise<MatterRecord> {
+  const response = await fetch("/api/matters", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseMatterResponse(response);
+}
+
+export async function getMatter(matterId: string): Promise<MatterRecord> {
+  const response = await fetch(`/api/matters/${matterId}`, { cache: "no-store" });
+  return parseMatterResponse(response);
+}
+
+export async function updateMatter(
+  matterId: string,
+  payload: MatterInput,
+): Promise<MatterRecord> {
+  const response = await fetch(`/api/matters/${matterId}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseMatterResponse(response);
+}
+
+export async function analyzeMatter(
+  matterId: string,
+  payload: MatterInput,
+): Promise<MatterRecord> {
+  const response = await fetch(`/api/matters/${matterId}/analyze`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  return parseMatterResponse(response);
 }
 
 export const emptyRequest: AnalyzeTransactionRequest = {

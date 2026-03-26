@@ -4,13 +4,14 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from tax_llm.domain.models import AnalysisResult
+from tax_llm.domain.models import AnalysisResult, MatterRecord
 
 
 class UploadedDocumentInput(BaseModel):
     file_name: str
     document_type: str
     content: str
+    source: str = "pasted"
 
 
 class TransactionFactsInput(BaseModel):
@@ -41,3 +42,42 @@ class AnalyzeTransactionRequest(BaseModel):
 
 class AnalyzeTransactionResponse(BaseModel):
     result: AnalysisResult
+
+
+class MatterInput(BaseModel):
+    matter_name: str
+    transaction_type: str
+    facts: TransactionFactsInput
+    uploaded_documents: List[UploadedDocumentInput] = Field(default_factory=list)
+
+
+class MatterResponse(BaseModel):
+    matter: MatterRecord
+
+
+class MatterListResponse(BaseModel):
+    matters: List[MatterRecord]
+
+
+class AuthCredentialsInput(BaseModel):
+    email: str
+    password: str
+    name: str = ""
+
+
+class GoogleAuthInput(BaseModel):
+    email: str
+    name: str
+
+
+class AuthUserResponse(BaseModel):
+    user_id: str
+    email: str
+    name: str
+    created_at: str
+    updated_at: str
+
+
+class AuthSessionResponse(BaseModel):
+    session_token: str
+    user: AuthUserResponse

@@ -1,5 +1,7 @@
-import { Workspace } from "@/components/workspace";
+import { LandingPage } from "@/components/landing-page";
+import { getServerUser } from "@/lib/server-auth";
 
-export default function HomePage() {
-  return <Workspace />;
+export default async function HomePage() {
+  const user = await getServerUser();
+  return <LandingPage signedIn={Boolean(user)} />;
 }
