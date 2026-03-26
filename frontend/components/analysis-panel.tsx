@@ -33,11 +33,11 @@ type SupportLabel = ReturnType<typeof supportLabel>;
 function supportCopy(label: ReturnType<typeof supportLabel>) {
   switch (label) {
     case "primary":
-      return "Primary-authority supported";
+      return "Primary support";
     case "secondary":
-      return "Secondary-authority supported";
+      return "Secondary support";
     case "internal":
-      return "Internal-only / preliminary";
+      return "Preliminary only";
     default:
       return "Unsupported";
   }
@@ -199,13 +199,20 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
                 <summary className="authority-summary">
                   <div className="authority-heading">
                     <h4>{bucket.label}</h4>
-                    <p className="microcopy">Issue bucket: {bucket.bucket}</p>
+                    <p className="microcopy">
+                      {bucket.authorities.length > 0
+                        ? "Authorities reviewed before drafting"
+                        : "No authority retrieved yet"}
+                    </p>
                   </div>
                   <div className="summary-meta">
-                    <span className="microcopy">{bucket.authorities.length} authorities</span>
+                    <span className="summary-count">
+                      {bucket.authorities.length}{" "}
+                      {bucket.authorities.length === 1 ? "authority" : "authorities"}
+                    </span>
                     <span className={`support-pill ${supportTone(label)}`}>{supportCopy(label)}</span>
                     <span className="summary-caret" aria-hidden="true">
-                      Expand
+                      Review
                     </span>
                   </div>
                 </summary>

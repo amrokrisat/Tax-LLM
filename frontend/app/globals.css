@@ -401,9 +401,20 @@ ul {
   gap: 6px;
 }
 
+.authority-heading h4 {
+  margin-bottom: 0;
+}
+
+.summary-count {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 .summary-caret {
   color: var(--muted);
   font-size: 0.84rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .authority-grid {
