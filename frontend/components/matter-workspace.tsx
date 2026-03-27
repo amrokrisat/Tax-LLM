@@ -4,6 +4,7 @@ import Link from "next/link";
 import {
   ChangeEvent,
   startTransition,
+  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -13,12 +14,14 @@ import {
 import { AppShell } from "@/components/app-shell";
 import {
   AnalysisRun,
+  AnalysisRunSummary,
   AuthorityRecord,
   BucketCoverage,
   DocumentFactConfirmation,
   ExtractedFact,
   MatterRecord,
   MatterInput,
+  MatterWorkspaceRecord,
   RunReviewInput,
   UploadedDocumentInput,
   analyzeMatter,
@@ -26,7 +29,8 @@ import {
   exportRunMarkdown,
   extractMatterDocuments,
   getDemoScenario,
-  getMatter,
+  getMatterRun,
+  getMatterWorkspace,
   reviewRun,
   updateMatter,
 } from "@/lib/api";
@@ -116,6 +120,35 @@ function createMatterInput(
     facts: draftFacts,
     uploaded_documents: draftDocuments,
   };
+}
+
+function summarizeRun(run: AnalysisRun): AnalysisRunSummary {
+  return {
+    run_id: run.run_id,
+    created_at: run.created_at,
+    issue_bucket_count: run.result.classification.length,
+    authority_count: run.result.authorities_reviewed.length,
+    review_status: run.review_status,
+    reviewed_at: run.reviewed_at,
+    reviewed_by: run.reviewed_by,
+  };
+}
+
+function summarizeMatter(matter: MatterRecord): MatterWorkspaceRecord {
+  return {
+    matter_id: matter.matter_id,
+    matter_name: matter.matter_name,
+    transaction_type: matter.transaction_type,
+    facts: matter.facts,
+    uploaded_documents: matter.uploaded_documents,
+    analysis_runs: matter.analysis_runs.map(summarizeRun),
+    created_at: matter.created_at,
+    updated_at: matter.updated_at,
+  };
+}
+
+function mapRunsById(runs: AnalysisRun[]) {
+  return Object.fromEntries(runs.map((run) => [run.run_id, run])) as Record<string, AnalysisRun>;
 }
 
 function compareRuns(currentRun: AnalysisRun | null, previousRun: AnalysisRun | null) {
@@ -250,7 +283,8 @@ function downloadTextFile(fileName: string, content: string) {
 }
 
 export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
-  const [matter, setMatter] = useState<MatterRecord | null>(null);
+  const [matter, setMatter] = useState<MatterWorkspaceRecord | null>(null);
+  const [runDetailsById, setRunDetailsById] = useState<Record<string, AnalysisRun>>({});
   const [draftMatterName, setDraftMatterName] = useState("");
   const [draftFacts, setDraftFacts] = useState<MatterRecord["facts"] | null>(null);
   const [draftDocuments, setDraftDocuments] = useState<UploadedDocumentInput[]>([]);
@@ -267,18 +301,38 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
   const [reviewSaving, setReviewSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [copyingExport, setCopyingExport] = useState(false);
+  const [loadingRunIds, setLoadingRunIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const deferredActiveTab = useDeferredValue(activeTab);
 
-  function syncMatter(nextMatter: MatterRecord) {
+  function syncWorkspace(nextMatter: MatterWorkspaceRecord, nextRunDetailsById: Record<string, AnalysisRun> = {}) {
     setMatter(nextMatter);
+    setRunDetailsById((current) => ({ ...current, ...nextRunDetailsById }));
     setDraftMatterName(nextMatter.matter_name);
     setDraftFacts(nextMatter.facts);
     setDraftDocuments(nextMatter.uploaded_documents);
     setSelectedRunId((current) => current ?? nextMatter.analysis_runs[0]?.run_id ?? null);
     setCompareRunId((current) => current || (nextMatter.analysis_runs[1]?.run_id ?? ""));
   }
+
+  function syncFullMatter(nextMatter: MatterRecord) {
+    syncWorkspace(summarizeMatter(nextMatter), mapRunsById(nextMatter.analysis_runs));
+  }
+
+  const ensureRunDetail = useCallback(async (runId: string) => {
+    if (runDetailsById[runId] || loadingRunIds.includes(runId)) {
+      return;
+    }
+
+    setLoadingRunIds((current) => [...current, runId]);
+    try {
+      const run = await getMatterRun(matterId, runId);
+      setRunDetailsById((current) => ({ ...current, [runId]: run }));
+    } finally {
+      setLoadingRunIds((current) => current.filter((currentRunId) => currentRunId !== runId));
+    }
+  }, [loadingRunIds, matterId, runDetailsById]);
 
   useEffect(() => {
     async function loadMatter() {
@@ -287,8 +341,8 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
       setError(null);
 
       try {
-        const nextMatter = await getMatter(matterId);
-        syncMatter(nextMatter);
+        const nextMatter = await getMatterWorkspace(matterId);
+        syncWorkspace(nextMatter);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Failed to load matter.");
       } finally {
@@ -300,14 +354,32 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     void loadMatter();
   }, [matterId]);
 
+  useEffect(() => {
+    if (selectedRunId) {
+      void ensureRunDetail(selectedRunId).catch((loadError) => {
+        setError(loadError instanceof Error ? loadError.message : "Failed to load analysis run.");
+      });
+    }
+  }, [ensureRunDetail, selectedRunId]);
+
+  useEffect(() => {
+    if (compareRunId) {
+      void ensureRunDetail(compareRunId).catch((loadError) => {
+        setError(loadError instanceof Error ? loadError.message : "Failed to load comparison run.");
+      });
+    }
+  }, [compareRunId, ensureRunDetail]);
+
   const selectedRun = useMemo(
-    () => matter?.analysis_runs.find((run) => run.run_id === selectedRunId) ?? matter?.analysis_runs[0] ?? null,
-    [matter, selectedRunId],
+    () =>
+      (selectedRunId ? runDetailsById[selectedRunId] : null) ??
+      (matter?.analysis_runs[0] ? runDetailsById[matter.analysis_runs[0].run_id] ?? null : null),
+    [matter, runDetailsById, selectedRunId],
   );
   const deferredSelectedRun = useDeferredValue(selectedRun);
   const compareRun = useMemo(
-    () => matter?.analysis_runs.find((run) => run.run_id === compareRunId) ?? null,
-    [matter, compareRunId],
+    () => (compareRunId ? runDetailsById[compareRunId] ?? null : null),
+    [compareRunId, runDetailsById],
   );
   const comparison = useMemo(() => compareRuns(deferredSelectedRun, compareRun), [deferredSelectedRun, compareRun]);
 
@@ -318,7 +390,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
 
   if (loading) {
     return (
-      <AppShell>
+      <AppShell variant="app">
         <main className="page-shell">
           <div className="workspace-loading">
             <div className="loading-card" />
@@ -334,7 +406,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
 
   if (!matter || !draftFacts) {
     return (
-      <AppShell>
+      <AppShell variant="app">
         <main className="page-shell">
           <section className="workspace-main-panel stack">
             <h2>Matter unavailable</h2>
@@ -348,9 +420,10 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     );
   }
 
-  const activeAnalysis = deferredSelectedRun?.result ?? matter.latest_analysis;
+  const activeAnalysis = deferredSelectedRun?.result ?? null;
   const currentMatterId = matter.matter_id;
   const currentDraftFacts = draftFacts;
+  const selectedRunLoading = Boolean(selectedRunId && !deferredSelectedRun && loadingRunIds.includes(selectedRunId));
   const warningBuckets =
     activeAnalysis?.bucket_coverage.filter(
       (bucket) =>
@@ -444,11 +517,11 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
   }
 
   async function persistDraftMatter() {
-    const nextMatter = await updateMatter(
-      currentMatterId,
-      createMatterInput(draftMatterName, currentDraftFacts, draftDocuments),
-    );
-    syncMatter(nextMatter);
+      const nextMatter = await updateMatter(
+        currentMatterId,
+        createMatterInput(draftMatterName, currentDraftFacts, draftDocuments),
+      );
+    syncFullMatter(nextMatter);
     return nextMatter;
   }
 
@@ -509,7 +582,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
         currentMatterId,
         createMatterInput(draftMatterName, currentDraftFacts, draftDocuments),
       );
-      syncMatter(nextMatter);
+      syncFullMatter(nextMatter);
       setSelectedRunId(nextMatter.analysis_runs[0]?.run_id ?? null);
       setCompareRunId(nextMatter.analysis_runs[1]?.run_id ?? "");
       setActiveTab("issues");
@@ -532,7 +605,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
         await persistDraftMatter();
       }
       const nextMatter = await extractMatterDocuments(currentMatterId);
-      syncMatter(nextMatter);
+      syncFullMatter(nextMatter);
       setActiveTab("documents");
       setSuccess("Extracted text and fact candidates generated.");
     } catch (extractError) {
@@ -567,7 +640,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
       }
 
       const nextMatter = await confirmExtractedFacts(currentMatterId, confirmations);
-      syncMatter(nextMatter);
+      syncFullMatter(nextMatter);
       setSuccess("Extracted fact review saved.");
     } catch (confirmError) {
       setError(confirmError instanceof Error ? confirmError.message : "Failed to confirm extracted facts.");
@@ -593,7 +666,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     setSuccess(null);
     try {
       const nextMatter = await reviewRun(currentMatterId, selectedRun.run_id, payload);
-      syncMatter(nextMatter);
+      syncFullMatter(nextMatter);
       setSelectedRunId(selectedRun.run_id);
       setSuccess(successMessage);
     } catch (reviewError) {
@@ -708,7 +781,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
   }
 
   return (
-    <AppShell>
+    <AppShell variant="app" currentMatterName={draftMatterName}>
       <main className="page-shell">
         <MatterHeader
           matterName={draftMatterName}
@@ -732,7 +805,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
         <section className="workspace-grid-v3">
           <RunHistoryPanel
             runs={matter.analysis_runs}
-            selectedRunId={deferredSelectedRun?.run_id ?? null}
+            selectedRunId={selectedRunId}
             compareRunId={compareRunId}
             onSelectRun={setSelectedRunId}
             onCompareChange={setCompareRunId}
@@ -756,6 +829,20 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
                 })
               }
             />
+
+            {selectedRunLoading &&
+            (deferredActiveTab === "issues" ||
+              deferredActiveTab === "authorities" ||
+              deferredActiveTab === "alternatives" ||
+              deferredActiveTab === "memo" ||
+              deferredActiveTab === "warnings") ? (
+              <div className="subpanel stack">
+                <h3>Loading run detail</h3>
+                <p className="muted">
+                  Fetching the selected analysis run before rendering this section.
+                </p>
+              </div>
+            ) : null}
 
             {deferredActiveTab === "facts" ? (
               <FactsPane
@@ -783,7 +870,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
               />
             ) : null}
 
-            {deferredActiveTab === "issues" ? (
+            {deferredActiveTab === "issues" && !selectedRunLoading ? (
               <IssuesPane
                 activeAnalysis={activeAnalysis}
                 selectedRun={deferredSelectedRun}
@@ -793,7 +880,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
               />
             ) : null}
 
-            {deferredActiveTab === "authorities" ? (
+            {deferredActiveTab === "authorities" && !selectedRunLoading ? (
               <AuthoritiesPane
                 activeAnalysis={activeAnalysis}
                 selectedRun={deferredSelectedRun}
@@ -806,11 +893,11 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
               />
             ) : null}
 
-            {deferredActiveTab === "alternatives" ? (
+            {deferredActiveTab === "alternatives" && !selectedRunLoading ? (
               <AlternativesPane activeAnalysis={activeAnalysis} />
             ) : null}
 
-            {deferredActiveTab === "memo" ? (
+            {deferredActiveTab === "memo" && !selectedRunLoading ? (
               <MemoPane
                 activeAnalysis={activeAnalysis}
                 selectedRun={deferredSelectedRun}
@@ -822,7 +909,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
               />
             ) : null}
 
-            {deferredActiveTab === "warnings" ? (
+            {deferredActiveTab === "warnings" && !selectedRunLoading ? (
               <WarningsPane activeAnalysis={activeAnalysis} warningBuckets={warningBuckets} supportLabel={supportLabel} />
             ) : null}
           </section>

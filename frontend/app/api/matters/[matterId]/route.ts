@@ -14,7 +14,7 @@ function backendBaseUrl() {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ matterId: string }> },
 ) {
   const { matterId } = await context.params;
@@ -22,7 +22,12 @@ export async function GET(
   if (!sessionToken) {
     return NextResponse.json({ detail: "Authentication required." }, { status: 401 });
   }
-  const response = await fetch(`${backendBaseUrl()}/api/v1/matters/${matterId}`, {
+  const url = new URL(`${backendBaseUrl()}/api/v1/matters/${matterId}`);
+  const view = request.nextUrl.searchParams.get("view");
+  if (view) {
+    url.searchParams.set("view", view);
+  }
+  const response = await fetch(url, {
     cache: "no-store",
     signal: AbortSignal.timeout(10000),
     headers: { "X-Tax-Session": sessionToken },

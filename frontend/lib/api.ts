@@ -155,6 +155,16 @@ export type AnalysisRun = {
   reviewed_sections: string[];
 };
 
+export type AnalysisRunSummary = {
+  run_id: string;
+  created_at: string;
+  issue_bucket_count: number;
+  authority_count: number;
+  review_status: "unreviewed" | "in_review" | "reviewed";
+  reviewed_at?: string | null;
+  reviewed_by?: string | null;
+};
+
 export type MatterRecord = {
   matter_id: string;
   matter_name: string;
@@ -163,6 +173,17 @@ export type MatterRecord = {
   uploaded_documents: UploadedDocumentInput[];
   latest_analysis: AnalysisResult | null;
   analysis_runs: AnalysisRun[];
+  created_at: string;
+  updated_at: string;
+};
+
+export type MatterWorkspaceRecord = {
+  matter_id: string;
+  matter_name: string;
+  transaction_type: string;
+  facts: TransactionFactsInput;
+  uploaded_documents: UploadedDocumentInput[];
+  analysis_runs: AnalysisRunSummary[];
   created_at: string;
   updated_at: string;
 };
@@ -258,6 +279,28 @@ async function parseMatterResponse(response: Response): Promise<MatterRecord> {
   return data.matter;
 }
 
+async function parseMatterWorkspaceResponse(response: Response): Promise<MatterWorkspaceRecord> {
+  if (!response.ok) {
+    const clone = response.clone();
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    const fallbackText = await clone.text().catch(() => "");
+    throw new Error((payload?.detail ?? fallbackText) || "The matter request could not be completed.");
+  }
+
+  const data = (await response.json()) as { matter: MatterWorkspaceRecord };
+  return data.matter;
+}
+
+async function parseRunResponse(response: Response): Promise<AnalysisRun> {
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail ?? "The analysis run could not be loaded.");
+  }
+
+  const data = (await response.json()) as { run: AnalysisRun };
+  return data.run;
+}
+
 async function parseUserResponse(response: Response): Promise<UserRecord> {
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
@@ -331,6 +374,20 @@ export async function createMatter(payload: MatterInput): Promise<MatterRecord> 
 export async function getMatter(matterId: string): Promise<MatterRecord> {
   const response = await fetch(`/api/matters/${matterId}`, { cache: "no-store" });
   return parseMatterResponse(response);
+}
+
+export async function getMatterWorkspace(matterId: string): Promise<MatterWorkspaceRecord> {
+  const response = await fetch(`/api/matters/${matterId}?view=workspace_summary`, {
+    cache: "no-store",
+  });
+  return parseMatterWorkspaceResponse(response);
+}
+
+export async function getMatterRun(matterId: string, runId: string): Promise<AnalysisRun> {
+  const response = await fetch(`/api/matters/${matterId}/runs/${runId}`, {
+    cache: "no-store",
+  });
+  return parseRunResponse(response);
 }
 
 export async function updateMatter(

@@ -97,7 +97,7 @@ export function MattersHome() {
   }
 
   return (
-    <AppShell actions={<LogoutButton />}>
+    <AppShell variant="app" actions={<LogoutButton />}>
       <main className="page-shell workspace-home">
         <section className="workspace-hero">
           <div className="workspace-hero-copy">

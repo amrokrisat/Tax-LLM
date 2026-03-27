@@ -17,6 +17,7 @@ from tax_llm.interfaces.api.dependencies import (
     get_current_user_id,
 )
 from tax_llm.interfaces.api.schemas import (
+    AnalysisRunResponse,
     AuthUserResponse,
     AuthCredentialsInput,
     AuthSessionResponse,
@@ -29,6 +30,7 @@ from tax_llm.interfaces.api.schemas import (
     MatterListResponse,
     MatterResponse,
     MatterSummaryListResponse,
+    MatterWorkspaceResponse,
     RunReviewInput,
 )
 from tax_llm.application.use_cases import AnalyzeTransactionUseCase
@@ -170,9 +172,17 @@ def create_matter(
     return MatterResponse(matter=matter)
 
 
-@router.get("/matters/{matter_id}", response_model=MatterResponse)
-def get_matter(matter_id: str, current_user_id: str = Depends(get_current_user_id)):
+@router.get("/matters/{matter_id}", response_model=MatterResponse | MatterWorkspaceResponse)
+def get_matter(
+    matter_id: str,
+    view: str | None = None,
+    current_user_id: str = Depends(get_current_user_id),
+):
     try:
+        if view == "workspace_summary":
+            return MatterWorkspaceResponse(
+                matter=_matter_store().get_matter_workspace(matter_id, user_id=current_user_id)
+            )
         return MatterResponse(matter=_matter_store().get_matter(matter_id, user_id=current_user_id))
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Matter not found.") from exc
@@ -286,6 +296,19 @@ def review_run(
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Matter or run not found.") from exc
     return MatterResponse(matter=matter)
+
+
+@router.get("/matters/{matter_id}/runs/{run_id}", response_model=AnalysisRunResponse)
+def get_run_detail(
+    matter_id: str,
+    run_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    try:
+        run = _matter_store().get_run(matter_id, current_user_id, run_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Matter or run not found.") from exc
+    return AnalysisRunResponse(run=run)
 
 
 @router.get("/matters/{matter_id}/runs/{run_id}/export", response_model=ExportMemoResponse)

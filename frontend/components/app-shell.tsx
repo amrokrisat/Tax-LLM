@@ -7,13 +7,21 @@ type AppShellProps = {
   children: ReactNode;
   actions?: ReactNode;
   compact?: boolean;
+  variant?: "public" | "app";
+  currentMatterName?: string | null;
 };
 
-export function AppShell({ children, actions, compact = false }: AppShellProps) {
+export function AppShell({
+  children,
+  actions,
+  compact = false,
+  variant = "public",
+  currentMatterName = null,
+}: AppShellProps) {
   return (
     <div className={`app-shell ${compact ? "compact" : ""}`}>
       <header className="app-topbar">
-        <Link className="app-brand" href="/">
+        <Link className="app-brand" href={variant === "app" ? "/app" : "/"}>
           <span className="app-brand-mark">TL</span>
           <span className="app-brand-copy">
             <strong>Tax LLM</strong>
@@ -21,9 +29,14 @@ export function AppShell({ children, actions, compact = false }: AppShellProps) 
           </span>
         </Link>
         <nav className="app-nav" aria-label="Primary">
-          <Link href="/">Overview</Link>
-          <Link href="/app">Workspace</Link>
-          <Link href="/login">Login</Link>
+          {variant === "app" ? (
+            <>
+              <Link href="/app">Matters</Link>
+              {currentMatterName ? <span className="app-nav-context">{currentMatterName}</span> : null}
+            </>
+          ) : (
+            <Link href="/login">Login</Link>
+          )}
         </nav>
         <div className="app-topbar-actions">
           <ThemeToggle />

@@ -20,13 +20,11 @@ export default function RootLayout({
             __html: `
               (function () {
                 try {
-                  var theme = localStorage.getItem("tax-llm-theme") || "system";
-                  var resolved = theme === "system"
-                    ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
-                    : theme;
-                  document.documentElement.dataset.theme = resolved;
+                  var theme = localStorage.getItem("tax-llm-theme");
+                  document.documentElement.dataset.theme =
+                    theme === "light" || theme === "dark" ? theme : "dark";
                 } catch (error) {
-                  document.documentElement.dataset.theme = "light";
+                  document.documentElement.dataset.theme = "dark";
                 }
               })();
             `,

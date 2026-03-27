@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 
-export type Theme = "light" | "dark" | "system";
+export type Theme = "light" | "dark";
 
 type ThemeContextValue = {
   theme: Theme;
@@ -23,40 +23,24 @@ const STORAGE_KEY = "tax-llm-theme";
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-function systemTheme(): "light" | "dark" {
-  if (typeof window === "undefined") {
-    return "light";
-  }
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-}
-
 function applyTheme(theme: Theme) {
-  const resolved = theme === "system" ? systemTheme() : theme;
-  document.documentElement.dataset.theme = resolved;
+  document.documentElement.dataset.theme = theme;
 }
 
 function readStoredTheme(): Theme {
   if (typeof window === "undefined") {
-    return "system";
+    return "dark";
   }
-  return (window.localStorage.getItem(STORAGE_KEY) as Theme | null) ?? "system";
+  const stored = window.localStorage.getItem(STORAGE_KEY);
+  return stored === "light" || stored === "dark" ? stored : "dark";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => readStoredTheme());
-  const [systemPreference, setSystemPreference] = useState<"light" | "dark">(() =>
-    systemTheme(),
-  );
-  const resolvedTheme = theme === "system" ? systemPreference : theme;
+  const resolvedTheme = theme;
 
   useEffect(() => {
-    const media = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = () => {
-      setSystemPreference(systemTheme());
-    };
     applyTheme(theme);
-    media.addEventListener("change", handleChange);
-    return () => media.removeEventListener("change", handleChange);
   }, [theme]);
 
   const setTheme = useCallback((themeValue: Theme) => {
@@ -66,8 +50,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const cycleTheme = useCallback(() => {
-    const nextTheme =
-      theme === "light" ? "dark" : theme === "dark" ? "system" : "light";
+    const nextTheme = theme === "light" ? "dark" : "light";
     setTheme(nextTheme);
   }, [setTheme, theme]);
 

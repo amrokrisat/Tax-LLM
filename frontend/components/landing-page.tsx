@@ -1,34 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
-import { currentUser, UserRecord } from "@/lib/api";
 
 export function LandingPage() {
-  const [user, setUser] = useState<UserRecord | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    void currentUser()
-      .then((nextUser) => {
-        if (alive) {
-          setUser(nextUser);
-        }
-      })
-      .catch(() => {
-        if (alive) {
-          setUser(null);
-        }
-      });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
   return (
-    <AppShell>
+    <AppShell variant="public">
       <main className="page-shell landing-shell">
         <section className="hero hero-grid">
           <div className="hero-copy">
@@ -37,11 +15,11 @@ export function LandingPage() {
             <p className="lede">
               Review stock, asset, and deemed-asset paths in one calm workspace. Save
               matters, preserve run history, inspect authorities, confirm extracted facts,
-              and circulate memo-ready analysis.
+              and circulate memo-ready analysis after you sign in.
             </p>
             <div className="button-row">
-              <Link className="button-primary link-button" href={user ? "/app" : "/login"}>
-                {user ? "Open workspace" : "Sign in"}
+              <Link className="button-primary link-button" href="/login">
+                Sign in
               </Link>
               <Link className="button-secondary link-button" href="/login">
                 Create account

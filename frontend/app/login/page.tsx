@@ -1,9 +1,17 @@
+import { redirect } from "next/navigation";
+
 import { AppShell } from "@/components/app-shell";
 import { AuthForm } from "@/components/auth-form";
+import { getServerUser } from "@/lib/server-auth";
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const user = await getServerUser();
+  if (user) {
+    redirect("/app");
+  }
+
   return (
-    <AppShell compact>
+    <AppShell compact variant="public">
       <main className="page-shell auth-shell">
         <section className="hero hero-grid">
           <div className="hero-copy">

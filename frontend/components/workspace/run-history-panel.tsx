@@ -2,9 +2,9 @@
 
 import { memo } from "react";
 
-import { AnalysisRun } from "@/lib/api";
+import { AnalysisRun, AnalysisRunSummary } from "@/lib/api";
 
-function reviewStatusLabel(status: AnalysisRun["review_status"]) {
+function reviewStatusLabel(status: AnalysisRunSummary["review_status"]) {
   if (status === "reviewed") {
     return "Reviewed";
   }
@@ -30,7 +30,7 @@ export const RunHistoryPanel = memo(function RunHistoryPanel({
   onSaveNote,
   onReviewStatusChange,
 }: {
-  runs: AnalysisRun[];
+  runs: AnalysisRunSummary[];
   selectedRunId: string | null;
   compareRunId: string;
   onSelectRun: (runId: string) => void;
@@ -77,7 +77,7 @@ export const RunHistoryPanel = memo(function RunHistoryPanel({
               >
                 <strong>{new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(run.created_at))}</strong>
                 <span className="microcopy">
-                  {run.result.classification.length} issue buckets · {run.result.authorities_reviewed.length} authorities
+                  {run.issue_bucket_count} issue buckets · {run.authority_count} authorities
                 </span>
                 <span className="support-pill support-secondary">{reviewStatusLabel(run.review_status)}</span>
               </button>

@@ -92,6 +92,65 @@ class MatterStore:
             )
         return summaries
 
+    def get_matter_workspace(self, matter_id: str, user_id: str | None = None) -> dict:
+        with connect_db(self.db_path) as connection:
+            row = connection.execute(
+                """
+                SELECT matter_id, owner_user_id, matter_name, transaction_type, facts_json,
+                       uploaded_documents_json, created_at, updated_at
+                FROM matters
+                WHERE matter_id = ?
+                """,
+                (matter_id,),
+            ).fetchone()
+            if not row:
+                raise FileNotFoundError(matter_id)
+
+            summary_rows = connection.execute(
+                """
+                SELECT
+                    run_id,
+                    created_at,
+                    result_json,
+                    review_status,
+                    reviewed_at,
+                    reviewed_by
+                FROM analysis_runs
+                WHERE matter_id = ?
+                ORDER BY created_at DESC
+                """,
+                (matter_id,),
+            ).fetchall()
+
+        if user_id and row["owner_user_id"] != user_id:
+            raise FileNotFoundError(matter_id)
+
+        run_summaries: list[dict] = []
+        for run in summary_rows:
+            result = json.loads(run["result_json"])
+            run_summaries.append(
+                {
+                    "run_id": run["run_id"],
+                    "created_at": run["created_at"],
+                    "issue_bucket_count": len(result.get("classification", [])),
+                    "authority_count": len(result.get("authorities_reviewed", [])),
+                    "review_status": run["review_status"] or "unreviewed",
+                    "reviewed_at": run["reviewed_at"],
+                    "reviewed_by": run["reviewed_by"],
+                }
+            )
+
+        return {
+            "matter_id": row["matter_id"],
+            "matter_name": row["matter_name"],
+            "transaction_type": row["transaction_type"],
+            "facts": json.loads(row["facts_json"]),
+            "uploaded_documents": json.loads(row["uploaded_documents_json"]),
+            "analysis_runs": run_summaries,
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
     def create_matter(
         self,
         owner_user_id: str,

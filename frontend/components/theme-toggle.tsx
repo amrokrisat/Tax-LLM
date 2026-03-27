@@ -5,7 +5,6 @@ import { useTheme } from "@/components/theme-provider";
 const themeCopy = {
   light: "Light",
   dark: "Dark",
-  system: "System",
 } as const;
 
 export function ThemeToggle() {

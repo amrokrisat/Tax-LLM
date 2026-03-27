@@ -4,7 +4,7 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from tax_llm.domain.models import AnalysisResult, MatterRecord
+from tax_llm.domain.models import AnalysisResult, AnalysisRun, MatterRecord, TransactionFacts, UploadedDocument
 
 
 class UploadedDocumentInput(BaseModel):
@@ -55,6 +55,31 @@ class MatterResponse(BaseModel):
     matter: MatterRecord
 
 
+class AnalysisRunSummary(BaseModel):
+    run_id: str
+    created_at: str
+    issue_bucket_count: int
+    authority_count: int
+    review_status: str
+    reviewed_at: str | None = None
+    reviewed_by: str | None = None
+
+
+class MatterWorkspace(BaseModel):
+    matter_id: str
+    matter_name: str
+    transaction_type: str
+    facts: TransactionFacts
+    uploaded_documents: List[UploadedDocument] = Field(default_factory=list)
+    analysis_runs: List[AnalysisRunSummary] = Field(default_factory=list)
+    created_at: str
+    updated_at: str
+
+
+class MatterWorkspaceResponse(BaseModel):
+    matter: MatterWorkspace
+
+
 class MatterSummary(BaseModel):
     matter_id: str
     matter_name: str
@@ -72,6 +97,10 @@ class MatterListResponse(BaseModel):
 
 class MatterSummaryListResponse(BaseModel):
     matters: List[MatterSummary]
+
+
+class AnalysisRunResponse(BaseModel):
+    run: AnalysisRun
 
 
 class DocumentFactConfirmationInput(BaseModel):

@@ -124,6 +124,26 @@ def test_matter_workflow(monkeypatch, tmp_path):
     matter = analyze_response.json()["matter"]
     assert matter["latest_analysis"] is not None
     assert len(matter["analysis_runs"]) == 1
+    run_id = matter["analysis_runs"][0]["run_id"]
+
+    workspace_response = client.get(
+        f"/api/v1/matters/{matter_id}?view=workspace_summary",
+        headers=headers,
+    )
+    assert workspace_response.status_code == 200
+    workspace_matter = workspace_response.json()["matter"]
+    assert workspace_matter["matter_id"] == matter_id
+    assert len(workspace_matter["analysis_runs"]) == 1
+    assert "result" not in workspace_matter["analysis_runs"][0]
+    assert workspace_matter["analysis_runs"][0]["run_id"] == run_id
+
+    run_response = client.get(
+        f"/api/v1/matters/{matter_id}/runs/{run_id}",
+        headers=headers,
+    )
+    assert run_response.status_code == 200
+    assert run_response.json()["run"]["run_id"] == run_id
+    assert run_response.json()["run"]["result"]["memo_sections"]
 
     list_response = client.get("/api/v1/matters", headers=headers)
     assert list_response.status_code == 200
