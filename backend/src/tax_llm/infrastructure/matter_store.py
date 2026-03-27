@@ -5,12 +5,35 @@ from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
-from tax_llm.domain.models import AnalysisResult, AnalysisRun, MatterRecord, TransactionFacts, UploadedDocument
+from tax_llm.domain.models import (
+    AnalysisResult,
+    AnalysisRun,
+    ElectionOrFilingItem,
+    Entity,
+    ExtractedFact,
+    MatterRecord,
+    OwnershipLink,
+    TaxClassification,
+    TransactionFacts,
+    TransactionRole,
+    TransactionStep,
+    UploadedDocument,
+)
 from tax_llm.infrastructure.database import connect_db, resolve_db_path
 
 
 def utc_now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+STRUCTURED_MATTER_COLUMNS = {
+    "entities_json": "[]",
+    "ownership_links_json": "[]",
+    "tax_classifications_json": "[]",
+    "transaction_roles_json": "[]",
+    "transaction_steps_json": "[]",
+    "election_items_json": "[]",
+}
 
 
 class MatterStore:
@@ -24,7 +47,9 @@ class MatterStore:
             rows = connection.execute(
                 """
                 SELECT matter_id, owner_user_id, matter_name, transaction_type, facts_json,
-                       uploaded_documents_json, latest_analysis_json, created_at, updated_at
+                       uploaded_documents_json, entities_json, ownership_links_json,
+                       tax_classifications_json, transaction_roles_json, transaction_steps_json,
+                       election_items_json, latest_analysis_json, created_at, updated_at
                 FROM matters
                 ORDER BY updated_at DESC
                 """
@@ -36,7 +61,9 @@ class MatterStore:
             rows = connection.execute(
                 """
                 SELECT matter_id, owner_user_id, matter_name, transaction_type, facts_json,
-                       uploaded_documents_json, latest_analysis_json, created_at, updated_at
+                       uploaded_documents_json, entities_json, ownership_links_json,
+                       tax_classifications_json, transaction_roles_json, transaction_steps_json,
+                       election_items_json, latest_analysis_json, created_at, updated_at
                 FROM matters
                 WHERE owner_user_id = ?
                 ORDER BY updated_at DESC
@@ -55,6 +82,12 @@ class MatterStore:
                     m.transaction_type,
                     m.facts_json,
                     m.uploaded_documents_json,
+                    m.entities_json,
+                    m.ownership_links_json,
+                    m.tax_classifications_json,
+                    m.transaction_roles_json,
+                    m.transaction_steps_json,
+                    m.election_items_json,
                     m.created_at,
                     m.updated_at,
                     COUNT(ar.run_id) AS analysis_run_count
@@ -67,6 +100,12 @@ class MatterStore:
                     m.transaction_type,
                     m.facts_json,
                     m.uploaded_documents_json,
+                    m.entities_json,
+                    m.ownership_links_json,
+                    m.tax_classifications_json,
+                    m.transaction_roles_json,
+                    m.transaction_steps_json,
+                    m.election_items_json,
                     m.created_at,
                     m.updated_at
                 ORDER BY m.updated_at DESC
@@ -97,7 +136,9 @@ class MatterStore:
             row = connection.execute(
                 """
                 SELECT matter_id, owner_user_id, matter_name, transaction_type, facts_json,
-                       uploaded_documents_json, created_at, updated_at
+                       uploaded_documents_json, entities_json, ownership_links_json,
+                       tax_classifications_json, transaction_roles_json, transaction_steps_json,
+                       election_items_json, created_at, updated_at
                 FROM matters
                 WHERE matter_id = ?
                 """,
@@ -146,6 +187,12 @@ class MatterStore:
             "transaction_type": row["transaction_type"],
             "facts": json.loads(row["facts_json"]),
             "uploaded_documents": json.loads(row["uploaded_documents_json"]),
+            "entities": json.loads(row["entities_json"]),
+            "ownership_links": json.loads(row["ownership_links_json"]),
+            "tax_classifications": json.loads(row["tax_classifications_json"]),
+            "transaction_roles": json.loads(row["transaction_roles_json"]),
+            "transaction_steps": json.loads(row["transaction_steps_json"]),
+            "election_items": json.loads(row["election_items_json"]),
             "analysis_runs": run_summaries,
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
@@ -158,6 +205,12 @@ class MatterStore:
         transaction_type: str,
         facts: TransactionFacts,
         uploaded_documents: list[UploadedDocument],
+        entities: list[Entity] | None = None,
+        ownership_links: list[OwnershipLink] | None = None,
+        tax_classifications: list[TaxClassification] | None = None,
+        transaction_roles: list[TransactionRole] | None = None,
+        transaction_steps: list[TransactionStep] | None = None,
+        election_items: list[ElectionOrFilingItem] | None = None,
     ) -> MatterRecord:
         timestamp = utc_now_iso()
         matter = MatterRecord(
@@ -167,6 +220,12 @@ class MatterStore:
             transaction_type=transaction_type,
             facts=facts,
             uploaded_documents=uploaded_documents,
+            entities=entities or [],
+            ownership_links=ownership_links or [],
+            tax_classifications=tax_classifications or [],
+            transaction_roles=transaction_roles or [],
+            transaction_steps=transaction_steps or [],
+            election_items=election_items or [],
             latest_analysis=None,
             analysis_runs=[],
             created_at=timestamp,
@@ -179,7 +238,9 @@ class MatterStore:
             row = connection.execute(
                 """
                 SELECT matter_id, owner_user_id, matter_name, transaction_type, facts_json,
-                       uploaded_documents_json, latest_analysis_json, created_at, updated_at
+                       uploaded_documents_json, entities_json, ownership_links_json,
+                       tax_classifications_json, transaction_roles_json, transaction_steps_json,
+                       election_items_json, latest_analysis_json, created_at, updated_at
                 FROM matters
                 WHERE matter_id = ?
                 """,
@@ -198,15 +259,23 @@ class MatterStore:
                 """
                 INSERT INTO matters (
                     matter_id, owner_user_id, matter_name, transaction_type, facts_json,
-                    uploaded_documents_json, latest_analysis_json, created_at, updated_at
+                    uploaded_documents_json, entities_json, ownership_links_json,
+                    tax_classifications_json, transaction_roles_json, transaction_steps_json,
+                    election_items_json, latest_analysis_json, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(matter_id) DO UPDATE SET
                     owner_user_id = excluded.owner_user_id,
                     matter_name = excluded.matter_name,
                     transaction_type = excluded.transaction_type,
                     facts_json = excluded.facts_json,
                     uploaded_documents_json = excluded.uploaded_documents_json,
+                    entities_json = excluded.entities_json,
+                    ownership_links_json = excluded.ownership_links_json,
+                    tax_classifications_json = excluded.tax_classifications_json,
+                    transaction_roles_json = excluded.transaction_roles_json,
+                    transaction_steps_json = excluded.transaction_steps_json,
+                    election_items_json = excluded.election_items_json,
                     latest_analysis_json = excluded.latest_analysis_json,
                     created_at = excluded.created_at,
                     updated_at = excluded.updated_at
@@ -218,6 +287,12 @@ class MatterStore:
                     matter.transaction_type,
                     self._dump(matter.facts),
                     self._dump(matter.uploaded_documents),
+                    self._dump(matter.entities),
+                    self._dump(matter.ownership_links),
+                    self._dump(matter.tax_classifications),
+                    self._dump(matter.transaction_roles),
+                    self._dump(matter.transaction_steps),
+                    self._dump(matter.election_items),
                     self._dump(matter.latest_analysis),
                     matter.created_at,
                     matter.updated_at,
@@ -233,12 +308,24 @@ class MatterStore:
         transaction_type: str,
         facts: TransactionFacts,
         uploaded_documents: list[UploadedDocument],
+        entities: list[Entity],
+        ownership_links: list[OwnershipLink],
+        tax_classifications: list[TaxClassification],
+        transaction_roles: list[TransactionRole],
+        transaction_steps: list[TransactionStep],
+        election_items: list[ElectionOrFilingItem],
     ) -> MatterRecord:
         matter = self.get_matter(matter_id, user_id=user_id)
         matter.matter_name = matter_name
         matter.transaction_type = transaction_type
         matter.facts = facts
         matter.uploaded_documents = uploaded_documents
+        matter.entities = entities
+        matter.ownership_links = ownership_links
+        matter.tax_classifications = tax_classifications
+        matter.transaction_roles = transaction_roles
+        matter.transaction_steps = transaction_steps
+        matter.election_items = election_items
         matter.updated_at = utc_now_iso()
         return self.save_matter(matter)
 
@@ -248,6 +335,12 @@ class MatterStore:
         user_id: str,
         facts: TransactionFacts,
         uploaded_documents: list[UploadedDocument],
+        entities: list[Entity],
+        ownership_links: list[OwnershipLink],
+        tax_classifications: list[TaxClassification],
+        transaction_roles: list[TransactionRole],
+        transaction_steps: list[TransactionStep],
+        election_items: list[ElectionOrFilingItem],
         result: AnalysisResult,
     ) -> MatterRecord:
         matter = self.get_matter(matter_id, user_id=user_id)
@@ -256,6 +349,12 @@ class MatterStore:
             created_at=utc_now_iso(),
             facts=facts,
             uploaded_documents=uploaded_documents,
+            entities=entities,
+            ownership_links=ownership_links,
+            tax_classifications=tax_classifications,
+            transaction_roles=transaction_roles,
+            transaction_steps=transaction_steps,
+            election_items=election_items,
             result=result,
         )
         analysis_run_columns = self._analysis_run_columns()
@@ -265,6 +364,12 @@ class MatterStore:
             "created_at",
             "facts_json",
             "uploaded_documents_json",
+            "entities_json",
+            "ownership_links_json",
+            "tax_classifications_json",
+            "transaction_roles_json",
+            "transaction_steps_json",
+            "election_items_json",
             "result_json",
         ]
         insert_values = [
@@ -273,6 +378,12 @@ class MatterStore:
             run.created_at,
             self._dump(run.facts),
             self._dump(run.uploaded_documents),
+            self._dump(run.entities),
+            self._dump(run.ownership_links),
+            self._dump(run.tax_classifications),
+            self._dump(run.transaction_roles),
+            self._dump(run.transaction_steps),
+            self._dump(run.election_items),
             self._dump(run.result),
         ]
         optional_columns = {
@@ -297,6 +408,12 @@ class MatterStore:
             )
         matter.facts = facts
         matter.uploaded_documents = uploaded_documents
+        matter.entities = entities
+        matter.ownership_links = ownership_links
+        matter.tax_classifications = tax_classifications
+        matter.transaction_roles = transaction_roles
+        matter.transaction_steps = transaction_steps
+        matter.election_items = election_items
         matter.transaction_type = facts.transaction_type
         matter.latest_analysis = result
         matter.updated_at = run.created_at
@@ -325,12 +442,149 @@ class MatterStore:
             if document_index >= len(matter.uploaded_documents):
                 continue
             document = matter.uploaded_documents[document_index]
-            document.extracted_facts = [
-                fact.model_copy(update={"status": status}) if fact.fact_id == fact_id else fact
-                for fact in document.extracted_facts
-            ]
+            next_facts: list[ExtractedFact] = []
+            for fact in document.extracted_facts:
+                if fact.fact_id != fact_id:
+                    next_facts.append(fact)
+                    continue
+                updated_fact = fact.model_copy(update={"status": status})
+                if status == "confirmed":
+                    updated_fact = self._apply_structured_fact(matter, updated_fact)
+                next_facts.append(updated_fact)
+            document.extracted_facts = next_facts
         matter.updated_at = utc_now_iso()
         return self.save_matter(matter)
+
+    def _apply_structured_fact(self, matter: MatterRecord, fact: ExtractedFact) -> ExtractedFact:
+        kind = fact.normalized_target_kind
+        payload = fact.normalized_target_payload or {}
+        if not kind:
+            return fact
+
+        if kind == "entity":
+            entity = self._upsert_entity(
+                matter,
+                name=str(payload.get("name") or fact.value).strip(),
+                entity_type=str(payload.get("entity_type") or "other"),
+                jurisdiction=self._optional_text(payload.get("jurisdiction")),
+                status=str(payload.get("status") or "confirmed"),
+                source_fact_id=fact.fact_id,
+            )
+            return fact.model_copy(
+                update={
+                    "mapped_record_kind": "entity",
+                    "mapped_record_id": entity.entity_id,
+                    "mapped_record_label": entity.name,
+                }
+            )
+
+        if kind == "tax_classification":
+            entity = self._find_entity_by_name(matter, self._optional_text(payload.get("entity_name")))
+            if not entity:
+                return fact.model_copy(update={"ambiguity_note": "Could not map this tax classification because the referenced entity has not been resolved yet."})
+            classification = self._upsert_tax_classification(
+                matter,
+                entity_id=entity.entity_id,
+                classification_type=str(payload.get("classification_type") or "unknown"),
+                status=str(payload.get("status") or "confirmed"),
+                source_fact_id=fact.fact_id,
+            )
+            return fact.model_copy(
+                update={
+                    "mapped_record_kind": "tax_classification",
+                    "mapped_record_id": classification.classification_id,
+                    "mapped_record_label": f"{entity.name}: {classification.classification_type}",
+                }
+            )
+
+        if kind == "transaction_role":
+            entity = self._find_entity_by_name(matter, self._optional_text(payload.get("entity_name")))
+            if not entity:
+                return fact.model_copy(update={"ambiguity_note": "Could not map this transaction role because the referenced entity has not been resolved yet."})
+            role = self._upsert_transaction_role(
+                matter,
+                entity_id=entity.entity_id,
+                role_type=str(payload.get("role_type") or "other"),
+                status=str(payload.get("status") or "confirmed"),
+                source_fact_id=fact.fact_id,
+            )
+            return fact.model_copy(
+                update={
+                    "mapped_record_kind": "transaction_role",
+                    "mapped_record_id": role.role_id,
+                    "mapped_record_label": f"{entity.name}: {role.role_type}",
+                }
+            )
+
+        if kind == "ownership_link":
+            parent = self._find_entity_by_name(matter, self._optional_text(payload.get("parent_entity_name")))
+            child = self._find_entity_by_name(matter, self._optional_text(payload.get("child_entity_name")))
+            if not parent or not child:
+                return fact.model_copy(update={"ambiguity_note": "Could not map this ownership link because one or both referenced entities are still unresolved."})
+            link = self._upsert_ownership_link(
+                matter,
+                parent_entity_id=parent.entity_id,
+                child_entity_id=child.entity_id,
+                relationship_type=str(payload.get("relationship_type") or "owns"),
+                ownership_percentage=self._optional_float(payload.get("ownership_percentage")),
+                status=str(payload.get("status") or "confirmed"),
+                source_fact_id=fact.fact_id,
+            )
+            return fact.model_copy(
+                update={
+                    "mapped_record_kind": "ownership_link",
+                    "mapped_record_id": link.link_id,
+                    "mapped_record_label": f"{parent.name} -> {child.name}",
+                }
+            )
+
+        if kind == "transaction_step":
+            entity_ids = self._resolve_entity_ids(matter, payload.get("entity_names"))
+            step = self._upsert_transaction_step(
+                matter,
+                phase=str(payload.get("phase") or "pre_closing"),
+                step_type=str(payload.get("step_type") or "other"),
+                title=str(payload.get("title") or fact.label or "Transaction step"),
+                description=str(payload.get("description") or fact.value),
+                entity_ids=entity_ids,
+                status=str(payload.get("status") or "confirmed"),
+                source_fact_id=fact.fact_id,
+            )
+            update_payload: dict[str, str | None] = {
+                "mapped_record_kind": "transaction_step",
+                "mapped_record_id": step.step_id,
+                "mapped_record_label": step.title,
+            }
+            if payload.get("entity_names") and not entity_ids:
+                update_payload["ambiguity_note"] = "The step was created, but one or more referenced entities are still unresolved."
+            return fact.model_copy(update=update_payload)
+
+        if kind == "election_filing_item":
+            entity_ids = self._resolve_entity_ids(matter, payload.get("related_entity_names"))
+            step_ids = self._resolve_step_ids(matter, payload.get("related_step_titles"))
+            item = self._upsert_election_item(
+                matter,
+                name=str(payload.get("name") or fact.label or "Election or filing item"),
+                item_type=str(payload.get("item_type") or "other"),
+                citation_or_form=str(payload.get("citation_or_form") or ""),
+                related_entity_ids=entity_ids,
+                related_step_ids=step_ids,
+                status=str(payload.get("status") or "possible"),
+                notes=str(payload.get("notes") or ""),
+                source_fact_id=fact.fact_id,
+            )
+            update_payload = {
+                "mapped_record_kind": "election_filing_item",
+                "mapped_record_id": item.item_id,
+                "mapped_record_label": item.name,
+            }
+            if (payload.get("related_entity_names") and not entity_ids) or (
+                payload.get("related_step_titles") and not step_ids
+            ):
+                update_payload["ambiguity_note"] = "The election or filing item was created, but some linked entities or steps remain unresolved."
+            return fact.model_copy(update=update_payload)
+
+        return fact
 
     def update_run_review(
         self,
@@ -385,6 +639,305 @@ class MatterStore:
                 row["name"] for row in connection.execute("PRAGMA table_info(analysis_runs)").fetchall()
             }
 
+    def _optional_text(self, value) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    def _optional_float(self, value) -> float | None:
+        if value in {None, ""}:
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _normalize_name(self, value: str | None) -> str:
+        return (value or "").strip().lower()
+
+    def _find_entity_by_name(self, matter: MatterRecord, name: str | None) -> Entity | None:
+        normalized = self._normalize_name(name)
+        if not normalized:
+            return None
+        return next(
+            (entity for entity in matter.entities if self._normalize_name(entity.name) == normalized),
+            None,
+        )
+
+    def _ensure_source_fact(self, source_fact_ids: list[str], fact_id: str) -> list[str]:
+        return source_fact_ids if fact_id in source_fact_ids else [*source_fact_ids, fact_id]
+
+    def _upsert_entity(
+        self,
+        matter: MatterRecord,
+        *,
+        name: str,
+        entity_type: str,
+        jurisdiction: str | None,
+        status: str,
+        source_fact_id: str,
+    ) -> Entity:
+        existing = self._find_entity_by_name(matter, name)
+        if existing:
+            updated = existing.model_copy(
+                update={
+                    "entity_type": entity_type or existing.entity_type,
+                    "jurisdiction": jurisdiction or existing.jurisdiction,
+                    "status": status or existing.status,
+                    "source_fact_ids": self._ensure_source_fact(existing.source_fact_ids, source_fact_id),
+                }
+            )
+            matter.entities = [updated if entity.entity_id == existing.entity_id else entity for entity in matter.entities]
+            return updated
+        entity = Entity(
+            entity_id=str(uuid4()),
+            name=name,
+            entity_type=entity_type or "other",
+            jurisdiction=jurisdiction,
+            status=status or "confirmed",
+            source_fact_ids=[source_fact_id],
+        )
+        matter.entities.append(entity)
+        return entity
+
+    def _upsert_tax_classification(
+        self,
+        matter: MatterRecord,
+        *,
+        entity_id: str,
+        classification_type: str,
+        status: str,
+        source_fact_id: str,
+    ) -> TaxClassification:
+        existing = next((item for item in matter.tax_classifications if item.entity_id == entity_id), None)
+        if existing:
+            updated = existing.model_copy(
+                update={
+                    "classification_type": classification_type or existing.classification_type,
+                    "status": status or existing.status,
+                    "source_fact_ids": self._ensure_source_fact(existing.source_fact_ids, source_fact_id),
+                }
+            )
+            matter.tax_classifications = [
+                updated if item.classification_id == existing.classification_id else item
+                for item in matter.tax_classifications
+            ]
+            return updated
+        classification = TaxClassification(
+            classification_id=str(uuid4()),
+            entity_id=entity_id,
+            classification_type=classification_type or "unknown",
+            status=status or "confirmed",
+            source_fact_ids=[source_fact_id],
+        )
+        matter.tax_classifications.append(classification)
+        return classification
+
+    def _upsert_transaction_role(
+        self,
+        matter: MatterRecord,
+        *,
+        entity_id: str,
+        role_type: str,
+        status: str,
+        source_fact_id: str,
+    ) -> TransactionRole:
+        existing = next(
+            (item for item in matter.transaction_roles if item.entity_id == entity_id and item.role_type == role_type),
+            None,
+        )
+        if existing:
+            updated = existing.model_copy(
+                update={
+                    "status": status or existing.status,
+                    "source_fact_ids": self._ensure_source_fact(existing.source_fact_ids, source_fact_id),
+                }
+            )
+            matter.transaction_roles = [
+                updated if item.role_id == existing.role_id else item
+                for item in matter.transaction_roles
+            ]
+            return updated
+        role = TransactionRole(
+            role_id=str(uuid4()),
+            entity_id=entity_id,
+            role_type=role_type or "other",
+            status=status or "confirmed",
+            source_fact_ids=[source_fact_id],
+        )
+        matter.transaction_roles.append(role)
+        return role
+
+    def _upsert_ownership_link(
+        self,
+        matter: MatterRecord,
+        *,
+        parent_entity_id: str,
+        child_entity_id: str,
+        relationship_type: str,
+        ownership_percentage: float | None,
+        status: str,
+        source_fact_id: str,
+    ) -> OwnershipLink:
+        existing = next(
+            (
+                item
+                for item in matter.ownership_links
+                if item.parent_entity_id == parent_entity_id
+                and item.child_entity_id == child_entity_id
+                and item.relationship_type == relationship_type
+            ),
+            None,
+        )
+        if existing:
+            updated = existing.model_copy(
+                update={
+                    "ownership_percentage": ownership_percentage
+                    if ownership_percentage is not None
+                    else existing.ownership_percentage,
+                    "status": status or existing.status,
+                    "source_fact_ids": self._ensure_source_fact(existing.source_fact_ids, source_fact_id),
+                }
+            )
+            matter.ownership_links = [
+                updated if item.link_id == existing.link_id else item
+                for item in matter.ownership_links
+            ]
+            return updated
+        link = OwnershipLink(
+            link_id=str(uuid4()),
+            parent_entity_id=parent_entity_id,
+            child_entity_id=child_entity_id,
+            relationship_type=relationship_type or "owns",
+            ownership_percentage=ownership_percentage,
+            status=status or "confirmed",
+            source_fact_ids=[source_fact_id],
+        )
+        matter.ownership_links.append(link)
+        return link
+
+    def _upsert_transaction_step(
+        self,
+        matter: MatterRecord,
+        *,
+        phase: str,
+        step_type: str,
+        title: str,
+        description: str,
+        entity_ids: list[str],
+        status: str,
+        source_fact_id: str,
+    ) -> TransactionStep:
+        existing = next(
+            (
+                item
+                for item in matter.transaction_steps
+                if item.phase == phase and item.step_type == step_type and item.title.strip().lower() == title.strip().lower()
+            ),
+            None,
+        )
+        if existing:
+            merged_entity_ids = list(dict.fromkeys([*existing.entity_ids, *entity_ids]))
+            updated = existing.model_copy(
+                update={
+                    "description": description or existing.description,
+                    "entity_ids": merged_entity_ids,
+                    "status": status or existing.status,
+                    "source_fact_ids": self._ensure_source_fact(existing.source_fact_ids, source_fact_id),
+                }
+            )
+            matter.transaction_steps = [
+                updated if item.step_id == existing.step_id else item
+                for item in matter.transaction_steps
+            ]
+            return updated
+        step = TransactionStep(
+            step_id=str(uuid4()),
+            sequence_number=len(matter.transaction_steps) + 1,
+            phase=phase or "pre_closing",
+            step_type=step_type or "other",
+            title=title,
+            description=description,
+            entity_ids=entity_ids,
+            status=status or "confirmed",
+            source_fact_ids=[source_fact_id],
+        )
+        matter.transaction_steps.append(step)
+        return step
+
+    def _upsert_election_item(
+        self,
+        matter: MatterRecord,
+        *,
+        name: str,
+        item_type: str,
+        citation_or_form: str,
+        related_entity_ids: list[str],
+        related_step_ids: list[str],
+        status: str,
+        notes: str,
+        source_fact_id: str,
+    ) -> ElectionOrFilingItem:
+        existing = next(
+            (
+                item
+                for item in matter.election_items
+                if item.name.strip().lower() == name.strip().lower()
+                and item.citation_or_form.strip().lower() == citation_or_form.strip().lower()
+            ),
+            None,
+        )
+        if existing:
+            updated = existing.model_copy(
+                update={
+                    "item_type": item_type or existing.item_type,
+                    "related_entity_ids": list(dict.fromkeys([*existing.related_entity_ids, *related_entity_ids])),
+                    "related_step_ids": list(dict.fromkeys([*existing.related_step_ids, *related_step_ids])),
+                    "status": status or existing.status,
+                    "notes": notes or existing.notes,
+                    "source_fact_ids": self._ensure_source_fact(existing.source_fact_ids, source_fact_id),
+                }
+            )
+            matter.election_items = [
+                updated if item.item_id == existing.item_id else item
+                for item in matter.election_items
+            ]
+            return updated
+        item = ElectionOrFilingItem(
+            item_id=str(uuid4()),
+            name=name,
+            item_type=item_type or "other",
+            citation_or_form=citation_or_form,
+            related_entity_ids=related_entity_ids,
+            related_step_ids=related_step_ids,
+            status=status or "possible",
+            notes=notes,
+            source_fact_ids=[source_fact_id],
+        )
+        matter.election_items.append(item)
+        return item
+
+    def _resolve_entity_ids(self, matter: MatterRecord, names) -> list[str]:
+        if not isinstance(names, list):
+            return []
+        entity_ids: list[str] = []
+        for name in names:
+            entity = self._find_entity_by_name(matter, self._optional_text(name))
+            if entity and entity.entity_id not in entity_ids:
+                entity_ids.append(entity.entity_id)
+        return entity_ids
+
+    def _resolve_step_ids(self, matter: MatterRecord, titles) -> list[str]:
+        if not isinstance(titles, list):
+            return []
+        step_ids: list[str] = []
+        normalized_titles = {self._normalize_name(str(title)) for title in titles}
+        for step in matter.transaction_steps:
+            if self._normalize_name(step.title) in normalized_titles and step.step_id not in step_ids:
+                step_ids.append(step.step_id)
+        return step_ids
+
     def get_run(self, matter_id: str, user_id: str, run_id: str) -> AnalysisRun:
         matter = self.get_matter(matter_id, user_id=user_id)
         run = next((item for item in matter.analysis_runs if item.run_id == run_id), None)
@@ -403,6 +956,12 @@ class MatterStore:
                     transaction_type TEXT NOT NULL,
                     facts_json TEXT NOT NULL,
                     uploaded_documents_json TEXT NOT NULL,
+                    entities_json TEXT NOT NULL DEFAULT '[]',
+                    ownership_links_json TEXT NOT NULL DEFAULT '[]',
+                    tax_classifications_json TEXT NOT NULL DEFAULT '[]',
+                    transaction_roles_json TEXT NOT NULL DEFAULT '[]',
+                    transaction_steps_json TEXT NOT NULL DEFAULT '[]',
+                    election_items_json TEXT NOT NULL DEFAULT '[]',
                     latest_analysis_json TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
@@ -414,6 +973,12 @@ class MatterStore:
                     created_at TEXT NOT NULL,
                     facts_json TEXT NOT NULL,
                     uploaded_documents_json TEXT NOT NULL,
+                    entities_json TEXT NOT NULL DEFAULT '[]',
+                    ownership_links_json TEXT NOT NULL DEFAULT '[]',
+                    tax_classifications_json TEXT NOT NULL DEFAULT '[]',
+                    transaction_roles_json TEXT NOT NULL DEFAULT '[]',
+                    transaction_steps_json TEXT NOT NULL DEFAULT '[]',
+                    election_items_json TEXT NOT NULL DEFAULT '[]',
                     result_json TEXT NOT NULL,
                     review_status TEXT NOT NULL DEFAULT 'unreviewed',
                     reviewed_at TEXT,
@@ -431,11 +996,22 @@ class MatterStore:
                 connection.execute(
                     "ALTER TABLE matters ADD COLUMN owner_user_id TEXT NOT NULL DEFAULT ''"
                 )
+            for column_name, default_value in STRUCTURED_MATTER_COLUMNS.items():
+                if column_name not in matter_columns:
+                    connection.execute(
+                        f"ALTER TABLE matters ADD COLUMN {column_name} TEXT NOT NULL DEFAULT '{default_value}'"
+                    )
 
             analysis_run_columns = {
                 row["name"] for row in connection.execute("PRAGMA table_info(analysis_runs)").fetchall()
             }
             analysis_run_migrations = {
+                "entities_json": "ALTER TABLE analysis_runs ADD COLUMN entities_json TEXT NOT NULL DEFAULT '[]'",
+                "ownership_links_json": "ALTER TABLE analysis_runs ADD COLUMN ownership_links_json TEXT NOT NULL DEFAULT '[]'",
+                "tax_classifications_json": "ALTER TABLE analysis_runs ADD COLUMN tax_classifications_json TEXT NOT NULL DEFAULT '[]'",
+                "transaction_roles_json": "ALTER TABLE analysis_runs ADD COLUMN transaction_roles_json TEXT NOT NULL DEFAULT '[]'",
+                "transaction_steps_json": "ALTER TABLE analysis_runs ADD COLUMN transaction_steps_json TEXT NOT NULL DEFAULT '[]'",
+                "election_items_json": "ALTER TABLE analysis_runs ADD COLUMN election_items_json TEXT NOT NULL DEFAULT '[]'",
                 "review_status": "ALTER TABLE analysis_runs ADD COLUMN review_status TEXT NOT NULL DEFAULT 'unreviewed'",
                 "reviewed_at": "ALTER TABLE analysis_runs ADD COLUMN reviewed_at TEXT",
                 "reviewed_by": "ALTER TABLE analysis_runs ADD COLUMN reviewed_by TEXT",
@@ -468,9 +1044,11 @@ class MatterStore:
                     """
                     INSERT OR IGNORE INTO matters (
                         matter_id, owner_user_id, matter_name, transaction_type, facts_json,
-                        uploaded_documents_json, latest_analysis_json, created_at, updated_at
+                        uploaded_documents_json, entities_json, ownership_links_json,
+                        tax_classifications_json, transaction_roles_json, transaction_steps_json,
+                        election_items_json, latest_analysis_json, created_at, updated_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         matter.matter_id,
@@ -479,6 +1057,12 @@ class MatterStore:
                         matter.transaction_type,
                         self._dump(matter.facts),
                         self._dump(matter.uploaded_documents),
+                        self._dump(matter.entities),
+                        self._dump(matter.ownership_links),
+                        self._dump(matter.tax_classifications),
+                        self._dump(matter.transaction_roles),
+                        self._dump(matter.transaction_steps),
+                        self._dump(matter.election_items),
                         self._dump(matter.latest_analysis),
                         matter.created_at,
                         matter.updated_at,
@@ -489,10 +1073,12 @@ class MatterStore:
                         """
                         INSERT OR IGNORE INTO analysis_runs (
                             run_id, matter_id, created_at, facts_json, uploaded_documents_json,
+                            entities_json, ownership_links_json, tax_classifications_json,
+                            transaction_roles_json, transaction_steps_json, election_items_json,
                             result_json, review_status, reviewed_at, reviewed_by,
                             reviewer_notes_json, pinned_authority_ids_json, reviewed_sections_json
                         )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
                             run.run_id,
@@ -500,6 +1086,12 @@ class MatterStore:
                             run.created_at,
                             self._dump(run.facts),
                             self._dump(run.uploaded_documents),
+                            self._dump(run.entities),
+                            self._dump(run.ownership_links),
+                            self._dump(run.tax_classifications),
+                            self._dump(run.transaction_roles),
+                            self._dump(run.transaction_steps),
+                            self._dump(run.election_items),
                             self._dump(run.result),
                             run.review_status,
                             run.reviewed_at,
@@ -517,6 +1109,12 @@ class MatterStore:
             "created_at",
             "facts_json",
             "uploaded_documents_json",
+            "entities_json" if "entities_json" in analysis_run_columns else "'[]' AS entities_json",
+            "ownership_links_json" if "ownership_links_json" in analysis_run_columns else "'[]' AS ownership_links_json",
+            "tax_classifications_json" if "tax_classifications_json" in analysis_run_columns else "'[]' AS tax_classifications_json",
+            "transaction_roles_json" if "transaction_roles_json" in analysis_run_columns else "'[]' AS transaction_roles_json",
+            "transaction_steps_json" if "transaction_steps_json" in analysis_run_columns else "'[]' AS transaction_steps_json",
+            "election_items_json" if "election_items_json" in analysis_run_columns else "'[]' AS election_items_json",
             "result_json",
             "review_status" if "review_status" in analysis_run_columns else "'unreviewed' AS review_status",
             "reviewed_at" if "reviewed_at" in analysis_run_columns else "NULL AS reviewed_at",
@@ -543,6 +1141,12 @@ class MatterStore:
             transaction_type=row["transaction_type"],
             facts=TransactionFacts.model_validate(json.loads(row["facts_json"])),
             uploaded_documents=[UploadedDocument.model_validate(item) for item in json.loads(row["uploaded_documents_json"])],
+            entities=[Entity.model_validate(item) for item in json.loads(row["entities_json"])],
+            ownership_links=[OwnershipLink.model_validate(item) for item in json.loads(row["ownership_links_json"])],
+            tax_classifications=[TaxClassification.model_validate(item) for item in json.loads(row["tax_classifications_json"])],
+            transaction_roles=[TransactionRole.model_validate(item) for item in json.loads(row["transaction_roles_json"])],
+            transaction_steps=[TransactionStep.model_validate(item) for item in json.loads(row["transaction_steps_json"])],
+            election_items=[ElectionOrFilingItem.model_validate(item) for item in json.loads(row["election_items_json"])],
             latest_analysis=AnalysisResult.model_validate(json.loads(row["latest_analysis_json"])) if row["latest_analysis_json"] else None,
             analysis_runs=[
                 AnalysisRun(
@@ -550,6 +1154,12 @@ class MatterStore:
                     created_at=run["created_at"],
                     facts=TransactionFacts.model_validate(json.loads(run["facts_json"])),
                     uploaded_documents=[UploadedDocument.model_validate(item) for item in json.loads(run["uploaded_documents_json"])],
+                    entities=[Entity.model_validate(item) for item in json.loads(run["entities_json"])],
+                    ownership_links=[OwnershipLink.model_validate(item) for item in json.loads(run["ownership_links_json"])],
+                    tax_classifications=[TaxClassification.model_validate(item) for item in json.loads(run["tax_classifications_json"])],
+                    transaction_roles=[TransactionRole.model_validate(item) for item in json.loads(run["transaction_roles_json"])],
+                    transaction_steps=[TransactionStep.model_validate(item) for item in json.loads(run["transaction_steps_json"])],
+                    election_items=[ElectionOrFilingItem.model_validate(item) for item in json.loads(run["election_items_json"])],
                     result=AnalysisResult.model_validate(json.loads(run["result_json"])),
                     review_status=run["review_status"],
                     reviewed_at=run["reviewed_at"],

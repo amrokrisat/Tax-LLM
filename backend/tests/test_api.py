@@ -263,6 +263,235 @@ def test_v2_document_review_and_export_workflow(monkeypatch, tmp_path):
     app.dependency_overrides.clear()
 
 
+def test_structured_workspace_fields_persist_snapshot_and_export(monkeypatch, tmp_path):
+    monkeypatch.setattr(routes, "_matter_store", lambda: MatterStore(base_dir=tmp_path / "matters"))
+    app.dependency_overrides[get_auth_store] = lambda: AuthStore(base_dir=tmp_path / "auth")
+
+    auth_response = client.post(
+        "/api/v1/auth/signup",
+        json={"email": "structure@example.com", "password": "secret123", "name": "Structure User"},
+    )
+    session_token = auth_response.json()["session_token"]
+    headers = {"X-Tax-Session": session_token}
+
+    buyer_id = "entity-buyer"
+    target_id = "entity-target"
+    step_id = "step-closing"
+    payload = {
+        "matter_name": "Structured Matter",
+        "transaction_type": "stock sale",
+        "facts": {
+            "transaction_name": "Structured Matter",
+            "summary": "Buyer acquires Target through a stock-form closing with an election workstream.",
+            "entities": ["Buyer", "Target"],
+            "jurisdictions": ["United States"],
+            "transaction_type": "stock sale",
+            "stated_goals": ["Preserve optionality"],
+            "constraints": ["Seller prefers stock treatment"],
+            "consideration_mix": "Cash",
+            "proposed_steps": "Buyer signs, closes, and considers a filing step.",
+            "rollover_equity": False,
+            "deemed_asset_sale_election": True,
+            "contribution_transactions": False,
+            "partnership_issues": False,
+            "debt_financing": False,
+            "earnout": False,
+            "withholding": False,
+            "state_tax": False,
+            "international": False,
+        },
+        "uploaded_documents": [],
+        "entities": [
+            {
+                "entity_id": buyer_id,
+                "name": "Buyer",
+                "entity_type": "corporation",
+                "jurisdiction": "Delaware",
+                "status": "confirmed",
+                "notes": "",
+                "source_fact_ids": [],
+            },
+            {
+                "entity_id": target_id,
+                "name": "Target",
+                "entity_type": "corporation",
+                "jurisdiction": "Delaware",
+                "status": "confirmed",
+                "notes": "",
+                "source_fact_ids": [],
+            },
+        ],
+        "ownership_links": [
+            {
+                "link_id": "link-1",
+                "parent_entity_id": buyer_id,
+                "child_entity_id": target_id,
+                "relationship_type": "owns",
+                "ownership_percentage": 100,
+                "status": "proposed",
+                "notes": "",
+                "source_fact_ids": [],
+            }
+        ],
+        "tax_classifications": [
+            {
+                "classification_id": "classification-1",
+                "entity_id": target_id,
+                "classification_type": "c_corporation",
+                "status": "confirmed",
+                "notes": "",
+                "source_fact_ids": [],
+            }
+        ],
+        "transaction_roles": [
+            {
+                "role_id": "role-1",
+                "entity_id": target_id,
+                "role_type": "target",
+                "status": "confirmed",
+                "notes": "",
+                "source_fact_ids": [],
+            }
+        ],
+        "transaction_steps": [
+            {
+                "step_id": step_id,
+                "sequence_number": 1,
+                "phase": "closing",
+                "step_type": "stock_purchase",
+                "title": "Buyer acquires Target stock",
+                "description": "Closing stock acquisition step.",
+                "entity_ids": [buyer_id, target_id],
+                "status": "confirmed",
+                "source_fact_ids": [],
+            }
+        ],
+        "election_items": [
+            {
+                "item_id": "item-1",
+                "name": "Section 338(h)(10) workstream",
+                "item_type": "election",
+                "citation_or_form": "Form 8023",
+                "related_entity_ids": [buyer_id, target_id],
+                "related_step_ids": [step_id],
+                "status": "possible",
+                "notes": "",
+                "source_fact_ids": [],
+            }
+        ],
+    }
+
+    create_response = client.post("/api/v1/matters", json=payload, headers=headers)
+    assert create_response.status_code == 200
+    matter = create_response.json()["matter"]
+    matter_id = matter["matter_id"]
+    assert len(matter["entities"]) == 2
+    assert matter["transaction_steps"][0]["title"] == "Buyer acquires Target stock"
+
+    analyze_response = client.post(f"/api/v1/matters/{matter_id}/analyze", json=payload, headers=headers)
+    assert analyze_response.status_code == 200
+    run_id = analyze_response.json()["matter"]["analysis_runs"][0]["run_id"]
+
+    run_response = client.get(f"/api/v1/matters/{matter_id}/runs/{run_id}", headers=headers)
+    assert run_response.status_code == 200
+    run = run_response.json()["run"]
+    assert run["entities"][0]["name"] == "Buyer"
+    assert run["transaction_steps"][0]["title"] == "Buyer acquires Target stock"
+    assert run["election_items"][0]["citation_or_form"] == "Form 8023"
+
+    export_response = client.get(f"/api/v1/matters/{matter_id}/runs/{run_id}/export", headers=headers)
+    assert export_response.status_code == 200
+    export_body = export_response.json()["content"]
+    assert "Entity Structure Snapshot" in export_body
+    assert "Transaction Steps Snapshot" in export_body
+    assert "Elections And Filings" in export_body
+
+    app.dependency_overrides.clear()
+
+
+def test_confirming_structured_candidate_upserts_entity(monkeypatch, tmp_path):
+    monkeypatch.setattr(routes, "_matter_store", lambda: MatterStore(base_dir=tmp_path / "matters"))
+    app.dependency_overrides[get_auth_store] = lambda: AuthStore(base_dir=tmp_path / "auth")
+
+    auth_response = client.post(
+        "/api/v1/auth/signup",
+        json={"email": "extract@example.com", "password": "secret123", "name": "Extract User"},
+    )
+    session_token = auth_response.json()["session_token"]
+    headers = {"X-Tax-Session": session_token}
+
+    payload = {
+        "matter_name": "Extraction Bridge Matter",
+        "transaction_type": "stock sale",
+        "facts": {
+            "transaction_name": "Extraction Bridge Matter",
+            "summary": "Buyer reviews target structure.",
+            "entities": ["Buyer", "Target"],
+            "jurisdictions": ["United States"],
+            "transaction_type": "stock sale",
+            "stated_goals": [],
+            "constraints": [],
+            "consideration_mix": "Cash",
+            "proposed_steps": "Buyer reviews the transaction.",
+            "rollover_equity": False,
+            "deemed_asset_sale_election": False,
+            "contribution_transactions": False,
+            "partnership_issues": False,
+            "debt_financing": False,
+            "earnout": False,
+            "withholding": False,
+            "state_tax": False,
+            "international": False,
+        },
+        "uploaded_documents": [
+            {
+                "file_name": "notes.txt",
+                "document_type": "notes",
+                "content": "Target LLC sits under Buyer Holdco.",
+                "source": "pasted",
+                "extraction_status": "completed",
+                "extracted_text": "Target LLC sits under Buyer Holdco.",
+                "extracted_facts": [
+                    {
+                        "fact_id": "fact-entity-target",
+                        "label": "Entity mention",
+                        "value": "Target LLC",
+                        "status": "pending",
+                        "confidence": 0.92,
+                        "certainty": "high",
+                        "source_document": "notes.txt",
+                        "category": "entity_candidate",
+                        "normalized_target_kind": "entity",
+                        "normalized_target_payload": {
+                            "name": "Target LLC",
+                            "entity_type": "llc",
+                            "status": "confirmed",
+                        },
+                    }
+                ],
+            }
+        ],
+    }
+
+    create_response = client.post("/api/v1/matters", json=payload, headers=headers)
+    assert create_response.status_code == 200
+    matter_id = create_response.json()["matter"]["matter_id"]
+
+    confirm_response = client.post(
+        f"/api/v1/matters/{matter_id}/documents/confirm-facts",
+        json={"confirmations": [{"document_index": 0, "fact_id": "fact-entity-target", "status": "confirmed"}]},
+        headers=headers,
+    )
+    assert confirm_response.status_code == 200
+    confirmed_matter = confirm_response.json()["matter"]
+    assert any(entity["name"] == "Target LLC" for entity in confirmed_matter["entities"])
+    fact = confirmed_matter["uploaded_documents"][0]["extracted_facts"][0]
+    assert fact["mapped_record_kind"] == "entity"
+    assert fact["mapped_record_label"] == "Target LLC"
+
+    app.dependency_overrides.clear()
+
+
 def test_matter_store_migrates_older_analysis_run_schema(monkeypatch, tmp_path):
     legacy_db_dir = tmp_path / "matters"
     legacy_db_dir.mkdir(parents=True, exist_ok=True)

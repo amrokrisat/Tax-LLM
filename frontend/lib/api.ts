@@ -20,8 +20,134 @@ export type ExtractedFact = {
   certainty?: "high" | "medium" | "low";
   normalized_field?: string | null;
   normalized_value?: string | null;
+  normalized_target_kind?: string | null;
+  normalized_target_payload?: Record<string, string | number | string[] | null> | null;
   ambiguity_note?: string | null;
+  mapped_record_kind?: string | null;
+  mapped_record_id?: string | null;
+  mapped_record_label?: string | null;
   status: "pending" | "confirmed" | "rejected";
+};
+
+export type StructuredRecordStatus = "proposed" | "confirmed" | "uncertain";
+export type EntityType =
+  | "corporation"
+  | "llc"
+  | "partnership"
+  | "individual"
+  | "trust"
+  | "disregarded_entity"
+  | "foreign_entity"
+  | "branch"
+  | "other";
+export type TaxClassificationType =
+  | "c_corporation"
+  | "s_corporation"
+  | "partnership"
+  | "disregarded_entity"
+  | "grantor_trust"
+  | "individual"
+  | "foreign_corporation"
+  | "unknown";
+export type TransactionRoleType =
+  | "buyer"
+  | "seller"
+  | "target"
+  | "parent"
+  | "subsidiary"
+  | "merger_sub"
+  | "distributing_corporation"
+  | "controlled_corporation"
+  | "partnership_vehicle"
+  | "blocker"
+  | "lender"
+  | "rollover_holder"
+  | "other";
+export type OwnershipRelationshipType =
+  | "owns"
+  | "member_of"
+  | "partner_of"
+  | "disregarded_owner"
+  | "shareholder_of";
+export type TransactionStepPhase = "pre_closing" | "closing" | "post_closing";
+export type TransactionStepType =
+  | "stock_purchase"
+  | "asset_purchase"
+  | "merger"
+  | "contribution"
+  | "distribution"
+  | "spin_off"
+  | "split_off"
+  | "split_up"
+  | "partnership_contribution"
+  | "refinancing"
+  | "election"
+  | "filing"
+  | "other";
+export type ElectionOrFilingStatus = "possible" | "required" | "selected" | "filed" | "uncertain";
+export type ElectionOrFilingType = "election" | "filing" | "compliance" | "other";
+
+export type Entity = {
+  entity_id: string;
+  name: string;
+  entity_type: EntityType;
+  jurisdiction?: string | null;
+  status: StructuredRecordStatus;
+  notes: string;
+  source_fact_ids: string[];
+};
+
+export type OwnershipLink = {
+  link_id: string;
+  parent_entity_id: string;
+  child_entity_id: string;
+  relationship_type: OwnershipRelationshipType;
+  ownership_percentage?: number | null;
+  status: StructuredRecordStatus;
+  notes: string;
+  source_fact_ids: string[];
+};
+
+export type TaxClassification = {
+  classification_id: string;
+  entity_id: string;
+  classification_type: TaxClassificationType;
+  status: StructuredRecordStatus;
+  notes: string;
+  source_fact_ids: string[];
+};
+
+export type TransactionRole = {
+  role_id: string;
+  entity_id: string;
+  role_type: TransactionRoleType;
+  status: StructuredRecordStatus;
+  notes: string;
+  source_fact_ids: string[];
+};
+
+export type TransactionStep = {
+  step_id: string;
+  sequence_number: number;
+  phase: TransactionStepPhase;
+  step_type: TransactionStepType;
+  title: string;
+  description: string;
+  entity_ids: string[];
+  status: StructuredRecordStatus;
+  source_fact_ids: string[];
+};
+
+export type ElectionOrFilingItem = {
+  item_id: string;
+  name: string;
+  item_type: ElectionOrFilingType;
+  citation_or_form: string;
+  related_entity_ids: string[];
+  related_step_ids: string[];
+  status: ElectionOrFilingStatus;
+  notes: string;
+  source_fact_ids: string[];
 };
 
 export type TransactionFactsInput = {
@@ -49,6 +175,12 @@ export type TransactionFactsInput = {
 export type AnalyzeTransactionRequest = {
   facts: TransactionFactsInput;
   uploaded_documents: UploadedDocumentInput[];
+  entities?: Entity[];
+  ownership_links?: OwnershipLink[];
+  tax_classifications?: TaxClassification[];
+  transaction_roles?: TransactionRole[];
+  transaction_steps?: TransactionStep[];
+  election_items?: ElectionOrFilingItem[];
 };
 
 export type AuthorityRecord = {
@@ -162,6 +294,12 @@ export type AnalysisRun = {
   created_at: string;
   facts: TransactionFactsInput;
   uploaded_documents: UploadedDocumentInput[];
+  entities: Entity[];
+  ownership_links: OwnershipLink[];
+  tax_classifications: TaxClassification[];
+  transaction_roles: TransactionRole[];
+  transaction_steps: TransactionStep[];
+  election_items: ElectionOrFilingItem[];
   result: AnalysisResult;
   review_status: "unreviewed" | "in_review" | "reviewed";
   reviewed_at?: string | null;
@@ -187,6 +325,12 @@ export type MatterRecord = {
   transaction_type: string;
   facts: TransactionFactsInput;
   uploaded_documents: UploadedDocumentInput[];
+  entities: Entity[];
+  ownership_links: OwnershipLink[];
+  tax_classifications: TaxClassification[];
+  transaction_roles: TransactionRole[];
+  transaction_steps: TransactionStep[];
+  election_items: ElectionOrFilingItem[];
   latest_analysis: AnalysisResult | null;
   analysis_runs: AnalysisRun[];
   created_at: string;
@@ -199,6 +343,12 @@ export type MatterWorkspaceRecord = {
   transaction_type: string;
   facts: TransactionFactsInput;
   uploaded_documents: UploadedDocumentInput[];
+  entities: Entity[];
+  ownership_links: OwnershipLink[];
+  tax_classifications: TaxClassification[];
+  transaction_roles: TransactionRole[];
+  transaction_steps: TransactionStep[];
+  election_items: ElectionOrFilingItem[];
   analysis_runs: AnalysisRunSummary[];
   created_at: string;
   updated_at: string;
@@ -220,6 +370,12 @@ export type MatterInput = {
   transaction_type: string;
   facts: TransactionFactsInput;
   uploaded_documents: UploadedDocumentInput[];
+  entities: Entity[];
+  ownership_links: OwnershipLink[];
+  tax_classifications: TaxClassification[];
+  transaction_roles: TransactionRole[];
+  transaction_steps: TransactionStep[];
+  election_items: ElectionOrFilingItem[];
 };
 
 export type DocumentFactConfirmation = {
@@ -506,4 +662,10 @@ export const emptyRequest: AnalyzeTransactionRequest = {
       content: "",
     },
   ],
+  entities: [],
+  ownership_links: [],
+  tax_classifications: [],
+  transaction_roles: [],
+  transaction_steps: [],
+  election_items: [],
 };

@@ -20,6 +20,68 @@ ExtractedFactStatus = Literal["pending", "confirmed", "rejected"]
 ReviewStatus = Literal["unreviewed", "in_review", "reviewed"]
 AuthorityStatus = Literal["canonical", "legacy", "superseded"]
 ExtractedFactCertainty = Literal["high", "medium", "low"]
+StructuredRecordStatus = Literal["proposed", "confirmed", "uncertain"]
+EntityType = Literal[
+    "corporation",
+    "llc",
+    "partnership",
+    "individual",
+    "trust",
+    "disregarded_entity",
+    "foreign_entity",
+    "branch",
+    "other",
+]
+TaxClassificationType = Literal[
+    "c_corporation",
+    "s_corporation",
+    "partnership",
+    "disregarded_entity",
+    "grantor_trust",
+    "individual",
+    "foreign_corporation",
+    "unknown",
+]
+TransactionRoleType = Literal[
+    "buyer",
+    "seller",
+    "target",
+    "parent",
+    "subsidiary",
+    "merger_sub",
+    "distributing_corporation",
+    "controlled_corporation",
+    "partnership_vehicle",
+    "blocker",
+    "lender",
+    "rollover_holder",
+    "other",
+]
+OwnershipRelationshipType = Literal[
+    "owns",
+    "member_of",
+    "partner_of",
+    "disregarded_owner",
+    "shareholder_of",
+]
+TransactionStepPhase = Literal["pre_closing", "closing", "post_closing"]
+TransactionStepType = Literal[
+    "stock_purchase",
+    "asset_purchase",
+    "merger",
+    "contribution",
+    "distribution",
+    "spin_off",
+    "split_off",
+    "split_up",
+    "partnership_contribution",
+    "refinancing",
+    "election",
+    "filing",
+    "other",
+]
+ElectionOrFilingStatus = Literal["possible", "required", "selected", "filed", "uncertain"]
+ElectionOrFilingType = Literal["election", "filing", "compliance", "other"]
 
 # Phase 1 compatibility boundary:
 # - bucket keys remain the canonical persisted/API identifiers
@@ -54,7 +116,12 @@ class ExtractedFact(BaseModel):
     certainty: ExtractedFactCertainty = "medium"
     normalized_field: str | None = None
     normalized_value: str | None = None
+    normalized_target_kind: str | None = None
+    normalized_target_payload: dict[str, str | float | int | list[str] | None] | None = None
     ambiguity_note: str | None = None
+    mapped_record_kind: str | None = None
+    mapped_record_id: str | None = None
+    mapped_record_label: str | None = None
     status: ExtractedFactStatus = "pending"
 
 
@@ -90,6 +157,69 @@ class TransactionFacts(BaseModel):
     withholding: bool = False
     state_tax: bool = False
     international: bool = False
+
+
+class Entity(BaseModel):
+    entity_id: str
+    name: str
+    entity_type: EntityType = "other"
+    jurisdiction: str | None = None
+    status: StructuredRecordStatus = "proposed"
+    notes: str = ""
+    source_fact_ids: List[str] = Field(default_factory=list)
+
+
+class OwnershipLink(BaseModel):
+    link_id: str
+    parent_entity_id: str
+    child_entity_id: str
+    relationship_type: OwnershipRelationshipType = "owns"
+    ownership_percentage: float | None = None
+    status: StructuredRecordStatus = "proposed"
+    notes: str = ""
+    source_fact_ids: List[str] = Field(default_factory=list)
+
+
+class TaxClassification(BaseModel):
+    classification_id: str
+    entity_id: str
+    classification_type: TaxClassificationType = "unknown"
+    status: StructuredRecordStatus = "proposed"
+    notes: str = ""
+    source_fact_ids: List[str] = Field(default_factory=list)
+
+
+class TransactionRole(BaseModel):
+    role_id: str
+    entity_id: str
+    role_type: TransactionRoleType = "other"
+    status: StructuredRecordStatus = "proposed"
+    notes: str = ""
+    source_fact_ids: List[str] = Field(default_factory=list)
+
+
+class TransactionStep(BaseModel):
+    step_id: str
+    sequence_number: int
+    phase: TransactionStepPhase = "pre_closing"
+    step_type: TransactionStepType = "other"
+    title: str
+    description: str = ""
+    entity_ids: List[str] = Field(default_factory=list)
+    status: StructuredRecordStatus = "proposed"
+    source_fact_ids: List[str] = Field(default_factory=list)
+
+
+class ElectionOrFilingItem(BaseModel):
+    item_id: str
+    name: str
+    item_type: ElectionOrFilingType = "other"
+    citation_or_form: str = ""
+    related_entity_ids: List[str] = Field(default_factory=list)
+    related_step_ids: List[str] = Field(default_factory=list)
+    status: ElectionOrFilingStatus = "possible"
+    notes: str = ""
+    source_fact_ids: List[str] = Field(default_factory=list)
 
 
 class TransactionBucket(BaseModel):
@@ -211,6 +341,12 @@ class AnalysisRun(BaseModel):
     created_at: str
     facts: TransactionFacts
     uploaded_documents: List[UploadedDocument] = Field(default_factory=list)
+    entities: List[Entity] = Field(default_factory=list)
+    ownership_links: List[OwnershipLink] = Field(default_factory=list)
+    tax_classifications: List[TaxClassification] = Field(default_factory=list)
+    transaction_roles: List[TransactionRole] = Field(default_factory=list)
+    transaction_steps: List[TransactionStep] = Field(default_factory=list)
+    election_items: List[ElectionOrFilingItem] = Field(default_factory=list)
     result: AnalysisResult
     review_status: ReviewStatus = "unreviewed"
     reviewed_at: str | None = None
@@ -227,6 +363,12 @@ class MatterRecord(BaseModel):
     transaction_type: str
     facts: TransactionFacts
     uploaded_documents: List[UploadedDocument] = Field(default_factory=list)
+    entities: List[Entity] = Field(default_factory=list)
+    ownership_links: List[OwnershipLink] = Field(default_factory=list)
+    tax_classifications: List[TaxClassification] = Field(default_factory=list)
+    transaction_roles: List[TransactionRole] = Field(default_factory=list)
+    transaction_steps: List[TransactionStep] = Field(default_factory=list)
+    election_items: List[ElectionOrFilingItem] = Field(default_factory=list)
     latest_analysis: AnalysisResult | None = None
     analysis_runs: List[AnalysisRun] = Field(default_factory=list)
     created_at: str

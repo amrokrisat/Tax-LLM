@@ -64,6 +64,12 @@ export function MattersHome() {
           transaction_name: "New Matter",
         },
         uploaded_documents: [],
+        entities: [],
+        ownership_links: [],
+        tax_classifications: [],
+        transaction_roles: [],
+        transaction_steps: [],
+        election_items: [],
       });
       router.push(`/matters/${matter.matter_id}`);
     } catch (createError) {
@@ -86,6 +92,12 @@ export function MattersHome() {
         transaction_type: scenario.facts.transaction_type,
         facts: scenario.facts,
         uploaded_documents: scenario.uploaded_documents,
+        entities: scenario.entities ?? [],
+        ownership_links: scenario.ownership_links ?? [],
+        tax_classifications: scenario.tax_classifications ?? [],
+        transaction_roles: scenario.transaction_roles ?? [],
+        transaction_steps: scenario.transaction_steps ?? [],
+        election_items: scenario.election_items ?? [],
       });
       router.push(`/matters/${matter.matter_id}`);
     } catch (createError) {

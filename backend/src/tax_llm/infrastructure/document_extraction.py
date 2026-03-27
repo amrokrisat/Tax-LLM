@@ -64,6 +64,8 @@ class DocumentExtractionService:
             confidence: float,
             normalized_field: str | None = None,
             normalized_value: str | None = None,
+            normalized_target_kind: str | None = None,
+            normalized_target_payload: dict[str, str | float | int | list[str] | None] | None = None,
             ambiguity_note: str | None = None,
             certainty: ExtractedFactCertainty = "medium",
         ) -> None:
@@ -82,6 +84,8 @@ class DocumentExtractionService:
                     certainty=certainty,
                     normalized_field=normalized_field,
                     normalized_value=normalized_value,
+                    normalized_target_kind=normalized_target_kind,
+                    normalized_target_payload=normalized_target_payload,
                     ambiguity_note=ambiguity_note,
                 )
             )
@@ -310,4 +314,191 @@ class DocumentExtractionService:
                 "The document raises both international and state-local overlays, which should stay preliminary until jurisdiction-specific facts are confirmed."
             )
 
+        self._infer_structured_candidates(file_name, text, lowered, add, ambiguities)
+
         return candidates, ambiguities
+
+    def _infer_structured_candidates(self, file_name: str, text: str, lowered: str, add, ambiguities: list[str]) -> None:
+        del file_name
+
+        entity_matches: list[tuple[str, str]] = []
+
+        def add_entity(name: str, entity_type: str = "other", confidence: float = 0.72) -> None:
+            entity_name = name.strip()
+            if not entity_name:
+                return
+            if (entity_name.lower(), entity_type) in {(item[0].lower(), item[1]) for item in entity_matches}:
+                return
+            entity_matches.append((entity_name, entity_type))
+            add(
+                category="entity_candidate",
+                label="Entity candidate",
+                value=f"Entity identified: {entity_name}",
+                confidence=confidence,
+                normalized_target_kind="entity",
+                normalized_target_payload={
+                    "name": entity_name,
+                    "entity_type": entity_type,
+                    "status": "confirmed" if confidence >= 0.8 else "proposed",
+                },
+                certainty="high" if confidence >= 0.8 else "medium",
+            )
+
+        simple_entity_patterns = [
+            (r"\bmerger sub\b", "Merger Sub", "corporation", 0.88),
+            (r"\bsp[in]?co\b", "SpinCo", "corporation", 0.82),
+            (r"\bholdco\b", "Holdco", "corporation", 0.78),
+            (r"\bparent\b", "Parent", "corporation", 0.76),
+            (r"\bbuyer\b", "Buyer", "corporation", 0.8),
+            (r"\bseller\b", "Seller", "corporation", 0.8),
+            (r"\btarget\b", "Target", "corporation", 0.8),
+            (r"\bcontrolled corporation\b", "Controlled Corporation", "corporation", 0.82),
+            (r"\bllc\b", "LLC Vehicle", "llc", 0.74),
+            (r"\bpartnership\b", "Partnership Vehicle", "partnership", 0.74),
+        ]
+        for pattern, name, entity_type, confidence in simple_entity_patterns:
+            if re.search(pattern, lowered):
+                add_entity(name, entity_type, confidence)
+
+        for match in re.finditer(r"\b([A-Z][A-Za-z0-9&.-]*(?:\s+[A-Z][A-Za-z0-9&.-]*)*)\s+(LLC|Inc\.|Corp\.|Corporation|Trust|Branch)\b", text):
+            suffix = match.group(2).lower()
+            entity_type = {
+                "llc": "llc",
+                "inc.": "corporation",
+                "corp.": "corporation",
+                "corporation": "corporation",
+                "trust": "trust",
+                "branch": "branch",
+            }.get(suffix, "other")
+            add_entity(match.group(0), entity_type, 0.84)
+
+        role_patterns = [
+            ("buyer", "Buyer", "buyer"),
+            ("seller", "Seller", "seller"),
+            ("target", "Target", "target"),
+            ("merger sub", "Merger Sub", "merger_sub"),
+            ("parent", "Parent", "parent"),
+            ("controlled corporation", "Controlled Corporation", "controlled_corporation"),
+            ("distributing corporation", "Parent", "distributing_corporation"),
+            ("partnership", "Partnership Vehicle", "partnership_vehicle"),
+            ("lender", "Lender", "lender"),
+        ]
+        for trigger, entity_name, role_type in role_patterns:
+            if trigger in lowered:
+                add(
+                    category="transaction_role_candidate",
+                    label="Transaction role candidate",
+                    value=f"{entity_name} may serve as {role_type.replace('_', ' ')}.",
+                    confidence=0.8,
+                    normalized_target_kind="transaction_role",
+                    normalized_target_payload={
+                        "entity_name": entity_name,
+                        "role_type": role_type,
+                        "status": "confirmed",
+                    },
+                    certainty="high",
+                )
+
+        classification_patterns = [
+            ("s corporation", "Target", "s_corporation"),
+            ("c corporation", "Target", "c_corporation"),
+            ("llc taxed as a partnership", "LLC Vehicle", "partnership"),
+            ("disregarded entity", "LLC Vehicle", "disregarded_entity"),
+            ("partnership", "Partnership Vehicle", "partnership"),
+            ("foreign corporation", "Target", "foreign_corporation"),
+        ]
+        for trigger, entity_name, classification_type in classification_patterns:
+            if trigger in lowered:
+                add(
+                    category="tax_classification_candidate",
+                    label="Tax classification candidate",
+                    value=f"{entity_name} may be treated as {classification_type.replace('_', ' ')}.",
+                    confidence=0.8,
+                    normalized_target_kind="tax_classification",
+                    normalized_target_payload={
+                        "entity_name": entity_name,
+                        "classification_type": classification_type,
+                        "status": "confirmed",
+                    },
+                    certainty="high",
+                )
+
+        if "controlled corporation" in lowered and ("parent" in lowered or "seller" in lowered):
+            parent_name = "Parent" if "parent" in lowered else "Seller"
+            child_name = "Controlled Corporation"
+            add(
+                category="ownership_candidate",
+                label="Ownership candidate",
+                value=f"{parent_name} may own {child_name}.",
+                confidence=0.78,
+                normalized_target_kind="ownership_link",
+                normalized_target_payload={
+                    "parent_entity_name": parent_name,
+                    "child_entity_name": child_name,
+                    "relationship_type": "owns",
+                    "status": "proposed",
+                },
+                certainty="medium",
+            )
+
+        step_patterns = [
+            (r"spin-off|spin off", "pre_closing", "spin_off", "Spin-off separation step"),
+            (r"split-off|split off", "pre_closing", "split_off", "Split-off separation step"),
+            (r"split-up|split up", "pre_closing", "split_up", "Split-up separation step"),
+            (r"stock acquisition|stock purchase|stock sale", "closing", "stock_purchase", "Stock acquisition step"),
+            (r"asset acquisition|asset purchase|asset sale", "closing", "asset_purchase", "Asset acquisition step"),
+            (r"merger|merger sub|triangular merger", "closing", "merger", "Merger step"),
+            (r"contribution|drop-down|drop down", "pre_closing", "contribution", "Contribution step"),
+            (r"llc taxed as a partnership|partnership contribution|joint venture", "pre_closing", "partnership_contribution", "Partnership contribution step"),
+            (r"refinanc", "post_closing", "refinancing", "Refinancing step"),
+        ]
+        for pattern, phase, step_type, title in step_patterns:
+            if re.search(pattern, lowered):
+                entity_names = [name for name, _ in entity_matches[:3]]
+                add(
+                    category="transaction_step_candidate",
+                    label="Transaction step candidate",
+                    value=f"{title} may be part of the deal sequence.",
+                    confidence=0.79,
+                    normalized_target_kind="transaction_step",
+                    normalized_target_payload={
+                        "phase": phase,
+                        "step_type": step_type,
+                        "title": title,
+                        "description": f"Proposed from extracted document language: {title.lower()}.",
+                        "entity_names": entity_names,
+                        "status": "proposed",
+                    },
+                    certainty="medium",
+                )
+
+        election_patterns = [
+            (r"338\(h\)\(10\)|joint election", "Section 338(h)(10) election", "election", "IRC Section 338(h)(10) / Form 8023"),
+            (r"338\(g\)|qualified stock purchase", "Section 338(g) election", "election", "IRC Section 338(g) / Form 8023"),
+            (r"336\(e\)|qualified stock disposition|election statement", "Section 336(e) election", "election", "IRC Section 336(e)"),
+            (r"form 8023|8023", "Form 8023 filing", "filing", "IRS Form 8023"),
+            (r"form 8594|8594", "Form 8594 filing", "filing", "IRS Form 8594"),
+        ]
+        for pattern, name, item_type, citation in election_patterns:
+            if re.search(pattern, lowered):
+                add(
+                    category="election_filing_candidate",
+                    label="Election or filing candidate",
+                    value=f"{name} may be relevant to the structure.",
+                    confidence=0.84,
+                    normalized_target_kind="election_filing_item",
+                    normalized_target_payload={
+                        "name": name,
+                        "item_type": item_type,
+                        "citation_or_form": citation,
+                        "related_entity_names": [name for name, _ in entity_matches[:2]],
+                        "related_step_titles": ["Stock acquisition step"] if "338" in citation or "336" in citation else [],
+                        "status": "possible",
+                    },
+                    certainty="high",
+                )
+
+        if "buyer" in lowered and "target" in lowered and "acquires" in lowered:
+            ambiguities.append(
+                "The document suggests buyer and target roles, but exact entity names and ownership percentages still need confirmation in Entity Structure."
+            )

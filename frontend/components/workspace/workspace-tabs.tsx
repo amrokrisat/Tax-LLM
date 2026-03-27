@@ -5,6 +5,8 @@ import { memo } from "react";
 export type WorkspaceTab =
   | "facts"
   | "documents"
+  | "entity_structure"
+  | "transaction_steps"
   | "issues"
   | "authorities"
   | "alternatives"
@@ -14,6 +16,8 @@ export type WorkspaceTab =
 const workspaceTabs: Array<{ key: WorkspaceTab; label: string }> = [
   { key: "facts", label: "Facts" },
   { key: "documents", label: "Documents" },
+  { key: "entity_structure", label: "Entity Structure" },
+  { key: "transaction_steps", label: "Transaction Steps" },
   { key: "issues", label: "Issues" },
   { key: "authorities", label: "Authorities" },
   { key: "alternatives", label: "Alternatives" },

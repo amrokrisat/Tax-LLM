@@ -4,6 +4,35 @@ import { ChangeEvent, memo } from "react";
 
 import { ExtractedFact, UploadedDocumentInput } from "@/lib/api";
 
+function categoryLabel(category?: string | null) {
+  if (!category) {
+    return null;
+  }
+  return category.replaceAll("_", " ");
+}
+
+function targetKindLabel(kind?: string | null) {
+  if (!kind) {
+    return null;
+  }
+  switch (kind) {
+    case "entity":
+      return "Entity";
+    case "ownership_link":
+      return "Ownership";
+    case "transaction_role":
+      return "Role";
+    case "tax_classification":
+      return "Tax classification";
+    case "transaction_step":
+      return "Transaction step";
+    case "election_filing_item":
+      return "Election or filing";
+    default:
+      return kind.replaceAll("_", " ");
+  }
+}
+
 export const DocumentsPane = memo(function DocumentsPane({
   draftDocuments,
   extracting,
@@ -122,6 +151,21 @@ export const DocumentsPane = memo(function DocumentsPane({
 
               {(document.extracted_facts ?? []).map((fact) => (
                 <div key={fact.fact_id} className="extracted-fact-card">
+                  <div className="row-between">
+                    <div className="chip-row">
+                      {fact.category ? <span className="chip">{categoryLabel(fact.category)}</span> : null}
+                      {fact.normalized_target_kind ? (
+                        <span className="chip">Structured candidate: {targetKindLabel(fact.normalized_target_kind)}</span>
+                      ) : null}
+                      {fact.mapped_record_kind && fact.mapped_record_label ? (
+                        <span className="chip">
+                          Mapped to {targetKindLabel(fact.mapped_record_kind)}: {fact.mapped_record_label}
+                        </span>
+                      ) : null}
+                    </div>
+                    <span className="chip">{fact.source_document}</span>
+                  </div>
+
                   <div className="two-col">
                     <label className="field">
                       <span>Fact label</span>
@@ -144,11 +188,17 @@ export const DocumentsPane = memo(function DocumentsPane({
 
                   <div className="chip-row">
                     <span className="chip">Confidence {fact.confidence.toFixed(2)}</span>
-                    {fact.category ? <span className="chip">{fact.category.replaceAll("_", " ")}</span> : null}
                     {fact.certainty ? <span className="chip">{fact.certainty} certainty</span> : null}
                     {fact.normalized_field ? <span className="chip">Maps to {fact.normalized_field}</span> : null}
-                    <span className="chip">{fact.source_document}</span>
+                    {fact.normalized_target_kind ? (
+                      <span className="chip">Will create or update {targetKindLabel(fact.normalized_target_kind)}</span>
+                    ) : null}
                   </div>
+                  {fact.normalized_target_payload ? (
+                    <p className="muted">
+                      Structured payload: {JSON.stringify(fact.normalized_target_payload)}
+                    </p>
+                  ) : null}
                   {fact.ambiguity_note ? <p className="muted">{fact.ambiguity_note}</p> : null}
                 </div>
               ))}
@@ -172,6 +222,11 @@ export const DocumentsPane = memo(function DocumentsPane({
                   .map((fact) => (
                     <li key={`${fact.fact_id}-confirmed`}>
                       <strong>{fact.label}</strong>: {fact.value}
+                      {fact.mapped_record_kind && fact.mapped_record_label
+                        ? ` -> ${targetKindLabel(fact.mapped_record_kind)} ${fact.mapped_record_label}`
+                        : fact.normalized_target_kind
+                          ? ` -> ${targetKindLabel(fact.normalized_target_kind)} candidate`
+                          : ""}
                     </li>
                   ))}
               </ul>

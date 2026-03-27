@@ -7,9 +7,15 @@ from pydantic import BaseModel, Field
 from tax_llm.domain.models import (
     AnalysisResult,
     AnalysisRun,
+    ElectionOrFilingItem,
+    Entity,
     ExtractedFact,
     MatterRecord,
+    OwnershipLink,
+    TaxClassification,
+    TransactionRole,
     TransactionFacts,
+    TransactionStep,
     UploadedDocument,
 )
 
@@ -51,10 +57,22 @@ class TransactionFactsInput(BaseModel):
 class AnalyzeTransactionRequest(BaseModel):
     facts: TransactionFactsInput
     uploaded_documents: List[UploadedDocumentInput] = Field(default_factory=list)
+    entities: List[Entity] = Field(default_factory=list)
+    ownership_links: List[OwnershipLink] = Field(default_factory=list)
+    tax_classifications: List[TaxClassification] = Field(default_factory=list)
+    transaction_roles: List[TransactionRole] = Field(default_factory=list)
+    transaction_steps: List[TransactionStep] = Field(default_factory=list)
+    election_items: List[ElectionOrFilingItem] = Field(default_factory=list)
 
 
 class AnalyzeTransactionResponse(BaseModel):
     result: AnalysisResult
+    entities: List[Entity] = Field(default_factory=list)
+    ownership_links: List[OwnershipLink] = Field(default_factory=list)
+    tax_classifications: List[TaxClassification] = Field(default_factory=list)
+    transaction_roles: List[TransactionRole] = Field(default_factory=list)
+    transaction_steps: List[TransactionStep] = Field(default_factory=list)
+    election_items: List[ElectionOrFilingItem] = Field(default_factory=list)
 
 
 class MatterInput(BaseModel):
@@ -62,6 +80,12 @@ class MatterInput(BaseModel):
     transaction_type: str
     facts: TransactionFactsInput
     uploaded_documents: List[UploadedDocumentInput] = Field(default_factory=list)
+    entities: List[Entity] = Field(default_factory=list)
+    ownership_links: List[OwnershipLink] = Field(default_factory=list)
+    tax_classifications: List[TaxClassification] = Field(default_factory=list)
+    transaction_roles: List[TransactionRole] = Field(default_factory=list)
+    transaction_steps: List[TransactionStep] = Field(default_factory=list)
+    election_items: List[ElectionOrFilingItem] = Field(default_factory=list)
 
 
 class MatterResponse(BaseModel):
@@ -86,6 +110,12 @@ class MatterWorkspace(BaseModel):
     transaction_type: str
     facts: TransactionFacts
     uploaded_documents: List[UploadedDocument] = Field(default_factory=list)
+    entities: List[Entity] = Field(default_factory=list)
+    ownership_links: List[OwnershipLink] = Field(default_factory=list)
+    tax_classifications: List[TaxClassification] = Field(default_factory=list)
+    transaction_roles: List[TransactionRole] = Field(default_factory=list)
+    transaction_steps: List[TransactionStep] = Field(default_factory=list)
+    election_items: List[ElectionOrFilingItem] = Field(default_factory=list)
     analysis_runs: List[AnalysisRunSummary] = Field(default_factory=list)
     created_at: str
     updated_at: str

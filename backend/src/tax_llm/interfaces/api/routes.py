@@ -67,7 +67,15 @@ def analyze_transaction(
             for document in payload.uploaded_documents
         ],
     )
-    return AnalyzeTransactionResponse(result=result)
+    return AnalyzeTransactionResponse(
+        result=result,
+        entities=payload.entities,
+        ownership_links=payload.ownership_links,
+        tax_classifications=payload.tax_classifications,
+        transaction_roles=payload.transaction_roles,
+        transaction_steps=payload.transaction_steps,
+        election_items=payload.election_items,
+    )
 
 
 def _matter_store() -> MatterStore:
@@ -168,6 +176,12 @@ def create_matter(
             UploadedDocument(**document.model_dump())
             for document in payload.uploaded_documents
         ],
+        entities=payload.entities,
+        ownership_links=payload.ownership_links,
+        tax_classifications=payload.tax_classifications,
+        transaction_roles=payload.transaction_roles,
+        transaction_steps=payload.transaction_steps,
+        election_items=payload.election_items,
     )
     return MatterResponse(matter=matter)
 
@@ -205,6 +219,12 @@ def update_matter(
                 UploadedDocument(**document.model_dump())
                 for document in payload.uploaded_documents
             ],
+            entities=payload.entities,
+            ownership_links=payload.ownership_links,
+            tax_classifications=payload.tax_classifications,
+            transaction_roles=payload.transaction_roles,
+            transaction_steps=payload.transaction_steps,
+            election_items=payload.election_items,
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Matter not found.") from exc
@@ -230,6 +250,12 @@ def analyze_matter(
             user_id=current_user_id,
             facts=facts,
             uploaded_documents=uploaded_documents,
+            entities=payload.entities,
+            ownership_links=payload.ownership_links,
+            tax_classifications=payload.tax_classifications,
+            transaction_roles=payload.transaction_roles,
+            transaction_steps=payload.transaction_steps,
+            election_items=payload.election_items,
             result=result,
         )
     except FileNotFoundError as exc:

@@ -19,11 +19,17 @@ import {
   AuthorityRecord,
   BucketCoverage,
   DocumentFactConfirmation,
+  ElectionOrFilingItem,
+  Entity,
   ExtractedFact,
   MatterRecord,
   MatterInput,
   MatterWorkspaceRecord,
+  OwnershipLink,
   RunReviewInput,
+  TaxClassification,
+  TransactionRole,
+  TransactionStep,
   UploadedDocumentInput,
   analyzeMatter,
   confirmExtractedFacts,
@@ -42,10 +48,12 @@ import { RunHistoryPanel } from "@/components/workspace/run-history-panel";
 import { WorkspaceTab, WorkspaceTabs } from "@/components/workspace/workspace-tabs";
 import { FactsPane } from "@/components/workspace/facts-pane";
 import { DocumentsPane } from "@/components/workspace/documents-pane";
+import { EntityStructurePane } from "@/components/workspace/entity-structure-pane";
 import { IssuesPane } from "@/components/workspace/issues-pane";
 import { AuthoritiesPane } from "@/components/workspace/authorities-pane";
 import { AlternativesPane } from "@/components/workspace/alternatives-pane";
 import { MemoPane } from "@/components/workspace/memo-pane";
+import { TransactionStepsPane } from "@/components/workspace/transaction-steps-pane";
 import { WarningsPane } from "@/components/workspace/warnings-pane";
 
 type MatterWorkspaceProps = {
@@ -114,12 +122,24 @@ function createMatterInput(
   matterName: string,
   draftFacts: MatterRecord["facts"],
   draftDocuments: UploadedDocumentInput[],
+  entities: Entity[],
+  ownershipLinks: OwnershipLink[],
+  taxClassifications: TaxClassification[],
+  transactionRoles: TransactionRole[],
+  transactionSteps: TransactionStep[],
+  electionItems: ElectionOrFilingItem[],
 ): MatterInput {
   return {
     matter_name: matterName,
     transaction_type: draftFacts.transaction_type,
     facts: draftFacts,
     uploaded_documents: draftDocuments,
+    entities,
+    ownership_links: ownershipLinks,
+    tax_classifications: taxClassifications,
+    transaction_roles: transactionRoles,
+    transaction_steps: transactionSteps,
+    election_items: electionItems,
   };
 }
 
@@ -142,6 +162,12 @@ function summarizeMatter(matter: MatterRecord): MatterWorkspaceRecord {
     transaction_type: matter.transaction_type,
     facts: matter.facts,
     uploaded_documents: matter.uploaded_documents,
+    entities: matter.entities,
+    ownership_links: matter.ownership_links,
+    tax_classifications: matter.tax_classifications,
+    transaction_roles: matter.transaction_roles,
+    transaction_steps: matter.transaction_steps,
+    election_items: matter.election_items,
     analysis_runs: matter.analysis_runs.map(summarizeRun),
     created_at: matter.created_at,
     updated_at: matter.updated_at,
@@ -401,6 +427,12 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
   const [draftMatterName, setDraftMatterName] = useState("");
   const [draftFacts, setDraftFacts] = useState<MatterRecord["facts"] | null>(null);
   const [draftDocuments, setDraftDocuments] = useState<UploadedDocumentInput[]>([]);
+  const [draftEntities, setDraftEntities] = useState<Entity[]>([]);
+  const [draftOwnershipLinks, setDraftOwnershipLinks] = useState<OwnershipLink[]>([]);
+  const [draftTaxClassifications, setDraftTaxClassifications] = useState<TaxClassification[]>([]);
+  const [draftTransactionRoles, setDraftTransactionRoles] = useState<TransactionRole[]>([]);
+  const [draftTransactionSteps, setDraftTransactionSteps] = useState<TransactionStep[]>([]);
+  const [draftElectionItems, setDraftElectionItems] = useState<ElectionOrFilingItem[]>([]);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("facts");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [compareRunId, setCompareRunId] = useState<string>("");
@@ -425,6 +457,12 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     setDraftMatterName(nextMatter.matter_name);
     setDraftFacts(nextMatter.facts);
     setDraftDocuments(nextMatter.uploaded_documents);
+    setDraftEntities(nextMatter.entities);
+    setDraftOwnershipLinks(nextMatter.ownership_links);
+    setDraftTaxClassifications(nextMatter.tax_classifications);
+    setDraftTransactionRoles(nextMatter.transaction_roles);
+    setDraftTransactionSteps(nextMatter.transaction_steps);
+    setDraftElectionItems(nextMatter.election_items);
     setSelectedRunId((current) => current ?? nextMatter.analysis_runs[0]?.run_id ?? null);
     setCompareRunId((current) => current || (nextMatter.analysis_runs[1]?.run_id ?? ""));
   }
@@ -536,6 +574,19 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
   const activeAnalysis = deferredSelectedRun?.result ?? null;
   const currentMatterId = matter.matter_id;
   const currentDraftFacts = draftFacts;
+  const latestRunId = matter.analysis_runs[0]?.run_id ?? null;
+  const viewingHistoricalRun = Boolean(selectedRunId && latestRunId && selectedRunId !== latestRunId);
+  const activeEntities = viewingHistoricalRun && deferredSelectedRun ? deferredSelectedRun.entities : draftEntities;
+  const activeOwnershipLinks =
+    viewingHistoricalRun && deferredSelectedRun ? deferredSelectedRun.ownership_links : draftOwnershipLinks;
+  const activeTaxClassifications =
+    viewingHistoricalRun && deferredSelectedRun ? deferredSelectedRun.tax_classifications : draftTaxClassifications;
+  const activeTransactionRoles =
+    viewingHistoricalRun && deferredSelectedRun ? deferredSelectedRun.transaction_roles : draftTransactionRoles;
+  const activeTransactionSteps =
+    viewingHistoricalRun && deferredSelectedRun ? deferredSelectedRun.transaction_steps : draftTransactionSteps;
+  const activeElectionItems =
+    viewingHistoricalRun && deferredSelectedRun ? deferredSelectedRun.election_items : draftElectionItems;
   const selectedRunLoading = Boolean(selectedRunId && !deferredSelectedRun && loadingRunIds.includes(selectedRunId));
   const warningBuckets =
     activeAnalysis?.bucket_coverage.filter(
@@ -547,7 +598,13 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
   const hasUnsavedChanges =
     draftMatterName !== matter.matter_name ||
     JSON.stringify(currentDraftFacts) !== JSON.stringify(matter.facts) ||
-    JSON.stringify(draftDocuments) !== JSON.stringify(matter.uploaded_documents);
+    JSON.stringify(draftDocuments) !== JSON.stringify(matter.uploaded_documents) ||
+    JSON.stringify(draftEntities) !== JSON.stringify(matter.entities) ||
+    JSON.stringify(draftOwnershipLinks) !== JSON.stringify(matter.ownership_links) ||
+    JSON.stringify(draftTaxClassifications) !== JSON.stringify(matter.tax_classifications) ||
+    JSON.stringify(draftTransactionRoles) !== JSON.stringify(matter.transaction_roles) ||
+    JSON.stringify(draftTransactionSteps) !== JSON.stringify(matter.transaction_steps) ||
+    JSON.stringify(draftElectionItems) !== JSON.stringify(matter.election_items);
   const confirmedExtractedFacts = draftDocuments.flatMap((document) =>
     (document.extracted_facts ?? []).filter((fact) => fact.status === "confirmed"),
   );
@@ -604,6 +661,190 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     );
   }
 
+  function addEntity() {
+    setDraftEntities((current) => [
+      ...current,
+      {
+        entity_id: crypto.randomUUID(),
+        name: "",
+        entity_type: "other",
+        jurisdiction: "",
+        status: "proposed",
+        notes: "",
+        source_fact_ids: [],
+      },
+    ]);
+  }
+
+  function updateEntity<K extends keyof Entity>(entityId: string, key: K, value: Entity[K]) {
+    setDraftEntities((current) =>
+      current.map((entity) => (entity.entity_id === entityId ? { ...entity, [key]: value } : entity)),
+    );
+  }
+
+  function addOwnershipLink() {
+    setDraftOwnershipLinks((current) => [
+      ...current,
+      {
+        link_id: crypto.randomUUID(),
+        parent_entity_id: "",
+        child_entity_id: "",
+        relationship_type: "owns",
+        ownership_percentage: null,
+        status: "proposed",
+        notes: "",
+        source_fact_ids: [],
+      },
+    ]);
+  }
+
+  function updateOwnershipLink<K extends keyof OwnershipLink>(
+    linkId: string,
+    key: K,
+    value: OwnershipLink[K],
+  ) {
+    setDraftOwnershipLinks((current) =>
+      current.map((link) => (link.link_id === linkId ? { ...link, [key]: value } : link)),
+    );
+  }
+
+  function ensureTaxClassification(entityId: string) {
+    const existing = draftTaxClassifications.find((item) => item.entity_id === entityId);
+    if (existing) {
+      return existing.classification_id;
+    }
+    const classificationId = crypto.randomUUID();
+    setDraftTaxClassifications((current) => [
+      ...current,
+      {
+        classification_id: classificationId,
+        entity_id: entityId,
+        classification_type: "unknown",
+        status: "proposed",
+        notes: "",
+        source_fact_ids: [],
+      },
+    ]);
+    return classificationId;
+  }
+
+  function updateTaxClassification<K extends keyof TaxClassification>(
+    classificationId: string,
+    key: K,
+    value: TaxClassification[K],
+  ) {
+    const existing = draftTaxClassifications.find((item) => item.classification_id === classificationId);
+    const resolvedId =
+      existing?.classification_id ??
+      (classificationId.startsWith("draft-") ? ensureTaxClassification(classificationId.replace("draft-", "")) : classificationId);
+    setDraftTaxClassifications((current) =>
+      current.map((item) => (item.classification_id === resolvedId ? { ...item, [key]: value } : item)),
+    );
+  }
+
+  function ensureTransactionRole(entityId: string) {
+    const existing = draftTransactionRoles.find((item) => item.entity_id === entityId);
+    if (existing) {
+      return existing.role_id;
+    }
+    const roleId = crypto.randomUUID();
+    setDraftTransactionRoles((current) => [
+      ...current,
+      {
+        role_id: roleId,
+        entity_id: entityId,
+        role_type: "other",
+        status: "proposed",
+        notes: "",
+        source_fact_ids: [],
+      },
+    ]);
+    return roleId;
+  }
+
+  function updateTransactionRole<K extends keyof TransactionRole>(
+    roleId: string,
+    key: K,
+    value: TransactionRole[K],
+  ) {
+    const existing = draftTransactionRoles.find((item) => item.role_id === roleId);
+    const resolvedId =
+      existing?.role_id ?? (roleId.startsWith("draft-") ? ensureTransactionRole(roleId.replace("draft-", "")) : roleId);
+    setDraftTransactionRoles((current) =>
+      current.map((item) => (item.role_id === resolvedId ? { ...item, [key]: value } : item)),
+    );
+  }
+
+  function addTransactionStep() {
+    setDraftTransactionSteps((current) => [
+      ...current,
+      {
+        step_id: crypto.randomUUID(),
+        sequence_number: current.length + 1,
+        phase: "pre_closing",
+        step_type: "other",
+        title: "",
+        description: "",
+        entity_ids: [],
+        status: "proposed",
+        source_fact_ids: [],
+      },
+    ]);
+  }
+
+  function updateTransactionStep<K extends keyof TransactionStep>(
+    stepId: string,
+    key: K,
+    value: TransactionStep[K],
+  ) {
+    setDraftTransactionSteps((current) =>
+      current.map((step) => (step.step_id === stepId ? { ...step, [key]: value } : step)),
+    );
+  }
+
+  function moveTransactionStep(stepId: string, direction: "up" | "down") {
+    setDraftTransactionSteps((current) => {
+      const sorted = [...current].sort((left, right) => left.sequence_number - right.sequence_number);
+      const index = sorted.findIndex((step) => step.step_id === stepId);
+      if (index < 0) {
+        return current;
+      }
+      const swapIndex = direction === "up" ? index - 1 : index + 1;
+      if (swapIndex < 0 || swapIndex >= sorted.length) {
+        return current;
+      }
+      [sorted[index], sorted[swapIndex]] = [sorted[swapIndex], sorted[index]];
+      return sorted.map((step, nextIndex) => ({ ...step, sequence_number: nextIndex + 1 }));
+    });
+  }
+
+  function addElectionItem() {
+    setDraftElectionItems((current) => [
+      ...current,
+      {
+        item_id: crypto.randomUUID(),
+        name: "",
+        item_type: "other",
+        citation_or_form: "",
+        related_entity_ids: [],
+        related_step_ids: [],
+        status: "possible",
+        notes: "",
+        source_fact_ids: [],
+      },
+    ]);
+  }
+
+  function updateElectionItem<K extends keyof ElectionOrFilingItem>(
+    itemId: string,
+    key: K,
+    value: ElectionOrFilingItem[K],
+  ) {
+    setDraftElectionItems((current) =>
+      current.map((item) => (item.item_id === itemId ? { ...item, [key]: value } : item)),
+    );
+  }
+
   async function handleFileUpload(index: number, event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) {
@@ -632,7 +873,17 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
   async function persistDraftMatter() {
       const nextMatter = await updateMatter(
         currentMatterId,
-        createMatterInput(draftMatterName, currentDraftFacts, draftDocuments),
+        createMatterInput(
+          draftMatterName,
+          currentDraftFacts,
+          draftDocuments,
+          draftEntities,
+          draftOwnershipLinks,
+          draftTaxClassifications,
+          draftTransactionRoles,
+          draftTransactionSteps,
+          draftElectionItems,
+        ),
       );
     syncFullMatter(nextMatter);
     return nextMatter;
@@ -647,6 +898,12 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
       setDraftMatterName(scenario.facts.transaction_name);
       setDraftFacts(scenario.facts);
       setDraftDocuments(scenario.uploaded_documents);
+      setDraftEntities(scenario.entities ?? []);
+      setDraftOwnershipLinks(scenario.ownership_links ?? []);
+      setDraftTaxClassifications(scenario.tax_classifications ?? []);
+      setDraftTransactionRoles(scenario.transaction_roles ?? []);
+      setDraftTransactionSteps(scenario.transaction_steps ?? []);
+      setDraftElectionItems(scenario.election_items ?? []);
       setActiveTab("facts");
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load demo matter.");
@@ -693,7 +950,17 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     try {
       const nextMatter = await analyzeMatter(
         currentMatterId,
-        createMatterInput(draftMatterName, currentDraftFacts, draftDocuments),
+        createMatterInput(
+          draftMatterName,
+          currentDraftFacts,
+          draftDocuments,
+          draftEntities,
+          draftOwnershipLinks,
+          draftTaxClassifications,
+          draftTransactionRoles,
+          draftTransactionSteps,
+          draftElectionItems,
+        ),
       );
       syncFullMatter(nextMatter);
       setSelectedRunId(nextMatter.analysis_runs[0]?.run_id ?? null);
@@ -944,7 +1211,9 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
             />
 
             {selectedRunLoading &&
-            (deferredActiveTab === "issues" ||
+            (deferredActiveTab === "entity_structure" ||
+              deferredActiveTab === "transaction_steps" ||
+              deferredActiveTab === "issues" ||
               deferredActiveTab === "authorities" ||
               deferredActiveTab === "alternatives" ||
               deferredActiveTab === "memo" ||
@@ -980,6 +1249,36 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
                 onFileUpload={(index, event) => void handleFileUpload(index, event)}
                 updateDocument={updateDocument}
                 updateExtractedFact={updateExtractedFact}
+              />
+            ) : null}
+
+            {deferredActiveTab === "entity_structure" && !selectedRunLoading ? (
+              <EntityStructurePane
+                entities={activeEntities}
+                ownershipLinks={activeOwnershipLinks}
+                taxClassifications={activeTaxClassifications}
+                transactionRoles={activeTransactionRoles}
+                readOnly={viewingHistoricalRun}
+                addEntity={addEntity}
+                updateEntity={updateEntity}
+                addOwnershipLink={addOwnershipLink}
+                updateOwnershipLink={updateOwnershipLink}
+                updateTaxClassification={updateTaxClassification}
+                updateTransactionRole={updateTransactionRole}
+              />
+            ) : null}
+
+            {deferredActiveTab === "transaction_steps" && !selectedRunLoading ? (
+              <TransactionStepsPane
+                entities={activeEntities}
+                transactionSteps={activeTransactionSteps}
+                electionItems={activeElectionItems}
+                readOnly={viewingHistoricalRun}
+                addTransactionStep={addTransactionStep}
+                updateTransactionStep={updateTransactionStep}
+                moveTransactionStep={moveTransactionStep}
+                addElectionItem={addElectionItem}
+                updateElectionItem={updateElectionItem}
               />
             ) : null}
 
