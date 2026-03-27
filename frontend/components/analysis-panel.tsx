@@ -246,7 +246,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
                     </div>
                   ) : (
                     <p className="microcopy">
-                      No authorities were retrieved for this regime, so any related memo
+                      No authorities were retrieved for this analysis area, so any related memo
                       discussion should be treated as incomplete.
                     </p>
                   )}
@@ -268,7 +268,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
       </div>
 
       <div className="subpanel">
-        <h3>Classified transactional tax regimes</h3>
+        <h3>Classified transactional tax analysis areas</h3>
         <ul className="list-tight">
           {analysis.classification.map((bucket) => (
             <li key={bucket.bucket}>

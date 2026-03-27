@@ -3,8 +3,6 @@
 import Link from "next/link";
 import { memo } from "react";
 
-import { LogoutButton } from "@/components/logout-button";
-
 export const MatterHeader = memo(function MatterHeader({
   matterName,
   transactionType,
@@ -56,7 +54,6 @@ export const MatterHeader = memo(function MatterHeader({
         <Link className="button-ghost link-button" href="/app">
           Back to matters
         </Link>
-        <LogoutButton />
         <button className="button-subtle" onClick={onLoadDemo} type="button">
           Load demo
         </button>

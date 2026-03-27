@@ -71,8 +71,8 @@ export function Workspace() {
           <p className="eyebrow">Tax LLM</p>
           <h1>Transactional tax analysis, grounded in authority.</h1>
           <p className="lede">
-            Capture deal facts, organize the transaction into transactional-tax regimes, and
-            generate a citation-aware draft that shows where the analysis is strong and
+            Capture deal facts, organize the transaction into transactional-tax analysis areas,
+            and generate a citation-aware draft that shows where the analysis is strong and
             where it remains preliminary.
           </p>
           <p className="muted">
@@ -84,7 +84,7 @@ export function Workspace() {
         <div className="hero-card">
           <h2>What the demo shows</h2>
           <ul className="list-tight">
-            <li>Fact-sensitive regime spotting for corporate, partnership, and overlay transactions</li>
+            <li>Fact-sensitive analysis-area spotting for corporate-core and selected overlay transactions</li>
             <li>Authority review with source types, citations, and excerpts</li>
             <li>Coverage warnings where support is weak or incomplete</li>
             <li>Side-by-side structural alternatives and memo-style analysis</li>

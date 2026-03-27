@@ -10,7 +10,7 @@ export const AlternativesPane = memo(function AlternativesPane({
   activeAnalysis: AnalysisResult | null;
 }) {
   if (!activeAnalysis) {
-    return <p className="muted">Run analysis to compare structure alternatives across the triggered transactional-tax regimes.</p>;
+    return <p className="muted">Run analysis to compare structure alternatives across the triggered analysis areas.</p>;
   }
 
   return (
@@ -27,6 +27,7 @@ export const AlternativesPane = memo(function AlternativesPane({
           <div className="alternative-meta">
             <div className="alternative-section">
               <h4>Tax consequences</h4>
+              <p className="muted">These consequences are only as strong as the support behind the relevant analysis areas.</p>
               <ul className="list-tight">
                 {alternative.tax_consequences.map((item) => (
                   <li key={item.text}>{item.text}</li>

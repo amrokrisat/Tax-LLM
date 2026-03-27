@@ -12,6 +12,7 @@ import {
 } from "react";
 
 import { AppShell } from "@/components/app-shell";
+import { LogoutButton } from "@/components/logout-button";
 import {
   AnalysisRun,
   AnalysisRunSummary,
@@ -390,7 +391,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
 
   if (loading) {
     return (
-      <AppShell variant="app">
+      <AppShell variant="app" actions={<LogoutButton />}>
         <main className="page-shell">
           <div className="workspace-loading">
             <div className="loading-card" />
@@ -406,7 +407,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
 
   if (!matter || !draftFacts) {
     return (
-      <AppShell variant="app">
+      <AppShell variant="app" actions={<LogoutButton />}>
         <main className="page-shell">
           <section className="workspace-main-panel stack">
             <h2>Matter unavailable</h2>
@@ -781,7 +782,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
   }
 
   return (
-    <AppShell variant="app" currentMatterName={draftMatterName}>
+    <AppShell variant="app" currentMatterName={draftMatterName} actions={<LogoutButton />}>
       <main className="page-shell">
         <MatterHeader
           matterName={draftMatterName}

@@ -42,7 +42,7 @@ export function AuthForm() {
         <p className="eyebrow">Secure access</p>
         <h2>{mode === "signin" ? "Welcome back" : "Create your account"}</h2>
         <p className="muted">
-          Access saved matters, regime coverage, run history, extraction review, pinned authorities, and memo export.
+          Access saved matters, authority support, run history, extraction review, pinned authorities, and memo export across the current supported analysis areas.
         </p>
       </div>
 

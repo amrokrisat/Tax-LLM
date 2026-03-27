@@ -24,7 +24,7 @@ export const AuthoritiesPane = memo(function AuthoritiesPane({
   togglePinnedAuthority: (authorityId: string) => void;
 }) {
   if (!activeAnalysis) {
-    return <p className="muted">Run analysis to inspect retrieved authorities, regime coverage, and pinned support.</p>;
+    return <p className="muted">Run analysis to inspect retrieved authorities, support levels, and pinned authority support.</p>;
   }
 
   return (
@@ -50,7 +50,7 @@ export const AuthoritiesPane = memo(function AuthoritiesPane({
             </div>
 
             {Object.keys(groups).length === 0 ? (
-              <p className="muted">No authorities were retrieved for this regime yet.</p>
+              <p className="muted">No authorities were retrieved for this analysis area yet, so support remains incomplete.</p>
             ) : (
               Object.entries(groups).map(([sourceType, authorities]) => (
                 <div key={`${bucket.bucket}-${sourceType}`} className="stack">
