@@ -778,7 +778,24 @@ def rank_authority(
         score += 0.45
     elif authority.source_type in SECONDARY_SUPPORT_TYPES:
         score -= 0.15
+        if authority.source_type == "cases":
+            score -= 0.1
     elif authority.source_type in INTERNAL_ONLY_TYPES:
         score -= 0.5
+    else:
+        score -= 0.4
+
+    if any(
+        bucket in issue_buckets
+        for bucket in {
+            "stock_sale",
+            "asset_sale",
+            "deemed_asset_sale_election",
+            "merger_reorganization",
+            "contribution_transactions",
+            "divisive_transactions",
+        }
+    ) and authority.source_type == "cases":
+        score -= 0.2
 
     return round(max(score, 0.0), 3)

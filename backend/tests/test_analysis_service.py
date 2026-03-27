@@ -354,6 +354,32 @@ def test_thin_support_remains_visibly_preliminary():
     assert any(section.note for section in result.memo_sections if not section.supported)
 
 
+def test_divisive_bucket_remains_preliminary_when_only_anchor_level_support_exists():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Thin 355 Deal",
+            summary="Seller is evaluating a spin-off of a controlled corporation before a sale.",
+            entities=["Seller", "Controlled Corporation"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            proposed_steps="Spin-off before sale",
+            divisive_transactions=True,
+        ),
+        uploaded_documents=[],
+    )
+
+    divisive_bucket = next(
+        coverage for coverage in result.bucket_coverage if coverage.bucket == "divisive_transactions"
+    )
+    divisive_issue = next(issue for issue in result.issues if issue.bucket == "divisive_transactions")
+
+    assert divisive_bucket.source_priority_warning is not None or any(
+        "thin" in note.lower() for note in divisive_bucket.notes
+    )
+    assert not divisive_issue.supported
+
+
 def test_internal_or_secondary_only_support_is_flagged():
     service = build_service()
     result = service.analyze(
@@ -378,6 +404,50 @@ def test_internal_or_secondary_only_support_is_flagged():
     assert all(
         section.heading != "Supported Observation: State and local overlay"
         for section in result.memo_sections
+    )
+
+
+def test_supported_sections_only_generate_for_strongly_supported_buckets():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Mixed Support Deal",
+            summary="Buyer is evaluating a direct asset acquisition with state transfer tax concerns.",
+            entities=["Buyer", "Seller"],
+            jurisdictions=["United States"],
+            transaction_type="asset sale",
+            proposed_steps="Direct asset purchase with section 1060 allocation.",
+            state_tax=True,
+        ),
+        uploaded_documents=[],
+    )
+
+    memo_headings = {section.heading for section in result.memo_sections if section.supported}
+    assert "Direct asset acquisition regime" in memo_headings
+    assert "State and local regime" not in memo_headings
+
+
+def test_contribution_path_does_not_overstate_grounding_when_support_is_mixed():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Contribution Path",
+            summary="Buyer is evaluating a contribution to Holdco before acquisition and there may also be LLC issues.",
+            entities=["Buyer", "Holdco", "LLC Target"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            proposed_steps="Contribution to Holdco followed by acquisition.",
+            contribution_transactions=True,
+            partnership_issues=True,
+        ),
+        uploaded_documents=[],
+    )
+
+    alternative = next(
+        item for item in result.alternatives if item.name == "Contribution and partnership path"
+    )
+    assert alternative.unsupported_assertions or any(
+        statement.note for statement in alternative.tax_consequences if not statement.supported
     )
 
 

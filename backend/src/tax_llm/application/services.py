@@ -295,7 +295,17 @@ class AnalysisService:
                     )
                 )
 
-        if self._has_stock_form(text, facts):
+        if self._has_stock_form(text, facts) or any(
+            term in text
+            for term in [
+                "seller prefers stock",
+                "stock form",
+                "preserve contracts",
+                "preserve licenses",
+                "entity history",
+                "stock treatment",
+            ]
+        ):
             add(
                 "stock_sale",
                 "Facts suggest the parties may preserve stock form and inherited target-level tax history rather than stepping directly into an asset transfer.",
@@ -315,12 +325,34 @@ class AnalysisService:
                 "attribute_preservation",
                 "Facts indicate tax attributes or ownership-change sensitivity that warrants dedicated attribute preservation analysis.",
             )
-        if self._has_asset_form(text, facts):
+        if self._has_asset_form(text, facts) or any(
+            term in text
+            for term in [
+                "asset transfer",
+                "asset purchase",
+                "basis step-up",
+                "basis step up",
+                "purchase price allocation",
+                "residual method",
+            ]
+        ):
             add(
                 "asset_sale",
                 "Facts suggest the buyer may want asset-style consequences, including basis step-up and purchase price allocation, even if seller tax cost rises.",
             )
-        if self._has_deemed_asset_signal(text, facts):
+        if self._has_deemed_asset_signal(text, facts) and any(
+            term in text
+            for term in [
+                "338",
+                "338(h)(10)",
+                "338(g)",
+                "336(e)",
+                "qualified stock purchase",
+                "qualified stock disposition",
+                "joint election",
+                "election statement",
+            ]
+        ):
             deemed_reason = "Facts suggest the parties may be testing whether a nominal stock deal can still produce asset-style tax results through an available election."
             if self._has_338h10_signal(text):
                 deemed_reason = "Facts suggest the parties may be testing whether a stock deal can still produce asset-style tax results through a section 338(h)(10) election, making seller consent, ownership profile, and old-target/new-target consequences central gating issues."
@@ -332,11 +364,18 @@ class AnalysisService:
                 "deemed_asset_sale_election",
                 deemed_reason,
             )
-        if "merger" in text or "reorganization" in text or facts.transaction_type.lower() == "merger":
+        if (
+            "merger" in text
+            or "reorganization" in text
+            or facts.transaction_type.lower() == "merger"
+            or any(term in text for term in ["continuity", "triangular", "cobe", "plan of reorganization"])
+        ):
             add("merger_reorganization", "Facts indicate a merger or reorganization path may be available.")
         if facts.rollover_equity or "rollover" in text or "equity consideration" in text:
             add("rollover_equity", "Facts indicate rollover equity or mixed consideration.")
-        if facts.contribution_transactions or "contribution" in text:
+        if facts.contribution_transactions or any(
+            term in text for term in ["contribution", "351", "drop-down", "drop down", "control", "holdco"]
+        ):
             add("contribution_transactions", "Facts indicate contribution steps or pre-close transfers.")
         if facts.divisive_transactions or any(
             term in text
@@ -392,10 +431,35 @@ class AnalysisService:
             status = "covered" if authorities else "under_supported"
             notes = []
             if not authorities:
-                notes.append(
-                    "No authority was retrieved for this regime. Drafting should remain preliminary."
-                )
+                notes.append("No authority was retrieved for this bucket. Drafting should remain preliminary.")
             source_priority_warning = self.authority_repository.support_warning(authorities)
+            support_quality = self.authority_repository.support_quality(authorities, bucket.bucket)
+            if support_quality == "preliminary" and authorities and source_priority_warning is None:
+                source_priority_warning = (
+                    "Retrieved authority exists, but the current lead support is still preliminary because it is background, procedural-only, or otherwise not the strongest operative support for this bucket."
+                )
+            thin_bucket = bucket.bucket in {
+                "divisive_transactions",
+                "partnership_issues",
+                "withholding_overlay",
+                "state_overlay",
+                "international_overlay",
+            }
+            if thin_bucket and authorities:
+                thin_note = (
+                    "This bucket remains relatively thin in the current corpus and should stay preliminary unless the retrieved authority is directly operative and primary."
+                )
+                notes.append(thin_note)
+                if source_priority_warning is None:
+                    source_priority_warning = thin_note
+            if bucket.bucket in {"contribution_transactions", "debt_overlay", "earnout_overlay"} and authorities:
+                if any(
+                    related_bucket in {item.bucket for item in classification}
+                    for related_bucket in {"partnership_issues", "state_overlay", "international_overlay"}
+                ) and source_priority_warning is None:
+                    source_priority_warning = (
+                        "This bucket is materially affected by related thin or overlay buckets in the current matter, so the resulting path should stay preliminary until those adjacent areas are better supported."
+                    )
             if source_priority_warning:
                 notes.append(source_priority_warning)
             coverage.append(
@@ -427,15 +491,16 @@ class AnalysisService:
             if self._is_strongly_supported(coverage):
                 lead = coverage.authorities[0]
                 description = (
-                    f"{description} The current lead authority is {lead.citation}, which tracks the active facts in this regime."
+                    f"{description} The current lead authority is {lead.citation}, which directly tracks the active facts and operative rule set for this bucket."
                 )
             elif coverage.status == "covered" and coverage.authorities:
+                lead = coverage.authorities[0]
                 description = (
-                    f"{description} Retrieved material exists, but it is not primary-authority support, so the point should stay preliminary."
+                    f"{description} Retrieved material exists and the current lead authority is {lead.citation}, but this bucket should stay preliminary because the support is not yet strongly operative primary authority for the active facts."
                 )
             else:
                 description = (
-                    f"{description} This remains preliminary because the current corpus did not retrieve direct support for the regime."
+                    f"{description} This remains preliminary because the current corpus did not retrieve direct, usable support for the bucket."
                 )
             issues.append(
                 TaxIssue(
@@ -533,7 +598,7 @@ class AnalysisService:
             return (
                 "The fact pattern points to state or transfer-tax consequences, but the current support is only internal and should stay at issue-spotting level rather than recommendation level."
             )
-        return "The submitted facts specifically trigger this transactional-tax regime."
+        return "The submitted facts specifically trigger this transactional-tax analysis area."
 
     def _memo_observation_body(
         self,
@@ -610,7 +675,7 @@ class AnalysisService:
 
     def _issue_summary_text(self, issues: list[TaxIssue]) -> str:
         if not issues:
-            return "No transactional-tax regimes currently have primary-authority support."
+            return "No transactional-tax analysis areas currently have strong primary-authority support."
         if len(issues) == 1:
             return f"Primary authority currently supports the analysis of {issues[0].name.lower()}."
         labels = [issue.name.lower() for issue in issues[:4]]
@@ -963,7 +1028,7 @@ class AnalysisService:
             ):
                 note = "Support is preliminary because one or more relevant buckets rely only on secondary or internal materials."
             else:
-                note = "Support is incomplete because one or more relevant transactional-tax regimes did not retrieve authority."
+                note = "Support is incomplete because one or more relevant buckets did not retrieve strong operative authority."
             unsupported_assertions.append(text)
 
         return SupportedStatement(
@@ -1061,7 +1126,7 @@ class AnalysisService:
                         + (
                             "On the current record, this path can be used as a grounded first-pass comparison."
                             if not alternative.unsupported_assertions
-                            else "Part of this comparison remains preliminary because at least one regime tied to the path lacks strong support."
+                            else "Part of this comparison remains preliminary because at least one bucket tied to the path lacks strong support."
                         )
                     ),
                     citations=alternative.governing_authorities[:4],
@@ -1080,7 +1145,7 @@ class AnalysisService:
                 MemoSection(
                     heading="Preliminary Matters",
                     body=(
-                        "The analysis remains preliminary for the following transactional-tax regimes because they either lack retrieved support or rely only on secondary/internal material: "
+                        "The analysis remains preliminary for the following transactional-tax analysis areas because they either lack retrieved support, rely only on weaker material, or remain thin in the current corpus: "
                         + ", ".join(preliminary_labels)
                         + ". Those areas are intentionally kept out of the supported observations above and should not drive final recommendations yet."
                     ),
@@ -1195,17 +1260,17 @@ class AnalysisService:
         self, under_supported_buckets: list[str], weakly_supported_buckets: list[str]
     ) -> str:
         if not under_supported_buckets and not weakly_supported_buckets:
-            return "Coverage is complete for the currently classified transactional-tax regimes, but conclusions still require human tax review."
+            return "Coverage is complete for the currently classified transactional-tax analysis areas, but conclusions still require human tax review."
         if weakly_supported_buckets and not under_supported_buckets:
             return (
-                "Coverage is mixed. Some regimes are only weakly supported: "
+                "Coverage is mixed. Some analysis areas are only weakly supported: "
                 + ", ".join(BUCKET_LABELS[bucket] for bucket in weakly_supported_buckets)
-                + ". Strongly supported sections remain usable, but weakly supported regimes should stay preliminary."
+                + ". Strongly supported sections remain usable, but weakly supported buckets should stay preliminary."
             )
         return (
-            "Coverage is incomplete. The following transactional-tax regimes are under-supported: "
+            "Coverage is incomplete. The following transactional-tax analysis areas are under-supported: "
             + ", ".join(BUCKET_LABELS[bucket] for bucket in under_supported_buckets)
-            + ". Supported sections remain usable, but unsupported regimes should be treated as preliminary and kept out of final recommendations."
+            + ". Supported sections remain usable, but unsupported buckets should be treated as preliminary and kept out of final recommendations."
         )
 
     def _confidence_label(
@@ -1218,6 +1283,6 @@ class AnalysisService:
             return "low"
         if weakly_supported_buckets:
             return "low"
-        if len(covered_buckets) >= 4:
+        if len(covered_buckets) >= 4 and not weakly_supported_buckets:
             return "medium"
         return "low"

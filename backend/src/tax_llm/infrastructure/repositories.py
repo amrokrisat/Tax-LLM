@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from tax_llm.domain.models import AuthorityRecord, RetrievalFilters, SourceType, TransactionFacts, UploadedDocument
 from tax_llm.infrastructure.corpus import (
@@ -21,6 +22,80 @@ DEFAULT_SOURCE_PRIORITY: list[SourceType] = [
     "forms",
     "internal",
 ]
+
+QueryFocus = Literal[
+    "qualification",
+    "consequence",
+    "election",
+    "procedural",
+    "overlay",
+]
+
+BUCKET_RETRIEVAL_PROFILES: dict[str, dict[str, object]] = {
+    "stock_sale": {
+        "preferred_source_order": ["code", "regs", "irs_guidance", "forms", "cases", "internal"],
+        "query_focus": "consequence",
+        "qualification_terms": ["stock form", "stock acquisition", "entity history", "contracts", "licenses"],
+        "consequence_terms": ["carryover basis", "carryover tax posture", "seller stock preference", "legal continuity"],
+        "election_terms": ["qualified stock purchase", "qualified stock disposition", "338", "336(e)"],
+        "procedural_terms": ["election", "form", "filing"],
+        "penalized_background_ids": ["code-382", "code-383", "code-384"],
+    },
+    "asset_sale": {
+        "preferred_source_order": ["code", "regs", "forms", "irs_guidance", "cases", "internal"],
+        "query_focus": "consequence",
+        "qualification_terms": ["asset purchase", "asset acquisition", "direct asset transfer"],
+        "consequence_terms": ["1060", "1.1060-1", "8594", "allocation", "residual method", "basis step-up", "seller gain", "recapture"],
+        "election_terms": ["338", "338(h)(10)", "338(g)", "336(e)"],
+        "procedural_terms": ["8594", "form", "filing"],
+        "penalized_background_ids": ["reg-1-1001-3", "code-338", "reg-1-338-1", "reg-1-338h10-1", "form-8023", "form-8883"],
+    },
+    "deemed_asset_sale_election": {
+        "preferred_source_order": ["code", "regs", "forms", "irs_guidance", "cases", "internal"],
+        "query_focus": "election",
+        "qualification_terms": ["qualified stock purchase", "qualified stock disposition", "seller profile", "target profile"],
+        "consequence_terms": ["agub", "adsp", "adadp", "basis step-up", "seller tax cost", "old target", "new target"],
+        "election_terms": ["338(h)(10)", "338(g)", "336(e)", "joint election", "election statement", "protective election"],
+        "procedural_terms": ["8023", "8883", "form", "instruction", "filing"],
+        "penalized_background_ids": ["code-368", "reg-1-368-1-framework", "reg-1-1001-3"],
+    },
+    "merger_reorganization": {
+        "preferred_source_order": ["code", "regs", "irs_guidance", "cases", "forms", "internal"],
+        "query_focus": "qualification",
+        "qualification_terms": ["reorganization", "continuity", "continuity of interest", "cobe", "business purpose", "plan of reorganization"],
+        "consequence_terms": ["boot", "stock vs securities", "mixed consideration"],
+        "election_terms": [],
+        "procedural_terms": [],
+        "penalized_background_ids": ["code-338", "reg-1-338-1"],
+    },
+    "contribution_transactions": {
+        "preferred_source_order": ["code", "regs", "irs_guidance", "cases", "forms", "internal"],
+        "query_focus": "qualification",
+        "qualification_terms": ["351", "contribution", "control", "property transfer", "drop-down", "holdco"],
+        "consequence_terms": ["basis", "holding period", "nonrecognition"],
+        "election_terms": [],
+        "procedural_terms": [],
+        "penalized_background_ids": ["reg-1-707-3"],
+    },
+    "divisive_transactions": {
+        "preferred_source_order": ["code", "regs", "irs_guidance", "cases", "forms", "internal"],
+        "query_focus": "qualification",
+        "qualification_terms": ["355", "spin-off", "split-off", "split-up", "device", "controlled corporation", "active trade or business"],
+        "consequence_terms": ["distribution", "separation", "business purpose"],
+        "election_terms": [],
+        "procedural_terms": [],
+        "penalized_background_ids": ["code-368", "reg-1-368-1-framework", "reg-1-368-2-framework"],
+    },
+    "partnership_issues": {
+        "preferred_source_order": ["code", "regs", "irs_guidance", "cases", "forms", "internal"],
+        "query_focus": "overlay",
+        "qualification_terms": ["partnership", "llc", "entity classification"],
+        "consequence_terms": ["disguised sale", "704(c)", "liability allocation"],
+        "election_terms": [],
+        "procedural_terms": [],
+        "penalized_background_ids": [],
+    },
+}
 
 
 class AuthorityCorpusRepository:
@@ -81,6 +156,7 @@ class AuthorityCorpusRepository:
         source_priority: list[SourceType] | None = None,
         limit: int = 6,
     ) -> list[AuthorityRecord]:
+        profile = self._bucket_profile(issue_bucket)
         return self.search(
             facts=facts,
             documents=documents,
@@ -88,7 +164,7 @@ class AuthorityCorpusRepository:
                 issue_buckets=[issue_bucket],
                 transaction_type=self._transaction_type_scope(issue_bucket, facts),
                 jurisdictions=facts.jurisdictions,
-                priority_order=source_priority or DEFAULT_SOURCE_PRIORITY,
+                priority_order=source_priority or profile["preferred_source_order"] or DEFAULT_SOURCE_PRIORITY,
                 title_keywords=self._title_keywords_for_bucket(issue_bucket, facts),
                 citation_keywords=self._citation_keywords_for_bucket(issue_bucket, facts),
             ),
@@ -126,6 +202,26 @@ class AuthorityCorpusRepository:
             return "Support currently relies on secondary or internal materials without primary authority priority."
         return None
 
+    def support_quality(self, authorities: list[AuthorityRecord], issue_bucket: str) -> str:
+        if not authorities:
+            return "under_supported"
+
+        lead = authorities[0]
+        if lead.source_type in INTERNAL_ONLY_TYPES:
+            return "preliminary"
+        if lead.source_type in SECONDARY_SUPPORT_TYPES and not lead.primary_authority:
+            return "preliminary"
+        if lead.procedural_or_substantive == "procedural" and issue_bucket not in {
+            "deemed_asset_sale_election",
+            "withholding_overlay",
+        }:
+            return "preliminary"
+        if self._is_background_only(issue_bucket, lead):
+            return "preliminary"
+        if lead.source_type not in PRIMARY_SUPPORT_TYPES:
+            return "preliminary"
+        return "strong"
+
     def source_rank(self, source_type: SourceType) -> int:
         return SOURCE_PRIORITY[source_type]
 
@@ -143,9 +239,29 @@ class AuthorityCorpusRepository:
             return facts.transaction_type
         return "__any__"
 
+    def _bucket_profile(self, issue_bucket: str) -> dict[str, object]:
+        return BUCKET_RETRIEVAL_PROFILES.get(
+            issue_bucket,
+            {
+                "preferred_source_order": DEFAULT_SOURCE_PRIORITY,
+                "query_focus": "overlay",
+                "qualification_terms": [],
+                "consequence_terms": [],
+                "election_terms": [],
+                "procedural_terms": [],
+                "penalized_background_ids": [],
+            },
+        )
+
+    def _is_background_only(self, issue_bucket: str, authority: AuthorityRecord) -> bool:
+        profile = self._bucket_profile(issue_bucket)
+        penalized = set(profile.get("penalized_background_ids", []))
+        return authority.authority_id in penalized
+
     def _title_keywords_for_bucket(
         self, issue_bucket: str, facts: TransactionFacts
     ) -> list[str]:
+        profile = self._bucket_profile(issue_bucket)
         keywords: dict[str, list[str]] = {
             "attribute_preservation": ["attribute", "ownership", "loss", "credit", "built-in"],
             "debt_overlay": ["interest", "debt", "financing", "refinancing", "modification"],
@@ -194,6 +310,10 @@ class AuthorityCorpusRepository:
             ],
         }
         result = keywords.get(issue_bucket, []).copy()
+        result.extend(profile.get("qualification_terms", []))
+        result.extend(profile.get("consequence_terms", []))
+        result.extend(profile.get("election_terms", []))
+        result.extend(profile.get("procedural_terms", []))
         summary = f"{facts.summary} {facts.consideration_mix} {facts.proposed_steps}".lower()
         if "nol" in summary or "attribute" in summary:
             result.append("ownership")
@@ -202,6 +322,7 @@ class AuthorityCorpusRepository:
     def _citation_keywords_for_bucket(
         self, issue_bucket: str, facts: TransactionFacts
     ) -> list[str]:
+        profile = self._bucket_profile(issue_bucket)
         keywords: dict[str, list[str]] = {
             "attribute_preservation": ["382", "383", "384"],
             "debt_overlay": ["163(j)", "279", "1.1001-3"],
@@ -227,6 +348,9 @@ class AuthorityCorpusRepository:
             "stock_sale": ["stock form", "carryover basis", "stock acquisition", "338", "qualified stock purchase"],
         }
         result = keywords.get(issue_bucket, []).copy()
+        result.extend(profile.get("consequence_terms", []))
+        result.extend(profile.get("election_terms", []))
+        result.extend(profile.get("procedural_terms", []))
         summary = f"{facts.summary} {facts.stated_goals}".lower()
         steps = facts.proposed_steps.lower()
         if issue_bucket in {"stock_sale", "attribute_preservation"} and (

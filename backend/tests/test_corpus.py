@@ -331,6 +331,52 @@ def test_stock_sale_without_attribute_facts_does_not_lead_with_section_382():
     assert results[0].authority_id != "code-382"
 
 
+def test_contribution_facts_prefer_section_351_over_partnership_authorities():
+    repository = AuthorityCorpusRepository(root_path=corpus_root())
+    facts = TransactionFacts(
+        transaction_name="351 Drop-Down",
+        summary="Buyer is considering a pre-close contribution to a holdco and needs section 351 control and basis analysis.",
+        entities=["Buyer", "Holdco", "Target"],
+        jurisdictions=["United States"],
+        transaction_type="stock sale",
+        proposed_steps="Contribution of property to Holdco followed by stock acquisition.",
+        contribution_transactions=True,
+    )
+
+    results = repository.search_by_issue_bucket(
+        facts=facts,
+        documents=[],
+        issue_bucket="contribution_transactions",
+    )
+
+    assert results
+    assert results[0].authority_id in {"code-351", "reg-1-351"}
+    assert "reg-1-707-3" not in [authority.authority_id for authority in results[:2]]
+
+
+def test_divisive_transaction_facts_prefer_section_355_over_broad_reorg_background():
+    repository = AuthorityCorpusRepository(root_path=corpus_root())
+    facts = TransactionFacts(
+        transaction_name="Spin-Off Deal",
+        summary="Seller is considering a spin-off of a controlled corporation before a sale and needs section 355 device and active trade or business analysis.",
+        entities=["Seller", "Controlled Corporation"],
+        jurisdictions=["United States"],
+        transaction_type="stock sale",
+        proposed_steps="Spin-off of controlled corporation before sale.",
+        divisive_transactions=True,
+    )
+
+    results = repository.search_by_issue_bucket(
+        facts=facts,
+        documents=[],
+        issue_bucket="divisive_transactions",
+    )
+
+    assert results
+    assert results[0].authority_id in {"code-355", "reg-1-355-1"}
+    assert "code-368" not in [authority.authority_id for authority in results[:2]]
+
+
 def test_336e_facts_pull_specific_336e_rules_ahead_of_338h10():
     repository = AuthorityCorpusRepository(root_path=corpus_root())
     facts = TransactionFacts(
