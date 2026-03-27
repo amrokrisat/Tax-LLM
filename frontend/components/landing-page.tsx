@@ -19,9 +19,6 @@ export function LandingPage() {
               <Link className="button-primary link-button" href="/login">
                 Sign in
               </Link>
-              <Link className="button-secondary link-button" href="/login">
-                Create account
-              </Link>
             </div>
           </div>
 
