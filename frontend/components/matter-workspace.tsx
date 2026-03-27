@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import {
+  ChangeEvent,
+  startTransition,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-import { LogoutButton } from "@/components/logout-button";
+import { AppShell } from "@/components/app-shell";
 import {
   AnalysisRun,
   AuthorityRecord,
@@ -24,29 +31,15 @@ import {
   updateMatter,
 } from "@/lib/api";
 import { embeddedDemoScenario } from "@/lib/demo-scenario";
+import { startPerf } from "@/lib/perf";
+import { MatterHeader } from "@/components/workspace/matter-header";
+import { RunHistoryPanel } from "@/components/workspace/run-history-panel";
+import { EmptyPanel } from "@/components/workspace/shared";
+import { WorkspaceTab, WorkspaceTabs } from "@/components/workspace/workspace-tabs";
 
 type MatterWorkspaceProps = {
   matterId: string;
 };
-
-type WorkspaceTab =
-  | "facts"
-  | "documents"
-  | "issues"
-  | "authorities"
-  | "alternatives"
-  | "memo"
-  | "warnings";
-
-const workspaceTabs: Array<{ key: WorkspaceTab; label: string }> = [
-  { key: "facts", label: "Facts" },
-  { key: "documents", label: "Documents" },
-  { key: "issues", label: "Issues" },
-  { key: "authorities", label: "Authorities" },
-  { key: "alternatives", label: "Alternatives" },
-  { key: "memo", label: "Memo" },
-  { key: "warnings", label: "Warnings" },
-];
 
 function supportLabel(bucket: BucketCoverage) {
   if (bucket.status === "under_supported" || bucket.authorities.length === 0) {
@@ -270,6 +263,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
   const [copyingExport, setCopyingExport] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const deferredActiveTab = useDeferredValue(activeTab);
 
   function syncMatter(nextMatter: MatterRecord) {
     setMatter(nextMatter);
@@ -282,6 +276,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
 
   useEffect(() => {
     async function loadMatter() {
+      const endPerf = startPerf("matter-workspace.load");
       setLoading(true);
       setError(null);
 
@@ -291,6 +286,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Failed to load matter.");
       } finally {
+        endPerf();
         setLoading(false);
       }
     }
@@ -302,11 +298,12 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     () => matter?.analysis_runs.find((run) => run.run_id === selectedRunId) ?? matter?.analysis_runs[0] ?? null,
     [matter, selectedRunId],
   );
+  const deferredSelectedRun = useDeferredValue(selectedRun);
   const compareRun = useMemo(
     () => matter?.analysis_runs.find((run) => run.run_id === compareRunId) ?? null,
     [matter, compareRunId],
   );
-  const comparison = compareRuns(selectedRun, compareRun);
+  const comparison = useMemo(() => compareRuns(deferredSelectedRun, compareRun), [deferredSelectedRun, compareRun]);
 
   useEffect(() => {
     setReviewerName(selectedRun?.reviewed_by ?? "");
@@ -315,29 +312,37 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
 
   if (loading) {
     return (
-      <main className="page-shell">
-        <section className="panel">
-          <h2>Loading matter workspace...</h2>
-        </section>
-      </main>
+      <AppShell>
+        <main className="page-shell">
+          <div className="workspace-loading">
+            <div className="loading-card" />
+            <div className="loading-layout">
+              <div className="loading-card loading-sidebar" />
+              <div className="loading-card loading-main" />
+            </div>
+          </div>
+        </main>
+      </AppShell>
     );
   }
 
   if (!matter || !draftFacts) {
     return (
-      <main className="page-shell">
-        <section className="panel stack">
-          <h2>Matter unavailable</h2>
-          <p className="muted">{error ?? "This matter could not be loaded."}</p>
-          <Link className="button-secondary link-button" href="/app">
-            Back to matters
-          </Link>
-        </section>
-      </main>
+      <AppShell>
+        <main className="page-shell">
+          <section className="workspace-main-panel stack">
+            <h2>Matter unavailable</h2>
+            <p className="muted">{error ?? "This matter could not be loaded."}</p>
+            <Link className="button-ghost link-button" href="/app">
+              Back to matters
+            </Link>
+          </section>
+        </main>
+      </AppShell>
     );
   }
 
-  const activeAnalysis = selectedRun?.result ?? matter.latest_analysis;
+  const activeAnalysis = deferredSelectedRun?.result ?? matter.latest_analysis;
   const currentMatterId = matter.matter_id;
   const currentDraftFacts = draftFacts;
   const warningBuckets =
@@ -471,6 +476,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
   }
 
   async function saveMatterAction() {
+    const endPerf = startPerf("matter-workspace.save");
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -481,11 +487,13 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Failed to save matter.");
     } finally {
+      endPerf();
       setSaving(false);
     }
   }
 
   async function runAnalysis() {
+    const endPerf = startPerf("matter-workspace.analyze");
     setAnalyzing(true);
     setError(null);
     setSuccess(null);
@@ -503,11 +511,13 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     } catch (analysisError) {
       setError(analysisError instanceof Error ? analysisError.message : "Analysis failed.");
     } finally {
+      endPerf();
       setAnalyzing(false);
     }
   }
 
   async function extractDocumentsAction() {
+    const endPerf = startPerf("matter-workspace.extract");
     setExtracting(true);
     setError(null);
     setSuccess(null);
@@ -522,11 +532,13 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     } catch (extractError) {
       setError(extractError instanceof Error ? extractError.message : "Document extraction failed.");
     } finally {
+      endPerf();
       setExtracting(false);
     }
   }
 
   async function confirmFactsAction() {
+    const endPerf = startPerf("matter-workspace.confirm-facts");
     setConfirmingFacts(true);
     setError(null);
     setSuccess(null);
@@ -554,6 +566,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     } catch (confirmError) {
       setError(confirmError instanceof Error ? confirmError.message : "Failed to confirm extracted facts.");
     } finally {
+      endPerf();
       setConfirmingFacts(false);
     }
   }
@@ -568,6 +581,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     if (!selectedRun) {
       return;
     }
+    const endPerf = startPerf("matter-workspace.review-save");
     setReviewSaving(true);
     setError(null);
     setSuccess(null);
@@ -579,6 +593,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     } catch (reviewError) {
       setError(reviewError instanceof Error ? reviewError.message : "Failed to save review state.");
     } finally {
+      endPerf();
       setReviewSaving(false);
     }
   }
@@ -660,6 +675,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     if (!selectedRun) {
       return;
     }
+    const endPerf = startPerf(copyOnly ? "matter-workspace.export-copy" : "matter-workspace.export-download");
     if (copyOnly) {
       setCopyingExport(true);
     } else {
@@ -679,203 +695,63 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
     } catch (exportError) {
       setError(exportError instanceof Error ? exportError.message : "Export failed.");
     } finally {
+      endPerf();
       setExporting(false);
       setCopyingExport(false);
     }
   }
 
   return (
-    <main className="page-shell">
-      <section className="matter-header">
-        <div className="panel stack">
-          <div className="row-between">
-            <div>
-              <p className="eyebrow">Matter workspace</p>
-              <h1 className="matter-title">{draftMatterName}</h1>
-              <p className="muted">
-                {draftFacts.transaction_type} · Created {formatTimestamp(matter.created_at)} · Updated{" "}
-                {formatTimestamp(matter.updated_at)}
-              </p>
-            </div>
-            <div className="button-row">
-              <Link className="button-tertiary link-button" href="/app">
-                Back to matters
-              </Link>
-              <LogoutButton />
-              <button className="button-secondary" onClick={loadDemoIntoMatter} type="button">
-                Load Demo Scenario
-              </button>
-              <button className="button-secondary" onClick={saveMatterAction} disabled={!hasUnsavedChanges || saving}>
-                {saving ? "Saving..." : "Save Matter"}
-              </button>
-              <button className="button-primary" onClick={runAnalysis} disabled={analyzing}>
-                {analyzing ? "Analyzing..." : "Generate Analysis"}
-              </button>
-            </div>
-          </div>
-          <div className="chip-row">
-            <span className="chip">{matter.analysis_runs.length} saved runs</span>
-            <span className="chip">
-              {draftDocuments.length} {draftDocuments.length === 1 ? "document" : "documents"}
-            </span>
-            {selectedRun ? <span className="chip">{selectedRun.pinned_authority_ids.length} pinned authorities</span> : null}
-            {hasUnsavedChanges ? <span className="chip">Unsaved changes</span> : null}
-          </div>
-          {success ? <p className="status-banner ok">{success}</p> : null}
-          {error ? <p className="status-banner warn">{error}</p> : null}
-        </div>
-      </section>
+    <AppShell>
+      <main className="page-shell">
+        <MatterHeader
+          matterName={draftMatterName}
+          transactionType={draftFacts.transaction_type}
+          createdAt={formatTimestamp(matter.created_at)}
+          updatedAt={formatTimestamp(matter.updated_at)}
+          runCount={matter.analysis_runs.length}
+          documentCount={draftDocuments.length}
+          pinnedCount={deferredSelectedRun?.pinned_authority_ids.length ?? 0}
+          hasUnsavedChanges={hasUnsavedChanges}
+          saving={saving}
+          analyzing={analyzing}
+          onLoadDemo={() => void loadDemoIntoMatter()}
+          onSave={() => void saveMatterAction()}
+          onAnalyze={() => void runAnalysis()}
+        />
 
-      <section className="matter-layout">
-        <aside className="matter-sidebar">
-          <div className="panel stack">
-            <div>
-              <h2>Run history</h2>
-              <p className="muted">
-                Each analysis run is saved with the facts and document set used for that run.
-              </p>
-            </div>
+        {success ? <p className="status-banner ok">{success}</p> : null}
+        {error ? <p className="status-banner warn">{error}</p> : null}
 
-            {matter.analysis_runs.length === 0 ? (
-              <p className="muted">No saved runs yet. Save facts and run analysis to begin a history.</p>
-            ) : (
-              <div className="run-history-list">
-                {matter.analysis_runs.map((run) => (
-                  <button
-                    key={run.run_id}
-                    className={`run-history-card ${selectedRun?.run_id === run.run_id ? "active" : ""}`}
-                    onClick={() => setSelectedRunId(run.run_id)}
-                    type="button"
-                  >
-                    <strong>{formatTimestamp(run.created_at)}</strong>
-                    <span className="microcopy">
-                      {run.result.classification.length} issue buckets · {run.result.authorities_reviewed.length} authorities
-                    </span>
-                    <span className={`support-pill ${supportClass(run.review_status === "reviewed" ? "Primary support" : run.review_status === "in_review" ? "Secondary support" : "Preliminary only")}`}>
-                      {run.review_status === "reviewed"
-                        ? "Reviewed"
-                        : run.review_status === "in_review"
-                          ? "In review"
-                          : "Unreviewed"}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
+        <section className="workspace-grid-v3">
+          <RunHistoryPanel
+            runs={matter.analysis_runs}
+            selectedRunId={deferredSelectedRun?.run_id ?? null}
+            compareRunId={compareRunId}
+            onSelectRun={setSelectedRunId}
+            onCompareChange={setCompareRunId}
+            comparison={comparison}
+            reviewerName={reviewerName}
+            reviewNote={reviewNote}
+            reviewSaving={reviewSaving}
+            selectedRun={deferredSelectedRun}
+            onReviewerNameChange={setReviewerName}
+            onReviewNoteChange={setReviewNote}
+            onSaveNote={() => void saveReviewerNoteAction()}
+            onReviewStatusChange={(status) => void updateRunReviewStatus(status)}
+          />
 
-            {matter.analysis_runs.length > 1 ? (
-              <div className="subpanel stack">
-                <div>
-                  <h3>Compare runs</h3>
-                  <p className="muted">See what changed between the selected run and an earlier run.</p>
-                </div>
-                <label className="field">
-                  <span>Compare against</span>
-                  <select value={compareRunId} onChange={(event) => setCompareRunId(event.target.value)}>
-                    <option value="">Select an earlier run</option>
-                    {matter.analysis_runs
-                      .filter((run) => run.run_id !== selectedRun?.run_id)
-                      .map((run) => (
-                        <option key={run.run_id} value={run.run_id}>
-                          {formatTimestamp(run.created_at)}
-                        </option>
-                      ))}
-                  </select>
-                </label>
+          <section className="workspace-main-panel">
+            <WorkspaceTabs
+              activeTab={activeTab}
+              onTabChange={(tab) =>
+                startTransition(() => {
+                  setActiveTab(tab);
+                })
+              }
+            />
 
-                {comparison ? (
-                  <div className="comparison-card">
-                    <p>
-                      <strong>Authority count delta:</strong> {comparison.authorityDelta >= 0 ? "+" : ""}
-                      {comparison.authorityDelta}
-                    </p>
-                    <p>
-                      <strong>Added issue buckets:</strong>{" "}
-                      {comparison.addedBuckets.length ? comparison.addedBuckets.join(", ") : "None"}
-                    </p>
-                    <p>
-                      <strong>Removed issue buckets:</strong>{" "}
-                      {comparison.removedBuckets.length ? comparison.removedBuckets.join(", ") : "None"}
-                    </p>
-                    <p>
-                      <strong>Coverage warning changed:</strong> {comparison.warningChanged ? "Yes" : "No"}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {selectedRun ? (
-              <div className="subpanel stack">
-                <div>
-                  <h3>Reviewer workflow</h3>
-                  <p className="muted">Save reviewer notes, reviewed state, and pinned authorities on the selected run.</p>
-                </div>
-                <label className="field">
-                  <span>Run review status</span>
-                  <select
-                    value={selectedRun.review_status}
-                    onChange={(event) =>
-                      void updateRunReviewStatus(event.target.value as AnalysisRun["review_status"])
-                    }
-                  >
-                    <option value="unreviewed">Unreviewed</option>
-                    <option value="in_review">In review</option>
-                    <option value="reviewed">Reviewed</option>
-                  </select>
-                </label>
-                <label className="field">
-                  <span>Reviewer</span>
-                  <input value={reviewerName} onChange={(event) => setReviewerName(event.target.value)} />
-                </label>
-                <label className="field">
-                  <span>Reviewer note</span>
-                  <textarea
-                    rows={4}
-                    value={reviewNote}
-                    onChange={(event) => setReviewNote(event.target.value)}
-                    placeholder="Add what was checked, what remains open, or why certain authorities were pinned."
-                  />
-                </label>
-                <button
-                  className="button-secondary"
-                  onClick={() => void saveReviewerNoteAction()}
-                  disabled={reviewSaving || !reviewNote.trim()}
-                  type="button"
-                >
-                  {reviewSaving ? "Saving..." : "Save reviewer note"}
-                </button>
-                {selectedRun.reviewer_notes.length ? (
-                  <div className="stack">
-                    <h4>Saved reviewer notes</h4>
-                    <ul className="list-tight">
-                      {selectedRun.reviewer_notes.map((note, index) => (
-                        <li key={`${selectedRun.run_id}-note-${index}`}>{note}</li>
-                      ))}
-                    </ul>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        </aside>
-
-        <section className="matter-main">
-          <div className="panel stack">
-            <div className="tab-row">
-              {workspaceTabs.map((tab) => (
-                <button
-                  key={tab.key}
-                  className={`tab-button ${activeTab === tab.key ? "active" : ""}`}
-                  onClick={() => setActiveTab(tab.key)}
-                  type="button"
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-
-            {activeTab === "facts" ? (
+            {deferredActiveTab === "facts" ? (
               <div className="stack">
                 {confirmedExtractedFacts.length ? (
                   <div className="subpanel stack">
@@ -982,7 +858,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
               </div>
             ) : null}
 
-            {activeTab === "documents" ? (
+            {deferredActiveTab === "documents" ? (
               <div className="stack">
                 <div className="row-between">
                   <div>
@@ -1105,7 +981,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
               </div>
             ) : null}
 
-            {activeTab === "issues" ? (
+            {deferredActiveTab === "issues" ? (
               activeAnalysis ? (
                 <div className="stack">
                   <div className="subpanel">
@@ -1151,11 +1027,11 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
                   </div>
                 </div>
               ) : (
-                <p className="muted">Run analysis to populate issues.</p>
+                <EmptyPanel title="No issues yet" description="Run analysis to populate issues and bucket triage." />
               )
             ) : null}
 
-            {activeTab === "authorities" ? (
+            {deferredActiveTab === "authorities" ? (
               activeAnalysis ? (
                 <div className="stack">
                   {activeAnalysis.bucket_coverage.map((bucket) => {
@@ -1227,11 +1103,11 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
                   })}
                 </div>
               ) : (
-                <p className="muted">Run analysis to populate authorities.</p>
+                <EmptyPanel title="No authorities yet" description="Run analysis to inspect retrieved authorities and pinned support." />
               )
             ) : null}
 
-            {activeTab === "alternatives" ? (
+            {deferredActiveTab === "alternatives" ? (
               activeAnalysis ? (
                 <div className="alternatives-grid">
                   {activeAnalysis.alternatives.map((alternative) => (
@@ -1285,11 +1161,11 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
                   ))}
                 </div>
               ) : (
-                <p className="muted">Run analysis to populate alternatives.</p>
+                <EmptyPanel title="No alternatives yet" description="Run analysis to compare structure alternatives and decision tradeoffs." />
               )
             ) : null}
 
-            {activeTab === "memo" ? (
+            {deferredActiveTab === "memo" ? (
               activeAnalysis ? (
                 <div className="memo-stack">
                   <div className="row-between subpanel">
@@ -1357,11 +1233,11 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
                   })}
                 </div>
               ) : (
-                <p className="muted">Run analysis to populate the memo view.</p>
+                <EmptyPanel title="No memo yet" description="Run analysis to generate the memo view and markdown export." />
               )
             ) : null}
 
-            {activeTab === "warnings" ? (
+            {deferredActiveTab === "warnings" ? (
               activeAnalysis ? (
                 <div className="stack">
                   <div className={`warning-strip ${activeAnalysis.retrieval_complete ? "ok" : "warn"}`}>
@@ -1411,12 +1287,12 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
                   )}
                 </div>
               ) : (
-                <p className="muted">Run analysis to populate warnings and coverage notes.</p>
+                <EmptyPanel title="No warnings yet" description="Run analysis to populate coverage notes and warning items." />
               )
             ) : null}
-          </div>
+          </section>
         </section>
-      </section>
-    </main>
+      </main>
+    </AppShell>
   );
 }

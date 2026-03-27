@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import { AppShell } from "@/components/app-shell";
 import {
   MatterRecord,
   createMatter,
@@ -13,6 +14,7 @@ import {
 } from "@/lib/api";
 import { LogoutButton } from "@/components/logout-button";
 import { embeddedDemoScenario } from "@/lib/demo-scenario";
+import { startPerf } from "@/lib/perf";
 
 function relativeTimeLabel(timestamp: string) {
   const deltaMs = Date.now() - new Date(timestamp).getTime();
@@ -33,12 +35,14 @@ export function MattersHome() {
 
   useEffect(() => {
     async function load() {
+      const endPerf = startPerf("matters-home.load");
       try {
         const nextMatters = await listMatters();
         setMatters(nextMatters);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Failed to load matters.");
       } finally {
+        endPerf();
         setLoading(false);
       }
     }
@@ -47,6 +51,7 @@ export function MattersHome() {
   }, []);
 
   async function createBlankMatter() {
+    const endPerf = startPerf("matters-home.create-blank");
     setCreating("blank");
     setError(null);
 
@@ -64,11 +69,13 @@ export function MattersHome() {
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Failed to create matter.");
     } finally {
+      endPerf();
       setCreating(null);
     }
   }
 
   async function createDemoMatter() {
+    const endPerf = startPerf("matters-home.create-demo");
     setCreating("demo");
     setError(null);
 
@@ -84,89 +91,80 @@ export function MattersHome() {
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Failed to create sample matter.");
     } finally {
+      endPerf();
       setCreating(null);
     }
   }
 
   return (
-    <main className="page-shell">
-      <section className="hero matters-hero">
-        <div className="hero-copy">
-          <div className="row-between">
+    <AppShell actions={<LogoutButton />}>
+      <main className="page-shell workspace-home">
+        <section className="workspace-hero">
+          <div className="workspace-hero-copy">
             <p className="eyebrow">Tax LLM</p>
-            <LogoutButton />
-          </div>
-          <h1>Transactional tax workspace for saved matters.</h1>
-          <p className="lede">
-            Organize each deal into its own matter, preserve the fact record and document
-            set, rerun analysis as the transaction changes, and compare prior runs side by
-            side.
-          </p>
-        </div>
-
-        <div className="hero-card stack">
-          <h2>Start a matter</h2>
-          <p className="muted">
-            Use a blank matter for live work or create a Project Atlas sample matter to
-            demo the retrieval-first workflow.
-          </p>
-          <div className="button-row">
-            <button className="button-primary" onClick={createBlankMatter} disabled={creating !== null}>
-              {creating === "blank" ? "Creating..." : "New Matter"}
-            </button>
-            <button className="button-secondary" onClick={createDemoMatter} disabled={creating !== null}>
-              {creating === "demo" ? "Creating sample..." : "Create Sample Matter"}
-            </button>
-          </div>
-          {error ? <p className="status-banner warn">{error}</p> : null}
-        </div>
-      </section>
-
-      <section className="panel stack">
-        <div className="row-between">
-          <div>
-            <p className="eyebrow">Matters</p>
-            <h2>Saved matters</h2>
-          </div>
-          {loading ? <span className="chip">Loading matters...</span> : null}
-        </div>
-
-        {matters.length === 0 && !loading ? (
-          <div className="empty-state">
-            <h3>No matters yet</h3>
-            <p className="muted">
-              Create a matter to start saving facts, reruns, authorities, and memo drafts
-              in one workspace.
+            <h1 className="workspace-title">Saved matters for live transactional tax work.</h1>
+            <p className="workspace-subtitle">
+              Keep each deal in its own workspace, preserve reruns and review state, and move from draft facts to exportable memo output without losing authority support.
             </p>
           </div>
-        ) : (
-          <div className="matter-list">
-            {matters.map((matter) => (
-              <article key={matter.matter_id} className="matter-list-card">
-                <div className="row-between">
-                  <div>
-                    <h3>{matter.matter_name}</h3>
-                    <p className="muted">
-                      {matter.transaction_type} · Updated {relativeTimeLabel(matter.updated_at)}
-                    </p>
-                  </div>
-                  <Link className="button-secondary link-button" href={`/matters/${matter.matter_id}`}>
-                    Open matter
-                  </Link>
-                </div>
-                <p>{matter.facts.summary || "No summary yet."}</p>
-                <div className="chip-row">
-                  <span className="chip">{matter.analysis_runs.length} saved runs</span>
-                  <span className="chip">
-                    {matter.uploaded_documents.length}{" "}
-                    {matter.uploaded_documents.length === 1 ? "document" : "documents"}
-                  </span>
-                </div>
-              </article>
-            ))}
+
+          <div className="workspace-hero-actions workspace-hero-actions-column">
+            <button className="button-primary" onClick={createBlankMatter} disabled={creating !== null}>
+              {creating === "blank" ? "Creating..." : "New matter"}
+            </button>
+            <button className="button-subtle" onClick={createDemoMatter} disabled={creating !== null}>
+              {creating === "demo" ? "Creating sample..." : "Create sample matter"}
+            </button>
           </div>
-        )}
-      </section>
-    </main>
+        </section>
+
+        {error ? <p className="status-banner warn">{error}</p> : null}
+
+        <section className="workspace-main-panel">
+          <div className="workspace-section-header">
+            <div>
+              <h2>Matters</h2>
+              <p className="muted">Open a saved matter or start a new one.</p>
+            </div>
+            {loading ? <span className="chip">Loading matters...</span> : null}
+          </div>
+
+          {matters.length === 0 && !loading ? (
+            <div className="empty-panel">
+              <h3>No matters yet</h3>
+              <p className="muted">
+                Create a matter to start saving facts, reruns, authorities, and memo drafts in one workspace.
+              </p>
+            </div>
+          ) : (
+            <div className="matter-grid">
+              {matters.map((matter) => (
+                <article key={matter.matter_id} className="matter-card">
+                  <div className="row-between">
+                    <div>
+                      <h3>{matter.matter_name}</h3>
+                      <p className="muted">
+                        {matter.transaction_type} · Updated {relativeTimeLabel(matter.updated_at)}
+                      </p>
+                    </div>
+                    <Link className="button-ghost link-button" href={`/matters/${matter.matter_id}`}>
+                      Open matter
+                    </Link>
+                  </div>
+                  <p className="matter-card-summary">{matter.facts.summary || "No summary yet."}</p>
+                  <div className="chip-row">
+                    <span className="chip">{matter.analysis_runs.length} saved runs</span>
+                    <span className="chip">
+                      {matter.uploaded_documents.length}{" "}
+                      {matter.uploaded_documents.length === 1 ? "document" : "documents"}
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+    </AppShell>
   );
 }

@@ -14,7 +14,7 @@ export function LogoutButton() {
   }
 
   return (
-    <button className="button-tertiary" onClick={handleLogout} type="button">
+    <button className="button-ghost" onClick={handleLogout} type="button">
       Sign out
     </button>
   );

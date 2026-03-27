@@ -37,17 +37,25 @@ export function AuthForm() {
   }
 
   return (
-    <section className="panel auth-panel">
-      <div className="tab-row auth-toggle">
+    <section className="auth-card">
+      <div className="auth-card-copy">
+        <p className="eyebrow">Secure access</p>
+        <h2>{mode === "signin" ? "Welcome back" : "Create your account"}</h2>
+        <p className="muted">
+          Access saved matters, run history, extraction review, pinned authorities, and memo export.
+        </p>
+      </div>
+
+      <div className="auth-switch">
         <button
-          className={`tab-button ${mode === "signin" ? "active" : ""}`}
+          className={`workspace-tab ${mode === "signin" ? "active" : ""}`}
           type="button"
           onClick={() => setMode("signin")}
         >
           Sign in
         </button>
         <button
-          className={`tab-button ${mode === "signup" ? "active" : ""}`}
+          className={`workspace-tab ${mode === "signup" ? "active" : ""}`}
           type="button"
           onClick={() => setMode("signup")}
         >
@@ -56,7 +64,7 @@ export function AuthForm() {
       </div>
 
       <form className="stack" onSubmit={handleSubmit}>
-        <a className="button-secondary link-button auth-google-button" href="/api/auth/google/start">
+        <a className="button-subtle link-button auth-google-button" href="/api/auth/google/start">
           Continue with Google
         </a>
 
@@ -88,13 +96,6 @@ export function AuthForm() {
             required
           />
         </label>
-
-        <div className="subpanel">
-          <h3>Authentication</h3>
-          <p className="muted">
-            Sign in with Google or use email and password.
-          </p>
-        </div>
 
         {error ? <p className="status-banner warn">{error}</p> : null}
 

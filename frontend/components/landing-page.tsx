@@ -1,40 +1,84 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 
-type LandingPageProps = {
-  signedIn: boolean;
-};
+import { AppShell } from "@/components/app-shell";
+import { currentUser, UserRecord } from "@/lib/api";
 
-export function LandingPage({ signedIn }: LandingPageProps) {
+export function LandingPage() {
+  const [user, setUser] = useState<UserRecord | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void currentUser()
+      .then((nextUser) => {
+        if (alive) {
+          setUser(nextUser);
+        }
+      })
+      .catch(() => {
+        if (alive) {
+          setUser(null);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
-    <main className="page-shell">
-      <section className="hero matters-hero">
-        <div className="hero-copy">
-          <p className="eyebrow">Tax LLM</p>
-          <h1>Transactional tax analysis in a secure matter workspace.</h1>
-          <p className="lede">
-            Intake deal facts, organize issues, review authorities, compare structures, and
-            generate memo-style analysis inside a saved matter workflow.
-          </p>
-          <div className="button-row">
-            <Link className="button-primary link-button" href={signedIn ? "/app" : "/login"}>
-              {signedIn ? "Open Workspace" : "Sign In"}
-            </Link>
-            <Link className="button-secondary link-button" href="/login">
-              Create Account
-            </Link>
+    <AppShell>
+      <main className="page-shell landing-shell">
+        <section className="hero hero-grid">
+          <div className="hero-copy">
+            <p className="eyebrow">Premium transactional tax workspace</p>
+            <h1>Authority-grounded structuring analysis for live deal work.</h1>
+            <p className="lede">
+              Review stock, asset, and deemed-asset paths in one calm workspace. Save
+              matters, preserve run history, inspect authorities, confirm extracted facts,
+              and circulate memo-ready analysis.
+            </p>
+            <div className="button-row">
+              <Link className="button-primary link-button" href={user ? "/app" : "/login"}>
+                {user ? "Open workspace" : "Sign in"}
+              </Link>
+              <Link className="button-secondary link-button" href="/login">
+                Create account
+              </Link>
+            </div>
           </div>
-        </div>
 
-        <div className="hero-card stack">
-          <h2>What’s inside</h2>
-          <ul className="list-tight">
-            <li>Saved matters with rerun history</li>
-            <li>Retrieval-first tax analysis with authority review</li>
-            <li>Structural alternatives, memo drafting, and warning controls</li>
-            <li>Document intake designed for later extraction workflows</li>
-          </ul>
-        </div>
-      </section>
-    </main>
+          <div className="hero-stack">
+            <section className="surface feature-card">
+              <span className="eyebrow">Built for decisions</span>
+              <h2>Structure comparison that shows what drives the answer.</h2>
+              <p className="muted">
+                Compare stock form, direct asset form, and election-sensitive paths with
+                authorities, gating facts, and tradeoffs surfaced side by side.
+              </p>
+            </section>
+            <section className="surface feature-grid">
+              <div>
+                <strong>Saved matters</strong>
+                <p className="muted">Keep facts, documents, runs, and review state together.</p>
+              </div>
+              <div>
+                <strong>Authority review</strong>
+                <p className="muted">Inspect source types, support level, and pinned authority.</p>
+              </div>
+              <div>
+                <strong>Memo export</strong>
+                <p className="muted">Copy or download markdown from any saved run.</p>
+              </div>
+              <div>
+                <strong>Extraction workflow</strong>
+                <p className="muted">Confirm extracted facts before they enter the matter record.</p>
+              </div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </AppShell>
   );
 }
