@@ -782,7 +782,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
   }
 
   return (
-    <AppShell variant="app" currentMatterName={draftMatterName} actions={<LogoutButton />}>
+    <AppShell variant="app" actions={<LogoutButton />}>
       <main className="page-shell">
         <MatterHeader
           matterName={draftMatterName}

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 
 import { AnalysisResult, AnalysisRun, AuthorityRecord, BucketCoverage } from "@/lib/api";
 
@@ -23,6 +23,15 @@ export const AuthoritiesPane = memo(function AuthoritiesPane({
   toggleReviewedSection: (sectionKey: string) => void;
   togglePinnedAuthority: (authorityId: string) => void;
 }) {
+  const [expandedAuthorities, setExpandedAuthorities] = useState<Record<string, boolean>>({});
+
+  function toggleExpanded(authorityId: string) {
+    setExpandedAuthorities((current) => ({
+      ...current,
+      [authorityId]: !current[authorityId],
+    }));
+  }
+
   if (!activeAnalysis) {
     return <p className="muted">Run analysis to inspect retrieved authorities, support levels, and pinned authority support.</p>;
   }
@@ -58,6 +67,8 @@ export const AuthoritiesPane = memo(function AuthoritiesPane({
                   <div className="authority-grid">
                     {authorities.map((authority) => {
                       const pinned = selectedRun?.pinned_authority_ids.includes(authority.authority_id) ?? false;
+                      const expanded = expandedAuthorities[authority.authority_id] ?? false;
+                      const authorityText = authority.full_text?.trim() || authority.excerpt;
                       return (
                         <article key={authority.authority_id} className={`authority-card ${pinned ? "authority-card-pinned" : ""}`}>
                           <div className="row-between">
@@ -96,7 +107,18 @@ export const AuthoritiesPane = memo(function AuthoritiesPane({
                               ))}
                             </div>
                           ) : null}
-                          <p className="muted">{authority.excerpt}</p>
+                          <div className="authority-text-stack">
+                            <p className="muted authority-text">{expanded ? authorityText : authority.excerpt}</p>
+                            {authorityText !== authority.excerpt ? (
+                              <button
+                                className="button-ghost authority-expand-toggle"
+                                onClick={() => toggleExpanded(authority.authority_id)}
+                                type="button"
+                              >
+                                {expanded ? "Collapse" : "Expand"}
+                              </button>
+                            ) : null}
+                          </div>
                         </article>
                       );
                     })}

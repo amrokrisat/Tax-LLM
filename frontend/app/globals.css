@@ -557,11 +557,27 @@ textarea {
   display: grid;
   gap: 8px;
   cursor: pointer;
+  color: var(--ink);
 }
 
 .run-history-card.active {
   border-color: rgba(37, 99, 235, 0.34);
   background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface-muted));
+}
+
+.run-history-title,
+.run-history-meta {
+  color: inherit;
+}
+
+html[data-theme="dark"] .run-history-card.active {
+  color: var(--ink);
+}
+
+html[data-theme="dark"] .run-history-card.active .support-secondary {
+  background: rgba(15, 23, 42, 0.28);
+  color: var(--ink);
+  border-color: rgba(148, 163, 184, 0.22);
 }
 
 .comparison-card,
@@ -727,6 +743,21 @@ textarea {
   background: color-mix(in srgb, var(--accent-soft) 28%, var(--surface));
 }
 
+.authority-text-stack {
+  display: grid;
+  gap: 10px;
+}
+
+.authority-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.authority-expand-toggle {
+  justify-self: flex-start;
+}
+
 .pin-toggle.active {
   color: var(--accent-strong);
 }
@@ -743,6 +774,7 @@ textarea {
 .alternative-card {
   display: grid;
   gap: 14px;
+  align-content: start;
 }
 
 .alternative-header {
@@ -763,6 +795,8 @@ textarea {
   border-radius: 14px;
   background: var(--surface-muted);
   border: 1px solid var(--line);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .coverage-count {
@@ -869,6 +903,14 @@ textarea {
 
 .microcopy {
   font-size: 0.9rem;
+}
+
+.memo-section p,
+.subpanel p,
+.comparison-card p,
+.warning-strip span,
+.alternative-description {
+  overflow-wrap: anywhere;
 }
 
 ul {

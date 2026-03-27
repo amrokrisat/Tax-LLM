@@ -8,7 +8,6 @@ type AppShellProps = {
   actions?: ReactNode;
   compact?: boolean;
   variant?: "public" | "app";
-  currentMatterName?: string | null;
 };
 
 export function AppShell({
@@ -16,7 +15,6 @@ export function AppShell({
   actions,
   compact = false,
   variant = "public",
-  currentMatterName = null,
 }: AppShellProps) {
   return (
     <div className={`app-shell ${compact ? "compact" : ""}`}>
@@ -32,7 +30,6 @@ export function AppShell({
           {variant === "app" ? (
             <>
               <Link href="/app">Matters</Link>
-              {currentMatterName ? <span className="app-nav-context">{currentMatterName}</span> : null}
             </>
           ) : (
             <Link href="/login">Login</Link>

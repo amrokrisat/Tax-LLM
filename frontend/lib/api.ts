@@ -57,6 +57,7 @@ export type AuthorityRecord = {
   title: string;
   citation: string;
   excerpt: string;
+  full_text?: string;
   effective_date: string | null;
   tax_year?: string | null;
   date_range?: string | null;

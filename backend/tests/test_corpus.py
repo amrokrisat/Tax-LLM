@@ -142,6 +142,30 @@ New text.
     authority = result.authorities[0]
     assert authority.title == "New Section 338"
     assert authority.source_url == "https://example.com/new"
+    assert authority.full_text == "New text."
+    assert authority.excerpt == "New text."
+
+
+def test_corpus_loader_preserves_full_text_beyond_excerpt_limit(tmp_path: Path):
+    (tmp_path / "code").mkdir(parents=True, exist_ok=True)
+    long_text = " ".join(["Authority body text."] * 40)
+    authority_text = f"""---
+authority_id: code-long
+title: Long Authority
+citation: IRC Section Long
+issue_buckets: [asset_sale]
+---
+{long_text}
+"""
+    (tmp_path / "code" / "long.md").write_text(authority_text, encoding="utf-8")
+
+    result = AuthorityCorpusLoader(root_path=tmp_path).load()
+
+    assert len(result.authorities) == 1
+    authority = result.authorities[0]
+    assert authority.full_text == long_text
+    assert authority.excerpt.endswith("...")
+    assert len(authority.excerpt) < len(authority.full_text)
 
 
 def test_corpus_loader_prefers_canonical_authority_over_legacy_variant(tmp_path: Path):

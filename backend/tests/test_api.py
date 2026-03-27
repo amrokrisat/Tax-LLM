@@ -64,6 +64,7 @@ def test_analyze_transaction():
     assert len(body["memo_sections"]) >= 1
     assert "completeness_warning" in body
     assert "source_priority_warning" in body["bucket_coverage"][0]
+    assert "full_text" in body["authorities_reviewed"][0]
 
 
 def test_matter_workflow(monkeypatch, tmp_path):

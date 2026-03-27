@@ -57,7 +57,7 @@ export const RunHistoryPanel = memo(function RunHistoryPanel({
           <div>
             <h2>Run history</h2>
             <p className="muted">
-              Saved analysis runs stay attached to this matter for comparison and review.
+              Saved analysis runs stay attached to this matter for comparison, review, and support tracking.
             </p>
           </div>
         </div>
@@ -75,8 +75,10 @@ export const RunHistoryPanel = memo(function RunHistoryPanel({
                 onClick={() => onSelectRun(run.run_id)}
                 type="button"
               >
-                <strong>{new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(run.created_at))}</strong>
-                <span className="microcopy">
+                <strong className="run-history-title">
+                  {new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(run.created_at))}
+                </strong>
+                <span className="microcopy run-history-meta">
                   {run.issue_bucket_count} analysis areas · {run.authority_count} authorities
                 </span>
                 <span className="support-pill support-secondary">{reviewStatusLabel(run.review_status)}</span>
@@ -91,7 +93,7 @@ export const RunHistoryPanel = memo(function RunHistoryPanel({
           <div className="sidebar-panel-header">
             <div>
               <h3>Compare runs</h3>
-              <p className="muted">See what changed between the current run and a prior version.</p>
+              <p className="muted">See what changed between the current run and a prior version, including support coverage.</p>
             </div>
           </div>
           <label className="field">

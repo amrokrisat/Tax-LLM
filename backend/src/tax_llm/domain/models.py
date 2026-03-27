@@ -109,6 +109,7 @@ class AuthorityRecord(BaseModel):
     title: str
     citation: str
     excerpt: str
+    full_text: str = ""
     issue_buckets: List[str] = Field(default_factory=list)
     transaction_type_tags: List[str] = Field(default_factory=list)
     structure_tags: List[str] = Field(default_factory=list)

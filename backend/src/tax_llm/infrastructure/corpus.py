@@ -217,6 +217,7 @@ class AuthorityCorpusLoader:
             title=metadata.get("title") or path.stem.replace("_", " ").title(),
             citation=metadata.get("citation") or path.stem,
             excerpt=metadata.get("excerpt") or compact_excerpt(body),
+            full_text=(body or metadata.get("excerpt") or "").strip(),
             issue_buckets=normalize_list(metadata.get("issue_buckets")),
             transaction_type_tags=normalize_list(metadata.get("transaction_type_tags")),
             structure_tags=normalize_list(metadata.get("structure_tags")),
