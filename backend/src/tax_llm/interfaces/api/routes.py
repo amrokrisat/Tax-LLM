@@ -28,6 +28,7 @@ from tax_llm.interfaces.api.schemas import (
     MatterInput,
     MatterListResponse,
     MatterResponse,
+    MatterSummaryListResponse,
     RunReviewInput,
 )
 from tax_llm.application.use_cases import AnalyzeTransactionUseCase
@@ -139,8 +140,15 @@ def current_session(
     return AuthSessionResponse(session_token=x_tax_session, user=_public_user(user))
 
 
-@router.get("/matters", response_model=MatterListResponse)
-def list_matters(current_user_id: str = Depends(get_current_user_id)):
+@router.get("/matters", response_model=MatterListResponse | MatterSummaryListResponse)
+def list_matters(
+    view: str | None = None,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    if view == "summary":
+        return MatterSummaryListResponse(
+            matters=_matter_store().list_matter_summaries_for_user(current_user_id)
+        )
     return MatterListResponse(matters=_matter_store().list_matters_for_user(current_user_id))
 
 

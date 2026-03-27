@@ -6,11 +6,11 @@ import { useEffect, useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import {
-  MatterRecord,
   createMatter,
   emptyRequest,
   getDemoScenario,
-  listMatters,
+  MatterSummary,
+  listMatterSummaries,
 } from "@/lib/api";
 import { LogoutButton } from "@/components/logout-button";
 import { embeddedDemoScenario } from "@/lib/demo-scenario";
@@ -28,7 +28,7 @@ function relativeTimeLabel(timestamp: string) {
 
 export function MattersHome() {
   const router = useRouter();
-  const [matters, setMatters] = useState<MatterRecord[]>([]);
+  const [matters, setMatters] = useState<MatterSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState<null | "blank" | "demo">(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +37,7 @@ export function MattersHome() {
     async function load() {
       const endPerf = startPerf("matters-home.load");
       try {
-        const nextMatters = await listMatters();
+        const nextMatters = await listMatterSummaries();
         setMatters(nextMatters);
       } catch (loadError) {
         setError(loadError instanceof Error ? loadError.message : "Failed to load matters.");
@@ -151,13 +151,10 @@ export function MattersHome() {
                       Open matter
                     </Link>
                   </div>
-                  <p className="matter-card-summary">{matter.facts.summary || "No summary yet."}</p>
+                  <p className="matter-card-summary">{matter.summary || "No summary yet."}</p>
                   <div className="chip-row">
-                    <span className="chip">{matter.analysis_runs.length} saved runs</span>
-                    <span className="chip">
-                      {matter.uploaded_documents.length}{" "}
-                      {matter.uploaded_documents.length === 1 ? "document" : "documents"}
-                    </span>
+                    <span className="chip">{matter.analysis_run_count} saved runs</span>
+                    <span className="chip">{matter.document_count} {matter.document_count === 1 ? "document" : "documents"}</span>
                   </div>
                 </article>
               ))}

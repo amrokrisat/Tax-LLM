@@ -24,6 +24,7 @@ export async function GET(
   }
   const response = await fetch(`${backendBaseUrl()}/api/v1/matters/${matterId}`, {
     cache: "no-store",
+    signal: AbortSignal.timeout(10000),
     headers: { "X-Tax-Session": sessionToken },
   });
   const body = await response.text();
@@ -51,6 +52,7 @@ export async function PUT(
     },
     body: payload,
     cache: "no-store",
+    signal: AbortSignal.timeout(15000),
   });
   const body = await response.text();
   return new NextResponse(body, {

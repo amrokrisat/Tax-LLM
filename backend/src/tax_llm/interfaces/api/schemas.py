@@ -55,8 +55,23 @@ class MatterResponse(BaseModel):
     matter: MatterRecord
 
 
+class MatterSummary(BaseModel):
+    matter_id: str
+    matter_name: str
+    transaction_type: str
+    summary: str
+    analysis_run_count: int
+    document_count: int
+    created_at: str
+    updated_at: str
+
+
 class MatterListResponse(BaseModel):
     matters: List[MatterRecord]
+
+
+class MatterSummaryListResponse(BaseModel):
+    matters: List[MatterSummary]
 
 
 class DocumentFactConfirmationInput(BaseModel):

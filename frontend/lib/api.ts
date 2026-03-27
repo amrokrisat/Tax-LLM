@@ -167,6 +167,17 @@ export type MatterRecord = {
   updated_at: string;
 };
 
+export type MatterSummary = {
+  matter_id: string;
+  matter_name: string;
+  transaction_type: string;
+  summary: string;
+  analysis_run_count: number;
+  document_count: number;
+  created_at: string;
+  updated_at: string;
+};
+
 export type MatterInput = {
   matter_name: string;
   transaction_type: string;
@@ -293,6 +304,16 @@ export async function listMatters(): Promise<MatterRecord[]> {
     throw new Error("Failed to load matters.");
   }
   const data = (await response.json()) as { matters: MatterRecord[] };
+  return data.matters;
+}
+
+export async function listMatterSummaries(): Promise<MatterSummary[]> {
+  const response = await fetch("/api/matters?view=summary", { cache: "no-store" });
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
+    throw new Error(payload?.detail ?? "Failed to load matters.");
+  }
+  const data = (await response.json()) as { matters: MatterSummary[] };
   return data.matters;
 }
 

@@ -13,13 +13,19 @@ function backendBaseUrl() {
   );
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   const sessionToken = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!sessionToken) {
     return NextResponse.json({ detail: "Authentication required." }, { status: 401 });
   }
-  const response = await fetch(`${backendBaseUrl()}/api/v1/matters`, {
+  const view = request.nextUrl.searchParams.get("view");
+  const url = new URL(`${backendBaseUrl()}/api/v1/matters`);
+  if (view) {
+    url.searchParams.set("view", view);
+  }
+  const response = await fetch(url, {
     cache: "no-store",
+    signal: AbortSignal.timeout(10000),
     headers: { "X-Tax-Session": sessionToken },
   });
   const body = await response.text();
@@ -43,6 +49,7 @@ export async function POST(request: NextRequest) {
     },
     body: payload,
     cache: "no-store",
+    signal: AbortSignal.timeout(15000),
   });
   const body = await response.text();
   return new NextResponse(body, {

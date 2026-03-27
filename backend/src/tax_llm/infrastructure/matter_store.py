@@ -45,6 +45,53 @@ class MatterStore:
             ).fetchall()
         return [self._matter_from_row(row) for row in rows]
 
+    def list_matter_summaries_for_user(self, user_id: str) -> list[dict]:
+        with connect_db(self.db_path) as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    m.matter_id,
+                    m.matter_name,
+                    m.transaction_type,
+                    m.facts_json,
+                    m.uploaded_documents_json,
+                    m.created_at,
+                    m.updated_at,
+                    COUNT(ar.run_id) AS analysis_run_count
+                FROM matters m
+                LEFT JOIN analysis_runs ar ON ar.matter_id = m.matter_id
+                WHERE m.owner_user_id = ?
+                GROUP BY
+                    m.matter_id,
+                    m.matter_name,
+                    m.transaction_type,
+                    m.facts_json,
+                    m.uploaded_documents_json,
+                    m.created_at,
+                    m.updated_at
+                ORDER BY m.updated_at DESC
+                """,
+                (user_id,),
+            ).fetchall()
+
+        summaries: list[dict] = []
+        for row in rows:
+            facts = json.loads(row["facts_json"])
+            documents = json.loads(row["uploaded_documents_json"])
+            summaries.append(
+                {
+                    "matter_id": row["matter_id"],
+                    "matter_name": row["matter_name"],
+                    "transaction_type": row["transaction_type"],
+                    "summary": facts.get("summary", ""),
+                    "analysis_run_count": int(row["analysis_run_count"] or 0),
+                    "document_count": len(documents),
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
+                }
+            )
+        return summaries
+
     def create_matter(
         self,
         owner_user_id: str,
@@ -152,30 +199,42 @@ class MatterStore:
             uploaded_documents=uploaded_documents,
             result=result,
         )
+        analysis_run_columns = self._analysis_run_columns()
+        insert_columns = [
+            "run_id",
+            "matter_id",
+            "created_at",
+            "facts_json",
+            "uploaded_documents_json",
+            "result_json",
+        ]
+        insert_values = [
+            run.run_id,
+            matter_id,
+            run.created_at,
+            self._dump(run.facts),
+            self._dump(run.uploaded_documents),
+            self._dump(run.result),
+        ]
+        optional_columns = {
+            "review_status": run.review_status,
+            "reviewed_at": run.reviewed_at,
+            "reviewed_by": run.reviewed_by,
+            "reviewer_notes_json": self._dump(run.reviewer_notes),
+            "pinned_authority_ids_json": self._dump(run.pinned_authority_ids),
+            "reviewed_sections_json": self._dump(run.reviewed_sections),
+        }
+        for column_name, value in optional_columns.items():
+            if column_name in analysis_run_columns:
+                insert_columns.append(column_name)
+                insert_values.append(value)
         with connect_db(self.db_path) as connection:
             connection.execute(
-                """
-                INSERT INTO analysis_runs (
-                    run_id, matter_id, created_at, facts_json, uploaded_documents_json,
-                    result_json, review_status, reviewed_at, reviewed_by,
-                    reviewer_notes_json, pinned_authority_ids_json, reviewed_sections_json
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                f"""
+                INSERT INTO analysis_runs ({", ".join(insert_columns)})
+                VALUES ({", ".join("?" for _ in insert_columns)})
                 """,
-                (
-                    run.run_id,
-                    matter_id,
-                    run.created_at,
-                    self._dump(run.facts),
-                    self._dump(run.uploaded_documents),
-                    self._dump(run.result),
-                    run.review_status,
-                    run.reviewed_at,
-                    run.reviewed_by,
-                    self._dump(run.reviewer_notes),
-                    self._dump(run.pinned_authority_ids),
-                    self._dump(run.reviewed_sections),
-                ),
+                tuple(insert_values),
             )
         matter.facts = facts
         matter.uploaded_documents = uploaded_documents
@@ -233,26 +292,39 @@ class MatterStore:
         if note:
             notes.append(note.strip())
         reviewed_at = utc_now_iso() if review_status == "reviewed" else run.reviewed_at
+        analysis_run_columns = self._analysis_run_columns()
+        update_pairs: list[str] = []
+        update_values: list[str | None] = []
+        candidate_updates = {
+            "review_status": review_status,
+            "reviewed_at": reviewed_at,
+            "reviewed_by": reviewed_by or run.reviewed_by,
+            "reviewer_notes_json": self._dump(notes),
+            "pinned_authority_ids_json": self._dump(pinned_authority_ids or run.pinned_authority_ids),
+            "reviewed_sections_json": self._dump(reviewed_sections or run.reviewed_sections),
+        }
+        for column_name, value in candidate_updates.items():
+            if column_name in analysis_run_columns:
+                update_pairs.append(f"{column_name} = ?")
+                update_values.append(value)
+        if not update_pairs:
+            return self.get_matter(matter_id, user_id=user_id)
         with connect_db(self.db_path) as connection:
             connection.execute(
-                """
+                f"""
                 UPDATE analysis_runs
-                SET review_status = ?, reviewed_at = ?, reviewed_by = ?,
-                    reviewer_notes_json = ?, pinned_authority_ids_json = ?, reviewed_sections_json = ?
+                SET {", ".join(update_pairs)}
                 WHERE run_id = ? AND matter_id = ?
                 """,
-                (
-                    review_status,
-                    reviewed_at,
-                    reviewed_by or run.reviewed_by,
-                    self._dump(notes),
-                    self._dump(pinned_authority_ids or run.pinned_authority_ids),
-                    self._dump(reviewed_sections or run.reviewed_sections),
-                    run_id,
-                    matter_id,
-                ),
+                tuple(update_values + [run_id, matter_id]),
             )
         return self.get_matter(matter_id, user_id=user_id)
+
+    def _analysis_run_columns(self) -> set[str]:
+        with connect_db(self.db_path) as connection:
+            return {
+                row["name"] for row in connection.execute("PRAGMA table_info(analysis_runs)").fetchall()
+            }
 
     def get_run(self, matter_id: str, user_id: str, run_id: str) -> AnalysisRun:
         matter = self.get_matter(matter_id, user_id=user_id)
@@ -380,12 +452,24 @@ class MatterStore:
                     )
 
     def _matter_from_row(self, row) -> MatterRecord:
+        analysis_run_columns = self._analysis_run_columns()
+        select_fields = [
+            "run_id",
+            "created_at",
+            "facts_json",
+            "uploaded_documents_json",
+            "result_json",
+            "review_status" if "review_status" in analysis_run_columns else "'unreviewed' AS review_status",
+            "reviewed_at" if "reviewed_at" in analysis_run_columns else "NULL AS reviewed_at",
+            "reviewed_by" if "reviewed_by" in analysis_run_columns else "NULL AS reviewed_by",
+            "reviewer_notes_json" if "reviewer_notes_json" in analysis_run_columns else "'[]' AS reviewer_notes_json",
+            "pinned_authority_ids_json" if "pinned_authority_ids_json" in analysis_run_columns else "'[]' AS pinned_authority_ids_json",
+            "reviewed_sections_json" if "reviewed_sections_json" in analysis_run_columns else "'[]' AS reviewed_sections_json",
+        ]
         with connect_db(self.db_path) as connection:
             runs = connection.execute(
-                """
-                SELECT run_id, created_at, facts_json, uploaded_documents_json, result_json,
-                       review_status, reviewed_at, reviewed_by,
-                       reviewer_notes_json, pinned_authority_ids_json, reviewed_sections_json
+                f"""
+                SELECT {", ".join(select_fields)}
                 FROM analysis_runs
                 WHERE matter_id = ?
                 ORDER BY created_at DESC
