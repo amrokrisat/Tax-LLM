@@ -12,11 +12,16 @@ import {
   TransactionStepPhase,
   TransactionStepType,
 } from "@/lib/api";
+import { summarizeStepPlan } from "@/lib/structure";
 
 const phases: TransactionStepPhase[] = ["pre_closing", "closing", "post_closing"];
 const stepTypes: TransactionStepType[] = [
+  "signing",
+  "pre_closing_reorganization",
   "stock_purchase",
+  "stock_sale",
   "asset_purchase",
+  "asset_sale",
   "merger",
   "contribution",
   "distribution",
@@ -27,6 +32,7 @@ const stepTypes: TransactionStepType[] = [
   "refinancing",
   "election",
   "filing",
+  "post_closing_integration",
   "other",
 ];
 const stepStatuses: StructuredRecordStatus[] = ["proposed", "confirmed", "uncertain"];
@@ -59,6 +65,7 @@ export const TransactionStepsPane = memo(function TransactionStepsPane({
   ) => void;
 }) {
   const orderedSteps = [...transactionSteps].sort((left, right) => left.sequence_number - right.sequence_number);
+  const summarizedSteps = summarizeStepPlan(orderedSteps);
 
   return (
     <div className="stack">
@@ -93,12 +100,13 @@ export const TransactionStepsPane = memo(function TransactionStepsPane({
           ) : null}
         </div>
         {transactionSteps.length ? (
-          orderedSteps.map((step, index) => (
+          summarizedSteps.map((step, index) => (
               <div key={step.step_id} className="stack authority-card">
                 <div className="row-between">
                   <div className="chip-row">
                     <span className="chip">Step {step.sequence_number}</span>
                     <span className="chip">{step.phase.replaceAll("_", " ")}</span>
+                    <span className="chip">{step.normalizedFamily}</span>
                     <span className="chip">{step.status}</span>
                   </div>
                   {!readOnly ? (
@@ -301,7 +309,7 @@ export const TransactionStepsPane = memo(function TransactionStepsPane({
                     )
                   }
                 >
-                  {orderedSteps.map((step) => (
+                  {summarizedSteps.map((step) => (
                     <option key={step.step_id} value={step.step_id}>
                       {`Step ${step.sequence_number}: ${step.title || step.step_type.replaceAll("_", " ")}`}
                     </option>

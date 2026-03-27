@@ -6,6 +6,7 @@ import {
   Entity,
   EntityType,
   OwnershipLink,
+  OwnershipScope,
   OwnershipRelationshipType,
   StructuredRecordStatus,
   TaxClassification,
@@ -13,6 +14,7 @@ import {
   TransactionRole,
   TransactionRoleType,
 } from "@/lib/api";
+import { summarizeEntityStructure } from "@/lib/structure";
 
 const entityTypes: EntityType[] = [
   "corporation",
@@ -44,11 +46,16 @@ const roleTypes: TransactionRoleType[] = [
   "parent",
   "subsidiary",
   "merger_sub",
+  "holding_company",
+  "portfolio_company",
   "distributing_corporation",
   "controlled_corporation",
   "partnership_vehicle",
   "blocker",
   "lender",
+  "shareholder",
+  "partner",
+  "individual_owner",
   "rollover_holder",
   "other",
 ];
@@ -60,6 +67,7 @@ const relationshipTypes: OwnershipRelationshipType[] = [
   "disregarded_owner",
   "shareholder_of",
 ];
+const ownershipScopes: OwnershipScope[] = ["direct", "indirect"];
 
 const recordStatuses: StructuredRecordStatus[] = ["proposed", "confirmed", "uncertain"];
 
@@ -103,6 +111,7 @@ export const EntityStructurePane = memo(function EntityStructurePane({
   function entityName(entityId: string) {
     return entities.find((entity) => entity.entity_id === entityId)?.name ?? "Unknown entity";
   }
+  const summaries = summarizeEntityStructure(entities, ownershipLinks, taxClassifications, transactionRoles);
 
   return (
     <div className="stack">
@@ -123,25 +132,15 @@ export const EntityStructurePane = memo(function EntityStructurePane({
 
         {entities.length ? (
           <ul className="list-tight">
-            {entities.map((entity) => {
-              const classification = taxClassifications.find((item) => item.entity_id === entity.entity_id);
-              const roles = transactionRoles
-                .filter((item) => item.entity_id === entity.entity_id)
-                .map((item) => item.role_type.replaceAll("_", " "));
-              const outbound = ownershipLinks
-                .filter((item) => item.parent_entity_id === entity.entity_id)
-                .map((item) => `${item.relationship_type.replaceAll("_", " ")} ${entityName(item.child_entity_id)}`);
-              const inbound = ownershipLinks
-                .filter((item) => item.child_entity_id === entity.entity_id)
-                .map((item) => `${entityName(item.parent_entity_id)} ${item.relationship_type.replaceAll("_", " ")}`);
-
+            {summaries.map(({ entity, classification, roles, outbound, inbound, indirectChildren }) => {
               return (
                 <li key={entity.entity_id}>
                   <strong>{entity.name}</strong>
                   {classification ? ` · ${classification.classification_type.replaceAll("_", " ")}` : ""}
-                  {roles.length ? ` · ${roles.join(", ")}` : ""}
-                  {outbound.length ? ` · owns: ${outbound.join("; ")}` : ""}
-                  {inbound.length ? ` · owned by: ${inbound.join("; ")}` : ""}
+                  {roles.length ? ` · ${roles.map((item) => item.replaceAll("_", " ")).join(", ")}` : ""}
+                  {outbound.length ? ` · owns: ${outbound.map((item) => `${item.relationship_type.replaceAll("_", " ")} ${entityName(item.child_entity_id)}`).join("; ")}` : ""}
+                  {indirectChildren.length ? ` · indirect: ${indirectChildren.map((item) => item.childName).join("; ")}` : ""}
+                  {inbound.length ? ` · owned by: ${inbound.map((item) => `${entityName(item.parent_entity_id)} ${item.relationship_type.replaceAll("_", " ")}`).join("; ")}` : ""}
                 </li>
               );
             })}
@@ -339,6 +338,22 @@ export const EntityStructurePane = memo(function EntityStructurePane({
                   {relationshipTypes.map((value) => (
                     <option key={value} value={value}>
                       {value.replaceAll("_", " ")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="field">
+                <span>Scope</span>
+                <select
+                  disabled={readOnly}
+                  value={link.ownership_scope}
+                  onChange={(event) =>
+                    updateOwnershipLink(link.link_id, "ownership_scope", event.target.value as OwnershipScope)
+                  }
+                >
+                  {ownershipScopes.map((value) => (
+                    <option key={value} value={value}>
+                      {value}
                     </option>
                   ))}
                 </select>

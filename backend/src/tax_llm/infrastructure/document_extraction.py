@@ -322,6 +322,7 @@ class DocumentExtractionService:
         del file_name
 
         entity_matches: list[tuple[str, str]] = []
+        role_entity_names: dict[str, str] = {}
 
         def add_entity(name: str, entity_type: str = "other", confidence: float = 0.72) -> None:
             entity_name = name.strip()
@@ -352,9 +353,12 @@ class DocumentExtractionService:
             (r"\bbuyer\b", "Buyer", "corporation", 0.8),
             (r"\bseller\b", "Seller", "corporation", 0.8),
             (r"\btarget\b", "Target", "corporation", 0.8),
+            (r"\bblocker\b", "Blocker", "corporation", 0.78),
+            (r"\bportfolio company\b", "Portfolio Company", "corporation", 0.76),
             (r"\bcontrolled corporation\b", "Controlled Corporation", "corporation", 0.82),
             (r"\bllc\b", "LLC Vehicle", "llc", 0.74),
             (r"\bpartnership\b", "Partnership Vehicle", "partnership", 0.74),
+            (r"\bindividual owner\b", "Individual Owner", "individual", 0.8),
         ]
         for pattern, name, entity_type, confidence in simple_entity_patterns:
             if re.search(pattern, lowered):
@@ -378,13 +382,20 @@ class DocumentExtractionService:
             ("target", "Target", "target"),
             ("merger sub", "Merger Sub", "merger_sub"),
             ("parent", "Parent", "parent"),
+            ("holdco", "Holdco", "holding_company"),
+            ("portfolio company", "Portfolio Company", "portfolio_company"),
+            ("blocker", "Blocker", "blocker"),
             ("controlled corporation", "Controlled Corporation", "controlled_corporation"),
             ("distributing corporation", "Parent", "distributing_corporation"),
             ("partnership", "Partnership Vehicle", "partnership_vehicle"),
             ("lender", "Lender", "lender"),
+            ("shareholder", "Individual Owner", "shareholder"),
+            ("partner", "Individual Owner", "partner"),
+            ("individual owner", "Individual Owner", "individual_owner"),
         ]
         for trigger, entity_name, role_type in role_patterns:
             if trigger in lowered:
+                role_entity_names[role_type] = entity_name
                 add(
                     category="transaction_role_candidate",
                     label="Transaction role candidate",
@@ -406,6 +417,8 @@ class DocumentExtractionService:
             ("disregarded entity", "LLC Vehicle", "disregarded_entity"),
             ("partnership", "Partnership Vehicle", "partnership"),
             ("foreign corporation", "Target", "foreign_corporation"),
+            ("single member llc", "LLC Vehicle", "disregarded_entity"),
+            ("member-managed llc", "LLC Vehicle", "partnership"),
         ]
         for trigger, entity_name, classification_type in classification_patterns:
             if trigger in lowered:
@@ -423,25 +436,42 @@ class DocumentExtractionService:
                     certainty="high",
                 )
 
+        ownership_patterns = []
         if "controlled corporation" in lowered and ("parent" in lowered or "seller" in lowered):
             parent_name = "Parent" if "parent" in lowered else "Seller"
             child_name = "Controlled Corporation"
+            ownership_patterns.append((parent_name, child_name, "owns", None, "direct", 0.78))
+        if "merger sub" in lowered and "parent" in lowered:
+            ownership_patterns.append(("Parent", "Merger Sub", "owns", 100.0 if "wholly owned" in lowered else None, "direct", 0.84))
+        if "holdco" in lowered and "portfolio company" in lowered:
+            ownership_patterns.append(("Holdco", "Portfolio Company", "owns", None, "direct", 0.76))
+        if "llc" in lowered and ("member" in lowered or "owned by" in lowered):
+            ownership_patterns.append(("Buyer", "LLC Vehicle", "member_of", None, "direct", 0.72))
+        for match in re.finditer(r"([A-Z][A-Za-z0-9&.\- ]+?) owns (\d{1,3}(?:\.\d+)?)% of ([A-Z][A-Za-z0-9&.\- ]+)", text):
+            ownership_patterns.append((match.group(1).strip(), match.group(3).strip(), "owns", float(match.group(2)), "direct", 0.9))
+            add_entity(match.group(1).strip(), "other", 0.82)
+            add_entity(match.group(3).strip(), "other", 0.82)
+        for parent_name, child_name, relationship_type, ownership_percentage, ownership_scope, confidence in ownership_patterns:
             add(
                 category="ownership_candidate",
                 label="Ownership candidate",
                 value=f"{parent_name} may own {child_name}.",
-                confidence=0.78,
+                confidence=confidence,
                 normalized_target_kind="ownership_link",
                 normalized_target_payload={
                     "parent_entity_name": parent_name,
                     "child_entity_name": child_name,
                     "relationship_type": "owns",
+                    "ownership_scope": ownership_scope,
+                    "ownership_percentage": ownership_percentage,
                     "status": "proposed",
                 },
-                certainty="medium",
+                certainty="high" if confidence >= 0.84 else "medium",
             )
 
         step_patterns = [
+            (r"signing|sign term sheet|definitive agreement|signing date", "pre_closing", "signing", "Signing step"),
+            (r"pre-closing reorganization|pre closing reorganization|reorganize before closing|recapitalization", "pre_closing", "pre_closing_reorganization", "Pre-closing reorganization step"),
             (r"spin-off|spin off", "pre_closing", "spin_off", "Spin-off separation step"),
             (r"split-off|split off", "pre_closing", "split_off", "Split-off separation step"),
             (r"split-up|split up", "pre_closing", "split_up", "Split-up separation step"),
@@ -451,6 +481,9 @@ class DocumentExtractionService:
             (r"contribution|drop-down|drop down", "pre_closing", "contribution", "Contribution step"),
             (r"llc taxed as a partnership|partnership contribution|joint venture", "pre_closing", "partnership_contribution", "Partnership contribution step"),
             (r"refinanc", "post_closing", "refinancing", "Refinancing step"),
+            (r"distribution|dividend up|distribute", "pre_closing", "distribution", "Distribution step"),
+            (r"integration|combine operations|post-closing integration|post closing integration", "post_closing", "post_closing_integration", "Post-closing integration step"),
+            (r"338\(h\)\(10\)|338\(g\)|336\(e\)|form 8023|form 8594", "closing", "election", "Election or filing step"),
         ]
         for pattern, phase, step_type, title in step_patterns:
             if re.search(pattern, lowered):
@@ -501,4 +534,8 @@ class DocumentExtractionService:
         if "buyer" in lowered and "target" in lowered and "acquires" in lowered:
             ambiguities.append(
                 "The document suggests buyer and target roles, but exact entity names and ownership percentages still need confirmation in Entity Structure."
+            )
+        if "llc" in lowered and "disregarded" not in lowered and "partnership" not in lowered:
+            ambiguities.append(
+                "The document mentions an LLC, but the tax classification is not explicit yet, so partnership-versus-disregarded treatment still needs confirmation."
             )

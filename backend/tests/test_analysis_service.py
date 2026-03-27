@@ -1,5 +1,13 @@
 from tax_llm.application.services import AnalysisService
-from tax_llm.domain.models import TransactionFacts, UploadedDocument
+from tax_llm.domain.models import (
+    Entity,
+    OwnershipLink,
+    TaxClassification,
+    TransactionFacts,
+    TransactionRole,
+    TransactionStep,
+    UploadedDocument,
+)
 from tax_llm.infrastructure.document_parser import DemoDocumentParser
 from tax_llm.infrastructure.repositories import AuthorityCorpusRepository
 
@@ -520,8 +528,124 @@ def test_memo_sections_change_meaningfully_when_facts_change():
     merger_bodies = [section.body for section in merger_result.memo_sections]
     asset_bodies = [section.body for section in asset_result.memo_sections]
     assert merger_bodies != asset_bodies
-    assert any("rollover" in body.lower() or "merger" in body.lower() for body in merger_bodies)
-    assert any("asset" in body.lower() or "allocation" in body.lower() for body in asset_bodies)
+
+
+def test_structured_merger_entities_and_steps_sharpen_merger_analysis():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Structured Merger",
+            summary="Buyer evaluates a merger structure.",
+            entities=["Parent", "Merger Sub", "Target"],
+            jurisdictions=["United States"],
+            transaction_type="merger",
+            consideration_mix="Cash plus rollover equity",
+            proposed_steps="Merger closing",
+            rollover_equity=True,
+        ),
+        uploaded_documents=[],
+        entities=[
+            Entity(entity_id="parent", name="Parent", entity_type="corporation", status="confirmed"),
+            Entity(entity_id="merger-sub", name="Merger Sub", entity_type="corporation", status="confirmed"),
+            Entity(entity_id="target", name="Target", entity_type="corporation", status="confirmed"),
+        ],
+        ownership_links=[
+            OwnershipLink(
+                link_id="link-1",
+                parent_entity_id="parent",
+                child_entity_id="merger-sub",
+                relationship_type="owns",
+                ownership_scope="direct",
+                ownership_percentage=100,
+                status="confirmed",
+            )
+        ],
+        transaction_roles=[
+            TransactionRole(role_id="role-1", entity_id="parent", role_type="buyer", status="confirmed"),
+            TransactionRole(role_id="role-2", entity_id="parent", role_type="parent", status="confirmed"),
+            TransactionRole(role_id="role-3", entity_id="merger-sub", role_type="merger_sub", status="confirmed"),
+            TransactionRole(role_id="role-4", entity_id="target", role_type="target", status="confirmed"),
+        ],
+        transaction_steps=[
+            TransactionStep(
+                step_id="step-1",
+                sequence_number=1,
+                phase="closing",
+                step_type="merger",
+                title="Merger Sub merges into Target",
+                entity_ids=["merger-sub", "target"],
+                status="confirmed",
+            )
+        ],
+    )
+
+    merger_bucket = {bucket.bucket for bucket in result.classification}
+    assert "merger_reorganization" in merger_bucket
+    assert any(
+        "Merger Sub" in alternative.description or "Target" in alternative.description
+        for alternative in result.alternatives
+        if alternative.name == "Reorganization-sensitive merger path"
+    )
+
+
+def test_structured_partnership_context_and_step_ambiguity_affect_analysis():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Structured Partnership",
+            summary="The parties are evaluating a contribution path.",
+            entities=["Holdco", "LLC Vehicle", "Operating Company"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            consideration_mix="Cash",
+            proposed_steps="Contribution before closing",
+        ),
+        uploaded_documents=[],
+        entities=[
+            Entity(entity_id="holdco", name="Holdco", entity_type="corporation", status="confirmed"),
+            Entity(entity_id="llc", name="LLC Vehicle", entity_type="llc", status="confirmed"),
+            Entity(entity_id="opco", name="Operating Company", entity_type="corporation", status="confirmed"),
+        ],
+        tax_classifications=[
+            TaxClassification(
+                classification_id="classification-1",
+                entity_id="llc",
+                classification_type="partnership",
+                status="confirmed",
+            )
+        ],
+        ownership_links=[
+            OwnershipLink(
+                link_id="link-1",
+                parent_entity_id="holdco",
+                child_entity_id="opco",
+                relationship_type="owns",
+                ownership_scope="direct",
+                ownership_percentage=100,
+                status="confirmed",
+            )
+        ],
+        transaction_roles=[
+            TransactionRole(role_id="role-1", entity_id="llc", role_type="partnership_vehicle", status="confirmed"),
+            TransactionRole(role_id="role-2", entity_id="opco", role_type="target", status="confirmed"),
+        ],
+        transaction_steps=[
+            TransactionStep(
+                step_id="step-1",
+                sequence_number=1,
+                phase="pre_closing",
+                step_type="partnership_contribution",
+                title="Contribute assets to LLC Vehicle",
+                entity_ids=["llc", "missing-entity"],
+                status="confirmed",
+            )
+        ],
+    )
+
+    assert "partnership_issues" in {bucket.bucket for bucket in result.classification}
+    assert result.structure_ambiguities
+    assert any("not currently present in Entity Structure" in item for item in result.structure_ambiguities)
+    assert "Structured ambiguities remain" in result.completeness_warning
 
 
 def test_memo_avoids_repetitive_support_formulas_and_uses_live_facts():

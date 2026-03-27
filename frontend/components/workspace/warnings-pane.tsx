@@ -24,6 +24,18 @@ export const WarningsPane = memo(function WarningsPane({
         <span>{activeAnalysis.completeness_warning}</span>
       </div>
 
+      {(activeAnalysis.structure_ambiguities ?? []).length ? (
+        <div className="subpanel stack">
+          <h3>Structured transaction ambiguities</h3>
+          <p className="muted">These entity, ownership, or step-plan issues are still unresolved and are affecting the analysis posture.</p>
+          <ul className="list-tight">
+            {(activeAnalysis.structure_ambiguities ?? []).map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {warningBuckets.length === 0 ? (
         <div className="subpanel stack">
           <h3>No open warning items</h3>

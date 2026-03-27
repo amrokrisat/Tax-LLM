@@ -690,6 +690,7 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
         parent_entity_id: "",
         child_entity_id: "",
         relationship_type: "owns",
+        ownership_scope: "direct",
         ownership_percentage: null,
         status: "proposed",
         notes: "",

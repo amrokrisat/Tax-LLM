@@ -327,6 +327,7 @@ def test_structured_workspace_fields_persist_snapshot_and_export(monkeypatch, tm
                 "parent_entity_id": buyer_id,
                 "child_entity_id": target_id,
                 "relationship_type": "owns",
+                "ownership_scope": "direct",
                 "ownership_percentage": 100,
                 "status": "proposed",
                 "notes": "",

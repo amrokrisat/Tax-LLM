@@ -66,6 +66,12 @@ def analyze_transaction(
             UploadedDocument(**document.model_dump())
             for document in payload.uploaded_documents
         ],
+        entities=payload.entities,
+        ownership_links=payload.ownership_links,
+        tax_classifications=payload.tax_classifications,
+        transaction_roles=payload.transaction_roles,
+        transaction_steps=payload.transaction_steps,
+        election_items=payload.election_items,
     )
     return AnalyzeTransactionResponse(
         result=result,
@@ -244,7 +250,16 @@ def analyze_matter(
             UploadedDocument(**document.model_dump())
             for document in payload.uploaded_documents
         ]
-        result = use_case.execute(facts=facts, uploaded_documents=uploaded_documents)
+        result = use_case.execute(
+            facts=facts,
+            uploaded_documents=uploaded_documents,
+            entities=payload.entities,
+            ownership_links=payload.ownership_links,
+            tax_classifications=payload.tax_classifications,
+            transaction_roles=payload.transaction_roles,
+            transaction_steps=payload.transaction_steps,
+            election_items=payload.election_items,
+        )
         matter = _matter_store().append_analysis_run(
             matter_id=matter_id,
             user_id=current_user_id,

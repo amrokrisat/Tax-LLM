@@ -1,10 +1,18 @@
 from __future__ import annotations
 
+from tax_llm.application.structured_context import build_structured_transaction_context
 from tax_llm.domain.models import AnalysisRun
 
 
 def export_run_markdown(run: AnalysisRun) -> str:
     result = run.result
+    structured_context = build_structured_transaction_context(
+        entities=run.entities,
+        ownership_links=run.ownership_links,
+        tax_classifications=run.tax_classifications,
+        transaction_roles=run.transaction_roles,
+        transaction_steps=run.transaction_steps,
+    )
     lines: list[str] = []
 
     lines.append(f"# {result.facts.transaction_name}")
@@ -49,11 +57,8 @@ def export_run_markdown(run: AnalysisRun) -> str:
         if run.ownership_links:
             lines.append("")
             lines.append("Ownership:")
-            for link in run.ownership_links:
-                parent = next((entity.name for entity in run.entities if entity.entity_id == link.parent_entity_id), link.parent_entity_id)
-                child = next((entity.name for entity in run.entities if entity.entity_id == link.child_entity_id), link.child_entity_id)
-                pct = f" ({link.ownership_percentage:.2f}%)" if link.ownership_percentage is not None else ""
-                lines.append(f"- {parent} {link.relationship_type} {child}{pct}")
+            for line in structured_context.derived_ownership_lines():
+                lines.append(f"- {line}")
         lines.append("")
 
     if run.transaction_steps:
@@ -84,6 +89,34 @@ def export_run_markdown(run: AnalysisRun) -> str:
             )
             if item.notes:
                 lines.append(f"  - {item.notes}")
+        lines.append("")
+
+    role_summaries = []
+    for role_type in [
+        "buyer",
+        "seller",
+        "target",
+        "parent",
+        "merger_sub",
+        "holding_company",
+        "partnership_vehicle",
+        "controlled_corporation",
+        "distributing_corporation",
+    ]:
+        names = structured_context.entity_names_for_role(role_type)
+        if names:
+            role_summaries.append(f"- {role_type.replace('_', ' ')}: {', '.join(names)}")
+    if role_summaries:
+        lines.append("## Key Transaction Participants")
+        lines.append("")
+        lines.extend(role_summaries)
+        lines.append("")
+
+    if structured_context.structure_ambiguities:
+        lines.append("## Unresolved Structure Ambiguities")
+        lines.append("")
+        for item in structured_context.structure_ambiguities:
+            lines.append(f"- {item}")
         lines.append("")
 
     return "\n".join(lines).strip() + "\n"

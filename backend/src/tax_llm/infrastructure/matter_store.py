@@ -526,6 +526,7 @@ class MatterStore:
                 parent_entity_id=parent.entity_id,
                 child_entity_id=child.entity_id,
                 relationship_type=str(payload.get("relationship_type") or "owns"),
+                ownership_scope=str(payload.get("ownership_scope") or "direct"),
                 ownership_percentage=self._optional_float(payload.get("ownership_percentage")),
                 status=str(payload.get("status") or "confirmed"),
                 source_fact_id=fact.fact_id,
@@ -776,6 +777,7 @@ class MatterStore:
         parent_entity_id: str,
         child_entity_id: str,
         relationship_type: str,
+        ownership_scope: str,
         ownership_percentage: float | None,
         status: str,
         source_fact_id: str,
@@ -787,6 +789,7 @@ class MatterStore:
                 if item.parent_entity_id == parent_entity_id
                 and item.child_entity_id == child_entity_id
                 and item.relationship_type == relationship_type
+                and item.ownership_scope == ownership_scope
             ),
             None,
         )
@@ -796,6 +799,7 @@ class MatterStore:
                     "ownership_percentage": ownership_percentage
                     if ownership_percentage is not None
                     else existing.ownership_percentage,
+                    "ownership_scope": ownership_scope or existing.ownership_scope,
                     "status": status or existing.status,
                     "source_fact_ids": self._ensure_source_fact(existing.source_fact_ids, source_fact_id),
                 }
@@ -810,6 +814,7 @@ class MatterStore:
             parent_entity_id=parent_entity_id,
             child_entity_id=child_entity_id,
             relationship_type=relationship_type or "owns",
+            ownership_scope=ownership_scope or "direct",
             ownership_percentage=ownership_percentage,
             status=status or "confirmed",
             source_fact_ids=[source_fact_id],

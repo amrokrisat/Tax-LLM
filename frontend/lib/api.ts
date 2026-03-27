@@ -56,13 +56,19 @@ export type TransactionRoleType =
   | "parent"
   | "subsidiary"
   | "merger_sub"
+  | "holding_company"
+  | "portfolio_company"
   | "distributing_corporation"
   | "controlled_corporation"
   | "partnership_vehicle"
   | "blocker"
   | "lender"
+  | "shareholder"
+  | "partner"
+  | "individual_owner"
   | "rollover_holder"
   | "other";
+export type OwnershipScope = "direct" | "indirect";
 export type OwnershipRelationshipType =
   | "owns"
   | "member_of"
@@ -71,8 +77,12 @@ export type OwnershipRelationshipType =
   | "shareholder_of";
 export type TransactionStepPhase = "pre_closing" | "closing" | "post_closing";
 export type TransactionStepType =
+  | "signing"
+  | "pre_closing_reorganization"
   | "stock_purchase"
+  | "stock_sale"
   | "asset_purchase"
+  | "asset_sale"
   | "merger"
   | "contribution"
   | "distribution"
@@ -83,6 +93,7 @@ export type TransactionStepType =
   | "refinancing"
   | "election"
   | "filing"
+  | "post_closing_integration"
   | "other";
 export type ElectionOrFilingStatus = "possible" | "required" | "selected" | "filed" | "uncertain";
 export type ElectionOrFilingType = "election" | "filing" | "compliance" | "other";
@@ -102,6 +113,7 @@ export type OwnershipLink = {
   parent_entity_id: string;
   child_entity_id: string;
   relationship_type: OwnershipRelationshipType;
+  ownership_scope: OwnershipScope;
   ownership_percentage?: number | null;
   status: StructuredRecordStatus;
   notes: string;
@@ -284,6 +296,7 @@ export type AnalysisResult = {
   alternatives: StructuralAlternative[];
   memo_sections: MemoSection[];
   missing_facts: MissingFactQuestion[];
+  structure_ambiguities?: string[];
   completeness_warning: string;
   confidence_label: "high" | "medium" | "low";
   retrieval_complete: boolean;

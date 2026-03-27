@@ -2,17 +2,28 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from tax_llm.application.structured_context import (
+    StructuredTransactionContext,
+    build_structured_transaction_context,
+    normalize_step_family,
+)
 from tax_llm.domain.models import (
     AnalysisResult,
     AuthorityRecord,
     BucketCoverage,
+    ElectionOrFilingItem,
+    Entity,
     MemoSection,
     MissingFactQuestion,
+    OwnershipLink,
     StructuralAlternative,
     SupportedStatement,
+    TaxClassification,
     TaxIssue,
     TransactionBucket,
     TransactionFacts,
+    TransactionRole,
+    TransactionStep,
     UploadedDocument,
 )
 from tax_llm.infrastructure.document_parser import DemoDocumentParser
@@ -122,10 +133,26 @@ class AnalysisService:
     document_parser: DemoDocumentParser
 
     def analyze(
-        self, facts: TransactionFacts, uploaded_documents: list[UploadedDocument]
+        self,
+        facts: TransactionFacts,
+        uploaded_documents: list[UploadedDocument],
+        entities: list[Entity] | None = None,
+        ownership_links: list[OwnershipLink] | None = None,
+        tax_classifications: list[TaxClassification] | None = None,
+        transaction_roles: list[TransactionRole] | None = None,
+        transaction_steps: list[TransactionStep] | None = None,
+        election_items: list[ElectionOrFilingItem] | None = None,
     ) -> AnalysisResult:
+        del election_items
         parsed_documents = self.document_parser.parse(uploaded_documents)
-        classification = self._classify_transaction(facts, parsed_documents)
+        structured_context = build_structured_transaction_context(
+            entities=entities,
+            ownership_links=ownership_links,
+            tax_classifications=tax_classifications,
+            transaction_roles=transaction_roles,
+            transaction_steps=transaction_steps,
+        )
+        classification = self._classify_transaction(facts, parsed_documents, structured_context)
         bucket_coverage = self._retrieve_bucket_support(
             facts=facts,
             parsed_documents=parsed_documents,
@@ -146,18 +173,19 @@ class AnalysisService:
             if coverage.status == "covered" and coverage.source_priority_warning
         ]
         issues = self._identify_issues(bucket_coverage)
-        missing_facts = self._missing_fact_questions(bucket_coverage, facts)
-        alternatives = self._compare_alternatives(bucket_coverage, facts)
+        alternatives = self._compare_alternatives(bucket_coverage, facts, structured_context)
         memo_sections = self._draft_memo(
             facts=facts,
             bucket_coverage=bucket_coverage,
             issues=issues,
             alternatives=alternatives,
+            structured_context=structured_context,
         )
         retrieval_complete = len(under_supported_buckets) == 0 and len(weakly_supported_buckets) == 0
         completeness_warning = self._completeness_warning(
-            under_supported_buckets, weakly_supported_buckets
+            under_supported_buckets, weakly_supported_buckets, structured_context
         )
+        missing_facts = self._missing_fact_questions(bucket_coverage, facts, structured_context)
 
         return AnalysisResult(
             facts=facts,
@@ -171,6 +199,7 @@ class AnalysisService:
             alternatives=alternatives,
             memo_sections=memo_sections,
             missing_facts=missing_facts,
+            structure_ambiguities=structured_context.structure_ambiguities,
             completeness_warning=completeness_warning,
             confidence_label=self._confidence_label(
                 covered_buckets, under_supported_buckets, weakly_supported_buckets
@@ -270,8 +299,27 @@ class AnalysisService:
             return "taxable stock path"
         return "structure still being formed"
 
+    def _role_phrase(self, structured_context: StructuredTransactionContext, role_type: str) -> str:
+        names = structured_context.entity_names_for_role(role_type)
+        if not names:
+            return ""
+        if len(names) == 1:
+            return names[0]
+        return self._natural_join(names)
+
+    def _step_summary_text(self, structured_context: StructuredTransactionContext) -> str:
+        if not structured_context.ordered_steps:
+            return ""
+        described = [structured_context.describe_step(step) for step in structured_context.ordered_steps[:4]]
+        if not described:
+            return ""
+        return self._natural_join(described)
+
     def _classify_transaction(
-        self, facts: TransactionFacts, uploaded_documents: list[UploadedDocument]
+        self,
+        facts: TransactionFacts,
+        uploaded_documents: list[UploadedDocument],
+        structured_context: StructuredTransactionContext,
     ) -> list[TransactionBucket]:
         text = " ".join(
             [
@@ -281,6 +329,9 @@ class AnalysisService:
                 facts.proposed_steps,
                 " ".join(facts.constraints),
                 " ".join(document.content for document in uploaded_documents),
+                " ".join(entity.name for entity in structured_context.entities),
+                " ".join(role for roles in structured_context.roles_by_entity_id.values() for role in [item.role_type for item in roles]),
+                " ".join(step.step_type for step in structured_context.ordered_steps),
             ]
         ).lower()
         buckets: list[TransactionBucket] = []
@@ -295,6 +346,11 @@ class AnalysisService:
                     )
                 )
 
+        if structured_context.entity_names_for_role("buyer") and structured_context.entity_names_for_role("target"):
+            add(
+                "stock_sale",
+                f"Structured entity roles show {self._role_phrase(structured_context, 'buyer')} as buyer and {self._role_phrase(structured_context, 'target')} as target, so stock-form acquisition analysis remains directly relevant.",
+            )
         if self._has_stock_form(text, facts) or any(
             term in text
             for term in [
@@ -365,6 +421,15 @@ class AnalysisService:
                 deemed_reason,
             )
         if (
+            structured_context.entity_names_for_role("merger_sub")
+            and structured_context.entity_names_for_role("target")
+            and "merger" in structured_context.step_families
+        ):
+            add(
+                "merger_reorganization",
+                f"Structured roles and steps show {self._role_phrase(structured_context, 'merger_sub')} merging with or acquiring {self._role_phrase(structured_context, 'target')}, which strengthens merger-sensitive analysis.",
+            )
+        if (
             "merger" in text
             or "reorganization" in text
             or facts.transaction_type.lower() == "merger"
@@ -377,6 +442,14 @@ class AnalysisService:
             term in text for term in ["contribution", "351", "drop-down", "drop down", "control", "holdco"]
         ):
             add("contribution_transactions", "Facts indicate contribution steps or pre-close transfers.")
+        if (
+            any(family in structured_context.step_families for family in {"contribution", "partnership_contribution", "pre_closing_reorganization"})
+            and not structured_context.entity_names_for_role("partnership_vehicle")
+        ):
+            add(
+                "contribution_transactions",
+                f"Structured steps show a contribution-style or pre-closing reorganization sequence ({self._step_summary_text(structured_context)}), which strengthens corporate contribution analysis.",
+            )
         if facts.divisive_transactions or any(
             term in text
             for term in [
@@ -399,6 +472,18 @@ class AnalysisService:
                 "divisive_transactions",
                 "Facts indicate a separation, spin-off, split-off, split-up, or other section 355-sensitive divisive path.",
             )
+        if (
+            structured_context.entity_names_for_role("controlled_corporation")
+            and structured_context.entity_names_for_role("distributing_corporation")
+            and any(
+                family in structured_context.step_families
+                for family in {"distribution", "spin_off", "split_off", "split_up"}
+            )
+        ):
+            add(
+                "divisive_transactions",
+                f"Structured roles and steps show {self._role_phrase(structured_context, 'distributing_corporation')} separating {self._role_phrase(structured_context, 'controlled_corporation')}, which makes section 355 analysis more concrete.",
+            )
         if facts.partnership_issues or any(
             term in text
             for term in [
@@ -415,6 +500,20 @@ class AnalysisService:
             ]
         ):
             add("partnership_issues", "Facts indicate partnership, disguised-sale, or partnership liability-allocation issues.")
+        if (
+            structured_context.entity_names_for_role("partnership_vehicle")
+            or any(
+                structured_context.classification_for(entity.entity_id) in {"partnership", "disregarded_entity"}
+                for entity in structured_context.entities
+            )
+        ) and any(
+            family in structured_context.step_families
+            for family in {"partnership_contribution", "distribution", "refinancing", "contribution"}
+        ):
+            add(
+                "partnership_issues",
+                "Structured entity classifications and step-plan sequencing indicate partnership-sensitive contribution, distribution, or liability-allocation issues.",
+            )
         if facts.debt_financing or "debt" in text or "financing" in text or "refinancing" in text:
             add("debt_overlay", "Facts indicate acquisition debt or financing overlays.")
         if facts.earnout or "earnout" in text or "contingent consideration" in text:
@@ -728,7 +827,10 @@ class AnalysisService:
         return f"Primary authority currently supports the analysis of {', '.join(labels[:-1])}, and {labels[-1]}."
 
     def _facts_section_text(
-        self, facts: TransactionFacts, bucket_coverage: list[BucketCoverage]
+        self,
+        facts: TransactionFacts,
+        bucket_coverage: list[BucketCoverage],
+        structured_context: StructuredTransactionContext,
     ) -> str:
         profile = self._deal_profile(facts)
         classified = ", ".join(item.label for item in bucket_coverage)
@@ -744,6 +846,20 @@ class AnalysisService:
         emphasis = ""
         if emphasis_parts:
             emphasis = " The submission also highlights " + " and ".join(emphasis_parts) + "."
+        structured_participants = []
+        for role_type in ["buyer", "seller", "target", "parent", "merger_sub", "partnership_vehicle"]:
+            role_names = structured_context.entity_names_for_role(role_type)
+            if role_names:
+                structured_participants.append(f"{role_type.replace('_', ' ')}: {self._natural_join(role_names)}")
+        structured_text = ""
+        if structured_participants:
+            structured_text = " Structured participants currently include " + "; ".join(structured_participants[:5]) + "."
+        step_text = ""
+        if structured_context.ordered_steps:
+            step_text = f" The ordered step plan currently records {self._step_summary_text(structured_context)}."
+        ambiguity_text = ""
+        if structured_context.structure_ambiguities:
+            ambiguity_text = " Structure remains partially unresolved: " + "; ".join(structured_context.structure_ambiguities[:2]) + "."
         return (
             f"{facts.transaction_name or 'The transaction'} currently appears to be a {profile}. "
             + (
@@ -752,7 +868,7 @@ class AnalysisService:
                 else ""
             )
             + f"At a structural level, the current record looks most like a {self._structure_posture(facts)}. "
-            + f"Based on the submitted facts, the analysis has been organized around {classified}.{emphasis}"
+            + f"Based on the submitted facts, the analysis has been organized around {classified}.{emphasis}{structured_text}{step_text}{ambiguity_text}"
         )
 
     def _alternative_intro(
@@ -766,7 +882,10 @@ class AnalysisService:
         return lead_tradeoff
 
     def _compare_alternatives(
-        self, bucket_coverage: list[BucketCoverage], facts: TransactionFacts
+        self,
+        bucket_coverage: list[BucketCoverage],
+        facts: TransactionFacts,
+        structured_context: StructuredTransactionContext,
     ) -> list[StructuralAlternative]:
         coverage_map = {item.bucket: item for item in bucket_coverage}
         alternatives: list[StructuralAlternative] = []
@@ -775,10 +894,16 @@ class AnalysisService:
         if "merger_reorganization" in coverage_map:
             alternatives.append(
                 self._build_alternative(
-                    name="Reorganization-sensitive merger path",
-                    description=(
-                        "This path treats the deal as a continuity-sensitive merger and asks whether the rollover equity is substantial and durable enough to support that treatment."
-                    ),
+                        name="Reorganization-sensitive merger path",
+                        description=(
+                            "This path treats the deal as a continuity-sensitive merger and asks whether the rollover equity is substantial and durable enough to support that treatment."
+                            + (
+                                f" The structured record currently points to {self._role_phrase(structured_context, 'buyer')} acquiring {self._role_phrase(structured_context, 'target')} through {self._role_phrase(structured_context, 'merger_sub')}."
+                                if structured_context.entity_names_for_role("merger_sub")
+                                and structured_context.entity_names_for_role("target")
+                                else ""
+                            )
+                        ),
                     buckets=["merger_reorganization", "rollover_equity"],
                     consequence_texts=[
                         "This path is stronger if the parties are prepared to preserve meaningful continuing equity and avoid terms that make the rollover look synthetic or redemption-like.",
@@ -968,10 +1093,15 @@ class AnalysisService:
         if "contribution_transactions" in coverage_map:
             alternatives.append(
                 self._build_alternative(
-                    name="Corporate contribution path",
-                    description=(
-                        "This path considers whether a corporate contribution structure better aligns the parties' economics, basis planning, and control requirements before the broader transaction."
-                    ),
+                        name="Corporate contribution path",
+                        description=(
+                            "This path considers whether a corporate contribution structure better aligns the parties' economics, basis planning, and control requirements before the broader transaction."
+                            + (
+                                f" The current structured step plan includes {self._step_summary_text(structured_context)}."
+                                if structured_context.step_families & {"contribution", "pre_closing_reorganization"}
+                                else ""
+                            )
+                        ),
                     buckets=["contribution_transactions", "debt_overlay"],
                     consequence_texts=[
                         "Corporate contribution authorities should drive control, basis, and rollover qualification analysis.",
@@ -995,10 +1125,15 @@ class AnalysisService:
         if "partnership_issues" in coverage_map:
             alternatives.append(
                 self._build_alternative(
-                    name="Partnership contribution / disguised-sale path",
-                    description=(
-                        "This path considers whether a partnership or LLC taxed as a partnership better fits the rollover, liability allocation, and contribution economics than a corporate contribution or direct sale path."
-                    ),
+                        name="Partnership contribution / disguised-sale path",
+                        description=(
+                            "This path considers whether a partnership or LLC taxed as a partnership better fits the rollover, liability allocation, and contribution economics than a corporate contribution or direct sale path."
+                            + (
+                                f" The current structure includes {self._role_phrase(structured_context, 'partnership_vehicle')} and a step sequence of {self._step_summary_text(structured_context)}."
+                                if structured_context.entity_names_for_role("partnership_vehicle")
+                                else ""
+                            )
+                        ),
                     buckets=["partnership_issues", "debt_overlay"],
                     consequence_texts=[
                         "Partnership authorities should drive the contribution, disguised-sale, and liability-allocation analysis rather than importing corporate section 351 assumptions.",
@@ -1022,10 +1157,16 @@ class AnalysisService:
         if "divisive_transactions" in coverage_map:
             alternatives.append(
                 self._build_alternative(
-                    name="Divisive separation path",
-                    description=(
-                        "This path treats the transaction as including a section 355-sensitive separation step and tests whether a spin-off, split-off, or split-up can be respected before or alongside the broader transaction."
-                    ),
+                        name="Divisive separation path",
+                        description=(
+                            "This path treats the transaction as including a section 355-sensitive separation step and tests whether a spin-off, split-off, or split-up can be respected before or alongside the broader transaction."
+                            + (
+                                f" The current structure shows {self._role_phrase(structured_context, 'distributing_corporation')} separating {self._role_phrase(structured_context, 'controlled_corporation')}."
+                                if structured_context.entity_names_for_role("distributing_corporation")
+                                and structured_context.entity_names_for_role("controlled_corporation")
+                                else ""
+                            )
+                        ),
                     buckets=["divisive_transactions", "contribution_transactions", "state_overlay"],
                     consequence_texts=[
                         "This path is strongest when the distribution, controlled-corporation, and active-trade-or-business facts genuinely fit section 355 rather than using a separation step as a loose prelude to a taxable sale.",
@@ -1117,6 +1258,7 @@ class AnalysisService:
         bucket_coverage: list[BucketCoverage],
         issues: list[TaxIssue],
         alternatives: list[StructuralAlternative],
+        structured_context: StructuredTransactionContext,
     ) -> list[MemoSection]:
         supported_issues = [
             issue
@@ -1144,7 +1286,7 @@ class AnalysisService:
         memo: list[MemoSection] = [
             MemoSection(
                 heading="Facts And Issue Framing",
-                body=self._facts_section_text(facts, bucket_coverage),
+                body=self._facts_section_text(facts, bucket_coverage, structured_context),
                 citations=supported_citations[:3],
                 supported=True,
             ),
@@ -1213,6 +1355,19 @@ class AnalysisService:
             )
 
         preliminary_labels = unsupported_buckets + [item.label for item in weak_coverages]
+        if structured_context.structure_ambiguities:
+            memo.append(
+                MemoSection(
+                    heading="Structured Transaction Ambiguities",
+                    body=(
+                        "The structured matter record still contains unresolved entity, ownership, or step-plan ambiguities that affect path selection: "
+                        + "; ".join(structured_context.structure_ambiguities)
+                    ),
+                    citations=[],
+                    supported=False,
+                    note="Structured transaction data is incomplete for part of the current matter.",
+                )
+            )
         if preliminary_labels:
             memo.append(
                 MemoSection(
@@ -1231,7 +1386,10 @@ class AnalysisService:
         return memo
 
     def _missing_fact_questions(
-        self, bucket_coverage: list[BucketCoverage], facts: TransactionFacts
+        self,
+        bucket_coverage: list[BucketCoverage],
+        facts: TransactionFacts,
+        structured_context: StructuredTransactionContext,
     ) -> list[MissingFactQuestion]:
         questions: list[MissingFactQuestion] = [
             MissingFactQuestion(
@@ -1316,6 +1474,31 @@ class AnalysisService:
                 )
             )
 
+        if not structured_context.entity_names_for_role("buyer"):
+            questions.append(
+                MissingFactQuestion(
+                    bucket="general",
+                    question="Which entity is the actual buyer, and is it a parent, blocker, merger sub, or acquisition vehicle?",
+                    rationale="Entity-role mapping is now a primary structured signal for classification and alternative comparison.",
+                )
+            )
+        if not structured_context.entity_names_for_role("target"):
+            questions.append(
+                MissingFactQuestion(
+                    bucket="general",
+                    question="Which entity or entities are the actual targets, and how do they sit in the ownership chain?",
+                    rationale="Target identity and ownership placement materially affect structure-sensitive analysis.",
+                )
+            )
+        if structured_context.structure_ambiguities:
+            questions.append(
+                MissingFactQuestion(
+                    bucket="general",
+                    question="Can you resolve the remaining entity/ownership/step ambiguities in the structured matter record?",
+                    rationale="Unresolved structured transaction details now directly affect classification, memo phrasing, and warning discipline.",
+                )
+            )
+
         return questions
 
     def _flatten_authorities(
@@ -1330,20 +1513,32 @@ class AnalysisService:
         )
 
     def _completeness_warning(
-        self, under_supported_buckets: list[str], weakly_supported_buckets: list[str]
+        self,
+        under_supported_buckets: list[str],
+        weakly_supported_buckets: list[str],
+        structured_context: StructuredTransactionContext,
     ) -> str:
+        structure_warning = ""
+        if structured_context.structure_ambiguities:
+            structure_warning = (
+                " Structured ambiguities remain: "
+                + "; ".join(structured_context.structure_ambiguities[:3])
+                + "."
+            )
         if not under_supported_buckets and not weakly_supported_buckets:
-            return "Coverage is complete for the currently classified transactional-tax analysis areas, but conclusions still require human tax review."
+            return "Coverage is complete for the currently classified transactional-tax analysis areas, but conclusions still require human tax review." + structure_warning
         if weakly_supported_buckets and not under_supported_buckets:
             return (
                 "Coverage is mixed. Some analysis areas are only weakly supported: "
                 + ", ".join(BUCKET_LABELS[bucket] for bucket in weakly_supported_buckets)
                 + ". Strongly supported sections remain usable, but weakly supported buckets should stay preliminary."
+                + structure_warning
             )
         return (
             "Coverage is incomplete. The following transactional-tax analysis areas are under-supported: "
             + ", ".join(BUCKET_LABELS[bucket] for bucket in under_supported_buckets)
             + ". Supported sections remain usable, but unsupported buckets should be treated as preliminary and kept out of final recommendations."
+            + structure_warning
         )
 
     def _confidence_label(

@@ -49,14 +49,20 @@ TransactionRoleType = Literal[
     "parent",
     "subsidiary",
     "merger_sub",
+    "holding_company",
+    "portfolio_company",
     "distributing_corporation",
     "controlled_corporation",
     "partnership_vehicle",
     "blocker",
     "lender",
+    "shareholder",
+    "partner",
+    "individual_owner",
     "rollover_holder",
     "other",
 ]
+OwnershipScope = Literal["direct", "indirect"]
 OwnershipRelationshipType = Literal[
     "owns",
     "member_of",
@@ -66,8 +72,12 @@ OwnershipRelationshipType = Literal[
 ]
 TransactionStepPhase = Literal["pre_closing", "closing", "post_closing"]
 TransactionStepType = Literal[
+    "signing",
+    "pre_closing_reorganization",
     "stock_purchase",
+    "stock_sale",
     "asset_purchase",
+    "asset_sale",
     "merger",
     "contribution",
     "distribution",
@@ -78,6 +88,7 @@ TransactionStepType = Literal[
     "refinancing",
     "election",
     "filing",
+    "post_closing_integration",
     "other",
 ]
 ElectionOrFilingStatus = Literal["possible", "required", "selected", "filed", "uncertain"]
@@ -174,6 +185,7 @@ class OwnershipLink(BaseModel):
     parent_entity_id: str
     child_entity_id: str
     relationship_type: OwnershipRelationshipType = "owns"
+    ownership_scope: OwnershipScope = "direct"
     ownership_percentage: float | None = None
     status: StructuredRecordStatus = "proposed"
     notes: str = ""
@@ -331,6 +343,7 @@ class AnalysisResult(BaseModel):
     alternatives: List[StructuralAlternative] = Field(default_factory=list)
     memo_sections: List[MemoSection] = Field(default_factory=list)
     missing_facts: List[MissingFactQuestion] = Field(default_factory=list)
+    structure_ambiguities: List[str] = Field(default_factory=list)
     completeness_warning: str
     confidence_label: Literal["high", "medium", "low"]
     retrieval_complete: bool
