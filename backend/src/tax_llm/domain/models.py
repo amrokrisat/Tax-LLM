@@ -18,6 +18,29 @@ DocumentSource = Literal["pasted", "uploaded"]
 ExtractionStatus = Literal["not_requested", "pending", "completed", "needs_review"]
 ExtractedFactStatus = Literal["pending", "confirmed", "rejected"]
 ReviewStatus = Literal["unreviewed", "in_review", "reviewed"]
+AuthorityStatus = Literal["canonical", "legacy", "superseded"]
+
+# Phase 1 compatibility boundary:
+# - bucket keys remain the canonical persisted/API identifiers
+# - these bucket keys conceptually represent transactional-tax regimes
+# - future frontend/product language may describe them as "regimes", but
+#   saved runs, schemas, and retrieval interfaces remain bucket-shaped here
+CANONICAL_BUCKET_IDS = [
+    "stock_sale",
+    "asset_sale",
+    "deemed_asset_sale_election",
+    "merger_reorganization",
+    "rollover_equity",
+    "contribution_transactions",
+    "divisive_transactions",
+    "partnership_issues",
+    "attribute_preservation",
+    "debt_overlay",
+    "earnout_overlay",
+    "withholding_overlay",
+    "state_overlay",
+    "international_overlay",
+]
 
 
 class ExtractedFact(BaseModel):
@@ -101,6 +124,8 @@ class AuthorityRecord(BaseModel):
     primary_authority: bool = False
     secondary_authority: bool = False
     internal_only: bool = False
+    status: AuthorityStatus = "canonical"
+    supersedes: List[str] = Field(default_factory=list)
     tags: List[str] = Field(default_factory=list)
     relevance_score: float = 0.0
 

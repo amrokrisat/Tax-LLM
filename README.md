@@ -86,7 +86,7 @@ Frontend notes:
 
 The analysis endpoint currently uses a deterministic retrieval-first workflow over the local authority corpus so the repo is demoable before larger-scale research and LLM layers are added.
 
-The current MVP is retrieval-first: the backend classifies transactional-tax regimes, loads tagged authority records from the local corpus, validates coverage before drafting, and flags under-supported conclusions.
+The current MVP is retrieval-first: the backend classifies transactional-tax analysis areas, loads tagged authority records from the local corpus, validates coverage before drafting, and flags under-supported conclusions.
 
 Backend data files are loaded relative to the backend project root via shared path helpers, so local runs and tests resolve fixture and authority files from `backend/data/...` consistently.
 
@@ -126,12 +126,12 @@ For `.json`, provide either a single object or an `authorities` array with the s
 ## Ingestion And Retrieval
 - Ingestion runs lazily when the authority repository first builds its in-memory index.
 - The loader walks each corpus folder, parses supported files, stores structured authority records, and tracks pending PDF files.
-- Retrieval supports filters for issue bucket or regime label, transaction type, source type, title keywords, citation keywords, jurisdiction, and effective-date range.
+- Retrieval supports filters for issue bucket, transaction type, source type, title keywords, citation keywords, jurisdiction, and effective-date range.
 - Ranking favors this source priority: Code, Regulations, IRS guidance, Cases, Forms, Internal.
-- Analysis warns when a regime is supported only by internal or otherwise non-primary material.
+- Analysis warns when an analysis area is supported only by internal or otherwise non-primary material.
 
 ### Public-Source Ingestion Workflow
-Tax LLM now includes a focused public-source ingestion workflow for a broader transactional-tax regime pack:
+Tax LLM now includes a focused public-source ingestion workflow for a broader transactional-tax corpus pack:
 - stock-form, direct asset, and deemed-asset election structures
 - acquisitive reorganizations under Sections 354, 356, 361, and 368
 - corporate contributions under Section 351
@@ -141,6 +141,13 @@ Tax LLM now includes a focused public-source ingestion workflow for a broader tr
 
 The ingestion source-of-truth lives in:
 - `backend/data/ingestion/transactional_tax_regimes_v2.json`
+
+Phase 1 taxonomy freeze:
+- canonical conceptual model: transactional-tax regimes
+- canonical compatibility/storage/API vocabulary: `bucket`
+- canonical V4 manifest: `backend/data/ingestion/transactional_tax_regimes_v2.json`
+- legacy/superseded manifest: `backend/data/ingestion/transactional_tax_wedge_v1.json`
+- old runs keep their legacy bucket-shaped output until rerun
 
 The workflow code lives in:
 - `backend/src/tax_llm/infrastructure/public_ingestion.py`
@@ -189,14 +196,16 @@ Authority records now support:
 - `authority_weight`
 - `source_url`
 - `ingestion_timestamp`
+- `status`
+- `supersedes`
 - `primary_authority`
 - `secondary_authority`
 - `internal_only`
 
 ### Duplicate And Stale-Version Safeguards
 - The corpus loader now deduplicates authorities by canonical authority identity.
-- When duplicates exist, the loader keeps the newest effective-date / ingestion-timestamp version with the stronger authority weight.
-- This is intended to prevent stale duplicates from older local files from outranking the newer public-source version of the same authority.
+- When duplicates exist, the loader keeps canonical sources ahead of legacy or superseded variants, then applies effective-date / ingestion-timestamp / authority-weight ordering.
+- Known superseded source relationships are preserved for provenance, but superseded sources do not outrank their canonical replacements during retrieval.
 
 ### What Still Remains Manual
 - PDF text extraction is still not production-grade.
@@ -209,7 +218,7 @@ Authority records now support:
 - PDF extraction is not implemented yet
 - There is no vector or hybrid semantic search yet
 - Deduplication, citation normalization, and corpus versioning still need hardening
-- The corpus now has a stronger public-source pack for stock-form, direct asset, deemed-asset election, reorganization, contribution, and divisive-transaction analysis, but it is still thin on consolidated return rules, deeper partnership authority, international subpart/FDII/GILTI issues, state-specific authorities, withholding statutes, debt-equity authorities, earnout case law, and bankruptcy/distressed M&A materials
+- The corpus now has a stronger public-source pack for stock-form, direct asset, deemed-asset election, reorganization, contribution, and divisive-transaction analysis, but it is still thin on deeper section 355 sub-rules, deeper partnership authority, international subpart/FDII/GILTI issues, state-specific authorities, withholding statutes, debt-equity authorities, earnout case law, and bankruptcy/distressed M&A materials
 
 ## Development Notes
 - Treat generated conclusions as draft analytical support, not legal advice.

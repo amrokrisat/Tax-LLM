@@ -92,7 +92,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
           <p className="eyebrow">Analysis</p>
           <h2>Awaiting backend analysis</h2>
           <p className="muted">
-            Submit transaction facts to render live regime classification, retrieved
+            Submit transaction facts to render live issue classification, retrieved
             authorities, structural alternatives, memo sections, and coverage warnings.
           </p>
         </div>
@@ -134,7 +134,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
         <div>
           <h3>Coverage summary</h3>
           <p className="muted">
-            Regime counts below follow the same support taxonomy used in the authority
+            Coverage counts below follow the same support taxonomy used in the authority
             review, issues list, and memo.
           </p>
         </div>
@@ -146,7 +146,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
               {coverageGroups.primary.map((bucket) => (
                 <li key={bucket.bucket}>{bucket.label}</li>
               ))}
-              {coverageGroups.primary.length === 0 ? <li className="microcopy">No regimes</li> : null}
+              {coverageGroups.primary.length === 0 ? <li className="microcopy">No analysis areas</li> : null}
             </ul>
           </article>
           <article className="coverage-card coverage-secondary">
@@ -156,7 +156,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
               {coverageGroups.secondary.map((bucket) => (
                 <li key={bucket.bucket}>{bucket.label}</li>
               ))}
-              {coverageGroups.secondary.length === 0 ? <li className="microcopy">No regimes</li> : null}
+              {coverageGroups.secondary.length === 0 ? <li className="microcopy">No analysis areas</li> : null}
             </ul>
           </article>
           <article className="coverage-card coverage-internal">
@@ -166,7 +166,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
               {coverageGroups.internal.map((bucket) => (
                 <li key={bucket.bucket}>{bucket.label}</li>
               ))}
-              {coverageGroups.internal.length === 0 ? <li className="microcopy">No regimes</li> : null}
+              {coverageGroups.internal.length === 0 ? <li className="microcopy">No analysis areas</li> : null}
             </ul>
           </article>
           <article className="coverage-card coverage-unsupported">
@@ -176,7 +176,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
               {coverageGroups.unsupported.map((bucket) => (
                 <li key={bucket.bucket}>{bucket.label}</li>
               ))}
-              {coverageGroups.unsupported.length === 0 ? <li className="microcopy">No regimes</li> : null}
+              {coverageGroups.unsupported.length === 0 ? <li className="microcopy">No analysis areas</li> : null}
             </ul>
           </article>
         </div>
@@ -186,7 +186,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
         <div>
           <h3>Authority review</h3>
           <p className="muted">
-            Click any transactional-tax regime below to review the authorities, citations, and excerpts
+            Click any transactional-tax analysis area below to review the authorities, citations, and excerpts
             supporting that part of the analysis.
           </p>
         </div>
@@ -200,7 +200,7 @@ export function AnalysisPanel({ analysis, loading }: AnalysisPanelProps) {
                     <h4>{bucket.label}</h4>
                     <p className="microcopy">
                       {bucket.authorities.length > 0
-                        ? "Click to review the authorities for this regime"
+                        ? "Click to review the authorities for this analysis area"
                         : "Click to review support status"}
                     </p>
                   </div>

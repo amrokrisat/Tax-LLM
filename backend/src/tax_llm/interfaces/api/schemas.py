@@ -59,6 +59,8 @@ class MatterResponse(BaseModel):
 class AnalysisRunSummary(BaseModel):
     run_id: str
     created_at: str
+    # Phase 1 compatibility boundary: the persisted/API summary remains bucket-shaped
+    # even though product copy may conceptually refer to these as transaction regimes.
     issue_bucket_count: int
     authority_count: int
     review_status: str

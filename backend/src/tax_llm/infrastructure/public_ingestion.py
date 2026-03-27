@@ -76,7 +76,9 @@ def ingest_public_authorities(
         )
 
     manifest = {
-        "pack_name": (manifest_path or default_manifest_path()).stem,
+        "pack_name": payload_pack_name(manifest_path or default_manifest_path()),
+        "pack_version": payload_pack_version(manifest_path or default_manifest_path()),
+        "status": "canonical",
         "generated_at": current_timestamp(),
         "entries": written,
     }
@@ -103,6 +105,7 @@ def render_entry(entry: IngestionEntry) -> str:
         "primary_authority": entry.source_quality == "primary_authority",
         "secondary_authority": entry.source_quality == "secondary_authority",
         "internal_only": entry.source_quality == "internal_only",
+        "status": "canonical",
         "tags": entry.tags,
     }
     body = entry.body
@@ -145,3 +148,13 @@ def front_matter(metadata: dict) -> str:
 
 def current_timestamp() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat()
+
+
+def payload_pack_name(path: Path) -> str:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload.get("pack_name") or path.stem
+
+
+def payload_pack_version(path: Path) -> str:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return str(payload.get("pack_version") or "v2")

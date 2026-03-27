@@ -1,4 +1,8 @@
 {
+  "pack_name": "transactional_tax_wedge",
+  "pack_version": "v1",
+  "status": "legacy",
+  "superseded_by": "transactional_tax_regimes_v2.json",
   "entries": [
     {
       "authority_id": "code-338",

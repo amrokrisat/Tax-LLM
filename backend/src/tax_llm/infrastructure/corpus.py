@@ -87,6 +87,52 @@ SECONDARY_SUPPORT_TYPES: set[SourceType] = {"irs_guidance", "cases", "forms"}
 INTERNAL_ONLY_TYPES: set[SourceType] = {"internal"}
 SUPPORTED_EXTENSIONS = {".txt", ".md", ".json"}
 PDF_EXTENSION = ".pdf"
+STATUS_PRIORITY = {
+    "canonical": 2,
+    "legacy": 1,
+    "superseded": 0,
+}
+SUPERSEDED_PATH_RULES: dict[str, list[str]] = {
+    "section_382.txt": ["section_382.md"],
+    "gregory_helvering.md": ["gregory_v_helvering.md"],
+    "reorg_core.md": ["section_354.md", "section_356.md", "section_361.md", "section_368.md"],
+    "section_338_regs.md": [
+        "section_338_general.md",
+        "section_338_definitions.md",
+        "section_338_target_consequences.md",
+        "section_338_new_target.md",
+        "section_338_timing.md",
+        "section_338_asset_allocation.md",
+        "section_338_agub.md",
+        "section_338_h10_election.md",
+    ],
+    "section_338_h10_regs.md": ["section_338_h10_election.md"],
+    "reorg_guidance.json": [
+        "section_368.md",
+        "reorg_framework.md",
+        "acquisitive_form_regs.md",
+        "plan_of_reorganization_regs.md",
+        "continuity_regulations.md",
+        "triangular_merger_regs.md",
+        "rev_rul_2001_46.md",
+    ],
+}
+CANONICAL_PATH_HINTS = {
+    "section_338_general.md",
+    "section_338_definitions.md",
+    "section_338_target_consequences.md",
+    "section_338_new_target.md",
+    "section_338_timing.md",
+    "section_338_asset_allocation.md",
+    "section_338_agub.md",
+    "section_338_h10_election.md",
+    "section_354.md",
+    "section_355.md",
+    "section_356.md",
+    "section_361.md",
+    "section_368.md",
+    "gregory_v_helvering.md",
+}
 
 
 @dataclass(frozen=True)
@@ -198,6 +244,8 @@ class AuthorityCorpusLoader:
                 metadata.get("internal_only"),
                 default=source_type in INTERNAL_ONLY_TYPES,
             ),
+            status=normalize_status(metadata.get("status"), path),
+            supersedes=normalize_list(metadata.get("supersedes")),
             tags=normalize_list(metadata.get("tags")),
             relevance_score=0.0,
         )
@@ -343,6 +391,8 @@ def string_or_none(value: object) -> str | None:
 def dedupe_authorities(authorities: list[AuthorityRecord]) -> list[AuthorityRecord]:
     winners: dict[str, AuthorityRecord] = {}
     for authority in authorities:
+        if authority.status == "superseded":
+            continue
         key = canonical_authority_key(authority)
         current = winners.get(key)
         if current is None or authority_sort_key(authority) > authority_sort_key(current):
@@ -365,12 +415,24 @@ def canonical_authority_key(authority: AuthorityRecord) -> str:
     )
 
 
-def authority_sort_key(authority: AuthorityRecord) -> tuple[str, str, float]:
+def authority_sort_key(authority: AuthorityRecord) -> tuple[int, str, str, float]:
     return (
+        STATUS_PRIORITY.get(getattr(authority, "status", "canonical"), 2),
         authority.effective_date or "",
-        authority.ingestion_timestamp or current_timestamp(),
+        authority.ingestion_timestamp or "",
         authority.authority_weight,
     )
+
+
+def normalize_status(value: object, path: Path) -> str:
+    if isinstance(value, str) and value in STATUS_PRIORITY:
+        return value
+    path_name = path.name
+    if path_name in SUPERSEDED_PATH_RULES:
+        return "superseded"
+    if path_name in CANONICAL_PATH_HINTS:
+        return "canonical"
+    return "canonical"
 
 
 def current_timestamp() -> str:
@@ -439,6 +501,12 @@ def rank_authority(
     procedural_or_substantive = getattr(authority, "procedural_or_substantive", "substantive")
     normalized_structure_tags = [normalize_phrase(tag) for tag in structure_tags]
     normalized_transaction_tags = [normalize_phrase(tag) for tag in transaction_type_tags]
+    status = getattr(authority, "status", "canonical")
+
+    if status == "superseded":
+        return -1000.0
+    if status == "legacy":
+        score -= 0.75
 
     bucket_terms: list[str] = []
     for bucket in issue_buckets:

@@ -77,7 +77,7 @@ export const RunHistoryPanel = memo(function RunHistoryPanel({
               >
                 <strong>{new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeStyle: "short" }).format(new Date(run.created_at))}</strong>
                 <span className="microcopy">
-                  {run.issue_bucket_count} regimes · {run.authority_count} authorities
+                  {run.issue_bucket_count} analysis areas · {run.authority_count} authorities
                 </span>
                 <span className="support-pill support-secondary">{reviewStatusLabel(run.review_status)}</span>
               </button>
@@ -114,11 +114,11 @@ export const RunHistoryPanel = memo(function RunHistoryPanel({
                 {comparison.authorityDelta}
               </p>
               <p>
-                <strong>Added regimes:</strong>{" "}
+                <strong>Added analysis areas:</strong>{" "}
                 {comparison.addedBuckets.length ? comparison.addedBuckets.join(", ") : "None"}
               </p>
               <p>
-                <strong>Removed regimes:</strong>{" "}
+                <strong>Removed analysis areas:</strong>{" "}
                 {comparison.removedBuckets.length ? comparison.removedBuckets.join(", ") : "None"}
               </p>
               <p>

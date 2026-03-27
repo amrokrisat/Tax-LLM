@@ -104,7 +104,7 @@ export function MattersHome() {
             <p className="eyebrow">Tax LLM</p>
             <h1 className="workspace-title">Saved matters for live transactional-tax structuring work.</h1>
             <p className="workspace-subtitle">
-              Keep each matter in its own workspace, preserve reruns and review state, and move from draft facts to exportable memo output without losing regime-level authority support.
+              Keep each matter in its own workspace, preserve reruns and review state, and move from draft facts to exportable memo output without losing transactional tax authority support.
             </p>
           </div>
 
@@ -133,7 +133,7 @@ export function MattersHome() {
             <div className="empty-panel">
               <h3>No matters yet</h3>
               <p className="muted">
-                Create a matter to start saving facts, reruns, authorities, and transactional-tax regime analysis in one workspace.
+                Create a matter to start saving facts, reruns, authorities, and transactional tax analysis in one workspace.
               </p>
             </div>
           ) : (

@@ -3,6 +3,7 @@ from types import SimpleNamespace
 
 from tax_llm.domain.models import RetrievalFilters, TransactionFacts
 from tax_llm.infrastructure.corpus import AuthorityCorpusLoader, corpus_root, rank_authority
+from tax_llm.infrastructure.public_ingestion import default_manifest_path, default_output_manifest_path
 from tax_llm.infrastructure.repositories import AuthorityCorpusRepository
 
 
@@ -143,6 +144,77 @@ New text.
     assert authority.source_url == "https://example.com/new"
 
 
+def test_corpus_loader_prefers_canonical_authority_over_legacy_variant(tmp_path: Path):
+    (tmp_path / "code").mkdir(parents=True, exist_ok=True)
+    legacy = """---
+authority_id: code-355
+title: Legacy Section 355
+citation: IRC Section 355
+issue_buckets: [divisive_transactions]
+effective_date: 2026-01-01
+authority_weight: 5.0
+status: legacy
+---
+Legacy text.
+"""
+    canonical = """---
+authority_id: code-355
+title: Canonical Section 355
+citation: IRC Section 355
+issue_buckets: [divisive_transactions]
+effective_date: 2025-01-01
+authority_weight: 1.0
+status: canonical
+---
+Canonical text.
+"""
+    (tmp_path / "code" / "legacy.md").write_text(legacy, encoding="utf-8")
+    (tmp_path / "code" / "canonical.md").write_text(canonical, encoding="utf-8")
+
+    result = AuthorityCorpusLoader(root_path=tmp_path).load()
+
+    assert len(result.authorities) == 1
+    assert result.authorities[0].title == "Canonical Section 355"
+
+
+def test_untimestamped_superseded_text_file_does_not_beat_canonical_replacement(tmp_path: Path):
+    (tmp_path / "code").mkdir(parents=True, exist_ok=True)
+    superseded = """---
+authority_id: code-382
+title: Old Section 382 Text
+citation: IRC Section 382
+issue_buckets: [attribute_preservation]
+effective_date: 2025-01-01
+authority_weight: 1.0
+---
+Old text.
+"""
+    canonical = """---
+authority_id: code-382
+title: Canonical Section 382
+citation: IRC Section 382
+issue_buckets: [attribute_preservation]
+effective_date: 2025-01-01
+authority_weight: 1.0
+status: canonical
+ingestion_timestamp: 2026-03-26T00:00:00+00:00
+---
+Canonical text.
+"""
+    (tmp_path / "code" / "section_382.txt").write_text(superseded, encoding="utf-8")
+    (tmp_path / "code" / "section_382.md").write_text(canonical, encoding="utf-8")
+
+    result = AuthorityCorpusLoader(root_path=tmp_path).load()
+
+    assert len(result.authorities) == 1
+    assert result.authorities[0].title == "Canonical Section 382"
+
+
+def test_default_ingestion_manifest_paths_freeze_v4_phase1_pack():
+    assert default_manifest_path().name == "transactional_tax_regimes_v2.json"
+    assert default_output_manifest_path().name == "transactional_tax_regimes_v2_manifest.json"
+
+
 def test_rule_level_338_and_368_entries_are_present():
     result = AuthorityCorpusLoader(root_path=corpus_root()).load()
     ids = {authority.authority_id for authority in result.authorities}
@@ -158,6 +230,13 @@ def test_rule_level_338_and_368_entries_are_present():
     assert "reg-1-336-2" in ids
     assert "code-355" in ids
     assert "reg-1-355-1" in ids
+
+
+def test_loaded_authorities_default_to_canonical_status():
+    result = AuthorityCorpusLoader(root_path=corpus_root()).load()
+    section_355 = next(authority for authority in result.authorities if authority.authority_id == "code-355")
+
+    assert section_355.status == "canonical"
 
 
 def test_338h10_facts_pull_specific_regulation_ahead_of_broad_section_338():

@@ -13,7 +13,7 @@ export function LandingPage() {
             <p className="eyebrow">Premium transactional tax workspace</p>
             <h1>Authority-grounded transactional tax analysis for live structuring work.</h1>
             <p className="lede">
-              Review corporate, partnership, financing, state, international, and election-sensitive transaction regimes in one calm workspace. Save matters, preserve run history, inspect authorities, confirm extracted facts, and circulate memo-ready analysis after you sign in.
+              Review transactional tax issue coverage in one calm workspace. Save matters, preserve run history, inspect authorities, confirm extracted facts, and circulate memo-ready analysis after you sign in.
             </p>
             <div className="button-row">
               <Link className="button-primary link-button" href="/login">
@@ -28,9 +28,9 @@ export function LandingPage() {
           <div className="hero-stack">
             <section className="surface feature-card">
               <span className="eyebrow">Built for decisions</span>
-              <h2>Regime-aware structure comparison that shows what drives the answer.</h2>
+              <h2>Structure comparison that shows what drives the answer.</h2>
               <p className="muted">
-                Compare stock form, direct asset form, deemed asset elections, reorganizations, contributions, and overlay regimes with authorities, gating facts, and tradeoffs surfaced side by side.
+                Compare stock form, direct asset form, deemed asset elections, reorganizations, and other supported transactional tax analysis areas with authorities, gating facts, and tradeoffs surfaced side by side.
               </p>
             </section>
             <section className="surface feature-grid">
@@ -40,7 +40,7 @@ export function LandingPage() {
               </div>
               <div>
                 <strong>Authority review</strong>
-                <p className="muted">Inspect source types, regime coverage, and pinned authority.</p>
+                <p className="muted">Inspect source types, issue coverage, and pinned authority.</p>
               </div>
               <div>
                 <strong>Memo export</strong>

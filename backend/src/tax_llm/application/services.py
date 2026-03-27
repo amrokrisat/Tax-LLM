@@ -21,6 +21,10 @@ from tax_llm.infrastructure.repositories import (
     AuthorityCorpusRepository,
 )
 
+# Phase 1 compatibility boundary:
+# - bucket keys remain canonical in code, APIs, and saved runs
+# - the product may conceptually describe these buckets as transactional-tax regimes
+# - Phase 2/3 should not rename persisted/API fields without an explicit migration
 BUCKET_LABELS = {
     "attribute_preservation": "Attribute preservation and limitation regime",
     "stock_sale": "Stock-form acquisition regime",
