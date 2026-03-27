@@ -57,7 +57,7 @@ export const FactsPane = memo(function FactsPane({
         <label className="field">
           <span>Transaction type</span>
           <select value={draftFacts.transaction_type} onChange={(event) => updateFact("transaction_type", event.target.value)}>
-            {["stock sale", "asset sale", "merger", "contribution transaction", "partnership transaction"].map((type) => (
+            {["stock sale", "asset sale", "merger", "contribution transaction", "divisive transaction", "partnership transaction"].map((type) => (
               <option key={type} value={type}>
                 {type}
               </option>
@@ -108,6 +108,7 @@ export const FactsPane = memo(function FactsPane({
           ["rollover_equity", "Rollover equity"],
           ["deemed_asset_sale_election", "Deemed asset sale election"],
           ["contribution_transactions", "Contribution transactions"],
+          ["divisive_transactions", "Divisive / section 355"],
           ["partnership_issues", "Partnership issues"],
           ["debt_financing", "Debt financing"],
           ["earnout", "Earnout"],

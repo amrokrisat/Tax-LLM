@@ -31,6 +31,7 @@ export type TransactionFactsInput = {
   rollover_equity: boolean;
   deemed_asset_sale_election: boolean;
   contribution_transactions: boolean;
+  divisive_transactions: boolean;
   partnership_issues: boolean;
   debt_financing: boolean;
   earnout: boolean;
@@ -63,6 +64,14 @@ export type AuthorityRecord = {
   file_path: string;
   jurisdiction: string | null;
   issue_buckets: string[];
+  transaction_type_tags?: string[];
+  structure_tags?: string[];
+  procedural_or_substantive?: "procedural" | "substantive" | "mixed";
+  source_url?: string | null;
+  ingestion_timestamp?: string | null;
+  primary_authority?: boolean;
+  secondary_authority?: boolean;
+  internal_only?: boolean;
   tags: string[];
   relevance_score: number;
 };
@@ -475,6 +484,7 @@ export const emptyRequest: AnalyzeTransactionRequest = {
     rollover_equity: false,
     deemed_asset_sale_election: false,
     contribution_transactions: false,
+    divisive_transactions: false,
     partnership_issues: false,
     debt_financing: false,
     earnout: false,

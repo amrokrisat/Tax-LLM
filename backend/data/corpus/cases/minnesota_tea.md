@@ -1,14 +1,19 @@
 ---
 authority_id: case-minnesota-tea
-title: Continuity analysis where stock remains a meaningful part of consideration
+title: Continuity implications of stock consideration in acquisitive reorganizations
 citation: Helvering v. Minnesota Tea Co., 296 U.S. 378 (1935)
 issue_buckets: [merger_reorganization, rollover_equity]
+transaction_type_tags: [merger, stock sale]
+structure_tags: [continuity of interest, mixed consideration, boot]
 jurisdiction: United States
-effective_date: 1935-12-09
-date_range: 1935-forward
-authority_weight: 0.8
-tags: [continuity of interest, stock consideration, reorganization, merger]
+effective_date: 1935-01-01
+authority_weight: 0.78
+source_url: https://supreme.justia.com/cases/federal/us/296/378/
+ingestion_timestamp: 2026-03-26T08:27:39+00:00
+procedural_or_substantive: substantive
+primary_authority: false
+secondary_authority: true
+internal_only: false
+tags: [minnesota tea, continuity, mixed consideration]
 ---
-Minnesota Tea is a classic continuity authority for transactions involving a mix of stock and nonstock consideration. It is useful when the parties are trying to understand whether a deal with meaningful cash can still preserve enough equity continuity to support reorganization treatment.
-
-In an acquisition memo, this case helps sharpen the practical question whether the stock element is still substantial in context, rather than merely nominal. It therefore supports comparisons between a continuity-sensitive merger path and a more straightforward taxable alternative.
+Minnesota Tea remains useful on continuity questions where mixed consideration and retained stock value determine whether a merger path stays inside reorganization doctrine. It is a narrow but important overlap authority when the choice is between a taxable structure and a continuity-sensitive merger path.

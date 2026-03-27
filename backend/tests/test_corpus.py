@@ -156,6 +156,8 @@ def test_rule_level_338_and_368_entries_are_present():
     assert "code-336e" in ids
     assert "reg-1-336-1" in ids
     assert "reg-1-336-2" in ids
+    assert "code-355" in ids
+    assert "reg-1-355-1" in ids
 
 
 def test_338h10_facts_pull_specific_regulation_ahead_of_broad_section_338():
@@ -297,3 +299,26 @@ def test_rank_authority_tolerates_legacy_authority_objects_missing_new_metadata(
     )
 
     assert score > 0
+
+
+def test_divisive_transaction_facts_pull_section_355_authorities():
+    repository = AuthorityCorpusRepository(root_path=corpus_root())
+    facts = TransactionFacts(
+        transaction_name="SpinCo Separation",
+        summary="Seller is evaluating a spin-off of a controlled corporation before a sale and needs section 355 device and active-trade-or-business analysis.",
+        entities=["Parent", "Controlled Corporation"],
+        jurisdictions=["United States"],
+        transaction_type="divisive transaction",
+        proposed_steps="Seller distributes controlled corporation stock in a spin-off before the transaction.",
+        divisive_transactions=True,
+    )
+
+    results = repository.search_by_issue_bucket(
+        facts=facts,
+        documents=[],
+        issue_bucket="divisive_transactions",
+    )
+
+    assert results
+    assert results[0].authority_id in {"code-355", "reg-1-355-1"}
+    assert any(authority.authority_id == "code-355" for authority in results)

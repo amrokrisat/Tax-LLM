@@ -137,6 +137,7 @@ class AuthorityCorpusRepository:
             "asset_sale",
             "deemed_asset_sale_election",
             "merger_reorganization",
+            "divisive_transactions",
         }
         if issue_bucket in transaction_form_buckets:
             return facts.transaction_type
@@ -179,6 +180,8 @@ class AuthorityCorpusRepository:
             ],
             "merger_reorganization": ["reorganization", "continuity", "business purpose", "triangular", "cobe", "boot", "plan of reorganization"],
             "rollover_equity": ["rollover", "continuity", "governance", "redemption", "boot", "securities"],
+            "contribution_transactions": ["351", "contribution", "drop-down", "control", "holdco", "property transfer"],
+            "divisive_transactions": ["355", "divisive", "spin-off", "split-off", "split-up", "controlled corporation", "distribution"],
             "stock_sale": [
                 "stock",
                 "stock acquisition",
@@ -218,7 +221,8 @@ class AuthorityCorpusRepository:
             "asset_sale": ["1060", "1.1060-1", "8594", "residual method", "allocation", "asset basis"],
             "merger_reorganization": ["368", "1.368-1", "1.368-2"],
             "rollover_equity": ["368", "351", "1.368-1", "1.368-2", "356"],
-            "contribution_transactions": ["351", "721"],
+            "contribution_transactions": ["351", "1.351", "control"],
+            "divisive_transactions": ["355", "1.355-1", "spin-off", "split-off", "device", "controlled corporation"],
             "partnership_issues": ["721", "707"],
             "stock_sale": ["stock form", "carryover basis", "stock acquisition", "338", "qualified stock purchase"],
         }

@@ -22,19 +22,20 @@ from tax_llm.infrastructure.repositories import (
 )
 
 BUCKET_LABELS = {
-    "attribute_preservation": "Attribute preservation",
-    "stock_sale": "Stock sale",
-    "asset_sale": "Asset sale",
-    "deemed_asset_sale_election": "Deemed asset sale elections",
-    "merger_reorganization": "Merger / reorganization possibilities",
-    "rollover_equity": "Rollover equity",
-    "contribution_transactions": "Contribution transactions",
-    "partnership_issues": "Partnership issues",
-    "debt_overlay": "Debt overlay",
-    "earnout_overlay": "Earnout overlay",
-    "withholding_overlay": "Withholding overlay",
-    "state_overlay": "State and local overlay",
-    "international_overlay": "International overlay",
+    "attribute_preservation": "Attribute preservation and limitation regime",
+    "stock_sale": "Stock-form acquisition regime",
+    "asset_sale": "Direct asset acquisition regime",
+    "deemed_asset_sale_election": "Deemed asset election regime",
+    "merger_reorganization": "Acquisitive reorganization regime",
+    "rollover_equity": "Rollover equity regime",
+    "contribution_transactions": "Contribution and control regime",
+    "divisive_transactions": "Divisive transactions and section 355 regime",
+    "partnership_issues": "Partnership transaction regime",
+    "debt_overlay": "Financing and debt regime",
+    "earnout_overlay": "Contingent consideration regime",
+    "withholding_overlay": "Withholding regime",
+    "state_overlay": "State and local regime",
+    "international_overlay": "International transaction regime",
 }
 
 ISSUE_LIBRARY = {
@@ -72,6 +73,11 @@ ISSUE_LIBRARY = {
         "Contribution transaction control and basis",
         "Analyze whether contribution steps satisfy control requirements and produce the intended basis and holding period results.",
         "medium",
+    ),
+    "divisive_transactions": (
+        "Divisive transaction qualification and device sensitivity",
+        "Analyze whether a separation, spin-off, split-off, or split-up path satisfies section 355 requirements and whether device, active-trade-or-business, or continuity issues weaken the path.",
+        "high",
     ),
     "partnership_issues": (
         "Partnership disguised sale and liability allocation",
@@ -232,7 +238,7 @@ class AnalysisService:
 
     def _seller_target_profile_text(self, text: str) -> str:
         if self._contains_any(text, ["s corporation", "s corp"]):
-            return "The current record suggests an S corporation profile, which can make section 336(e) or 338(h)(10) seller-target mechanics much more important than a generic stock-versus-asset comparison."
+            return "The current record suggests an S corporation profile, which can make section 336(e) or 338(h)(10) seller-target mechanics much more important than a generic acquisition-structure comparison."
         if self._contains_any(text, ["consolidated group", "affiliate", "subsidiary", "parent corporation", "domestic corporation seller"]):
             return "The current record suggests a corporate seller or affiliate structure, so seller identity and target profile matter directly to whether a joint or seller-driven election path is actually available."
         if self._contains_any(text, ["distribution", "qualified stock disposition"]):
@@ -253,7 +259,7 @@ class AnalysisService:
         if deemed_like:
             return "stock-form deal with a possible deemed asset election"
         if stock_like and asset_like:
-            return "mixed stock-versus-asset comparison"
+            return "mixed acquisition-structure comparison"
         if asset_like:
             return "taxable asset path"
         if stock_like:
@@ -328,6 +334,25 @@ class AnalysisService:
             add("rollover_equity", "Facts indicate rollover equity or mixed consideration.")
         if facts.contribution_transactions or "contribution" in text:
             add("contribution_transactions", "Facts indicate contribution steps or pre-close transfers.")
+        if facts.divisive_transactions or any(
+            term in text
+            for term in [
+                "355",
+                "section 355",
+                "spin-off",
+                "spin off",
+                "split-off",
+                "split off",
+                "split-up",
+                "split up",
+                "divisive",
+                "controlled corporation",
+            ]
+        ):
+            add(
+                "divisive_transactions",
+                "Facts indicate a separation, spin-off, split-off, split-up, or other section 355-sensitive divisive path.",
+            )
         if facts.partnership_issues or "partnership" in text or "llc" in text:
             add("partnership_issues", "Facts indicate partnership or passthrough tax issues.")
         if facts.debt_financing or "debt" in text or "financing" in text or "refinancing" in text:
@@ -364,7 +389,7 @@ class AnalysisService:
             notes = []
             if not authorities:
                 notes.append(
-                    "No authority was retrieved for this bucket. Drafting should remain preliminary."
+                    "No authority was retrieved for this regime. Drafting should remain preliminary."
                 )
             source_priority_warning = self.authority_repository.support_warning(authorities)
             if source_priority_warning:
@@ -398,7 +423,7 @@ class AnalysisService:
             if self._is_strongly_supported(coverage):
                 lead = coverage.authorities[0]
                 description = (
-                    f"{description} The current lead authority is {lead.citation}, which tracks the active facts in this bucket."
+                    f"{description} The current lead authority is {lead.citation}, which tracks the active facts in this regime."
                 )
             elif coverage.status == "covered" and coverage.authorities:
                 description = (
@@ -406,7 +431,7 @@ class AnalysisService:
                 )
             else:
                 description = (
-                    f"{description} This remains preliminary because the current corpus did not retrieve direct support for the bucket."
+                    f"{description} This remains preliminary because the current corpus did not retrieve direct support for the regime."
                 )
             issues.append(
                 TaxIssue(
@@ -492,11 +517,19 @@ class AnalysisService:
             return (
                 "The election analysis should focus on whether a qualified stock purchase or similar election path is actually available, whether the target and seller profile fit the election mechanics, whether the buyer values the step-up enough to pay for it, and whether the seller would accept deemed sale cost in a nominal stock deal."
             )
+        if bucket == "contribution_transactions":
+            return (
+                "The current facts suggest a contribution or drop-down sequence, so the analysis should stay focused on section 351 or related control, basis, and transferor-group mechanics rather than collapsing those steps into the acquisition form alone."
+            )
+        if bucket == "divisive_transactions":
+            return (
+                "The current facts suggest a spin-off, split-off, split-up, or other section 355-sensitive separation step, so active-trade-or-business, device, distribution sequencing, and controlled-corporation posture need to be tested directly rather than treated as generic restructuring background."
+            )
         if bucket == "state_overlay":
             return (
                 "The fact pattern points to state or transfer-tax consequences, but the current support is only internal and should stay at issue-spotting level rather than recommendation level."
             )
-        return "The submitted facts specifically trigger this issue bucket."
+        return "The submitted facts specifically trigger this transactional-tax regime."
 
     def _memo_observation_body(
         self,
@@ -556,14 +589,24 @@ class AnalysisService:
                 f"The deemed-asset-election analysis currently relies most heavily on {lead.citation}, because the transaction may need to be modeled as a nominal stock deal with asset-style tax consequences. The practical gating question is whether the legal ownership profile and party consent actually permit that election, rather than whether asset-style economics are attractive in the abstract. "
                 f"{fact_anchor}"
             )
+        if coverage.bucket == "contribution_transactions":
+            return (
+                f"The contribution analysis currently relies most heavily on {lead.citation}, because the submitted steps appear to use a section 351-style or similar contribution sequence before or alongside the ultimate transaction. The governing questions are whether the transferor group actually satisfies the control requirement, whether any services, debt shifts, or side arrangements undermine nonrecognition, and how basis and holding-period consequences compare with a direct sale path. "
+                f"{fact_anchor}"
+            )
+        if coverage.bucket == "divisive_transactions":
+            return (
+                f"The divisive-transaction analysis currently relies most heavily on {lead.citation}, because the submitted structure appears to involve a spin-off, split-off, split-up, or other section 355-sensitive separation step. The governing questions are whether the distribution and controlled-corporation mechanics actually fit section 355, whether device and active-trade-or-business limits weaken the path, and whether the separation changes the economics of any later contribution, reorganization, or sale step. "
+                f"{fact_anchor}"
+            )
         return (
-            f"The current lead authority for this bucket is {lead.citation}. "
+            f"The current lead authority for this regime is {lead.citation}. "
             f"{fact_anchor}"
         )
 
     def _issue_summary_text(self, issues: list[TaxIssue]) -> str:
         if not issues:
-            return "No issue buckets currently have primary-authority support."
+            return "No transactional-tax regimes currently have primary-authority support."
         if len(issues) == 1:
             return f"Primary authority currently supports the analysis of {issues[0].name.lower()}."
         labels = [issue.name.lower() for issue in issues[:4]]
@@ -834,6 +877,33 @@ class AnalysisService:
                 )
             )
 
+        if "divisive_transactions" in coverage_map:
+            alternatives.append(
+                self._build_alternative(
+                    name="Divisive separation path",
+                    description=(
+                        "This path treats the transaction as including a section 355-sensitive separation step and tests whether a spin-off, split-off, or split-up can be respected before or alongside the broader transaction."
+                    ),
+                    buckets=["divisive_transactions", "contribution_transactions", "state_overlay"],
+                    consequence_texts=[
+                        "This path is strongest when the distribution, controlled-corporation, and active-trade-or-business facts genuinely fit section 355 rather than using a separation step as a loose prelude to a taxable sale.",
+                        "The main tradeoff is that a divisive path may improve structural flexibility and isolate assets or liabilities before a sale, but it becomes weak if device concerns, sequencing problems, or unsupported business-purpose facts make the separation look tax-motivated rather than operationally driven.",
+                    ],
+                    assumptions=[
+                        "The separation mechanics can be documented as a real divisive transaction rather than as an informal asset shuffle.",
+                        "The business-purpose and active-trade-or-business facts are substantial enough to justify a section 355 analysis.",
+                    ],
+                    missing_facts=[
+                        "Exact distribution sequence, controlled-corporation posture, and how the separation fits the overall transaction timeline.",
+                        "Whether each relevant line of business satisfies the active-trade-or-business and device-sensitive elements of section 355.",
+                    ],
+                    risk_texts=[
+                        "This path weakens if the divisive step is only a precursor to a sale with little standalone business purpose, if the distribution mechanics do not actually fit section 355, or if the state-law and transfer-tax consequences of the separation change the economics materially.",
+                    ],
+                    coverage_map=coverage_map,
+                )
+            )
+
         return alternatives
 
     def _build_alternative(
@@ -889,7 +959,7 @@ class AnalysisService:
             ):
                 note = "Support is preliminary because one or more relevant buckets rely only on secondary or internal materials."
             else:
-                note = "Support is incomplete because one or more relevant issue buckets did not retrieve authority."
+                note = "Support is incomplete because one or more relevant transactional-tax regimes did not retrieve authority."
             unsupported_assertions.append(text)
 
         return SupportedStatement(
@@ -987,7 +1057,7 @@ class AnalysisService:
                         + (
                             "On the current record, this path can be used as a grounded first-pass comparison."
                             if not alternative.unsupported_assertions
-                            else "Part of this comparison remains preliminary because at least one bucket tied to the path lacks strong support."
+                            else "Part of this comparison remains preliminary because at least one regime tied to the path lacks strong support."
                         )
                     ),
                     citations=alternative.governing_authorities[:4],
@@ -1006,7 +1076,7 @@ class AnalysisService:
                 MemoSection(
                     heading="Preliminary Matters",
                     body=(
-                        "The analysis remains preliminary for the following issue buckets because they either lack retrieved support or rely only on secondary/internal material: "
+                        "The analysis remains preliminary for the following transactional-tax regimes because they either lack retrieved support or rely only on secondary/internal material: "
                         + ", ".join(preliminary_labels)
                         + ". Those areas are intentionally kept out of the supported observations above and should not drive final recommendations yet."
                     ),
@@ -1054,6 +1124,14 @@ class AnalysisService:
                 "What rights attach to the rollover instrument, including redemption, put/call, preferred return, downside protection, board rights, and liquidity arrangements?",
                 "Rollover equity can support or undermine continuity-sensitive treatment depending on the exact economic and governance features.",
             ),
+            "contribution_transactions": (
+                "Who are the transferors, what property or liabilities are moving, and will the transferor group actually control the corporation immediately after the exchange?",
+                "Section 351 and similar contribution analysis depends on control, transferor status, and the exact property-versus-services and liability facts.",
+            ),
+            "divisive_transactions": (
+                "Is the contemplated separation a spin-off, split-off, split-up, or another divisive transaction, and what are the active-trade-or-business, device, and distribution facts for each controlled corporation?",
+                "Section 355 analysis is highly fact-dependent and can change quickly if the distribution sequence, business-purpose record, or controlled-corporation facts are incomplete.",
+            ),
             "debt_overlay": (
                 "Where will acquisition debt sit after closing, and will any debt terms be refinanced, amended, or replaced shortly after the transaction?",
                 "Financing consequences depend on debt placement, interest-limitation posture, and whether refinancing steps create modification or exchange issues.",
@@ -1092,7 +1170,7 @@ class AnalysisService:
                 MissingFactQuestion(
                     bucket="general",
                     question="Can you provide a narrative summary of the business objectives and signing/closing sequence?",
-                    rationale="Free-text context improves bucket classification and authority retrieval.",
+                    rationale="Free-text context improves regime classification and authority retrieval.",
                 )
             )
 
@@ -1113,17 +1191,17 @@ class AnalysisService:
         self, under_supported_buckets: list[str], weakly_supported_buckets: list[str]
     ) -> str:
         if not under_supported_buckets and not weakly_supported_buckets:
-            return "Coverage is complete for the currently classified issue buckets, but conclusions still require human tax review."
+            return "Coverage is complete for the currently classified transactional-tax regimes, but conclusions still require human tax review."
         if weakly_supported_buckets and not under_supported_buckets:
             return (
-                "Coverage is mixed. Some buckets are only weakly supported: "
+                "Coverage is mixed. Some regimes are only weakly supported: "
                 + ", ".join(BUCKET_LABELS[bucket] for bucket in weakly_supported_buckets)
-                + ". Strongly supported sections remain usable, but weakly supported buckets should stay preliminary."
+                + ". Strongly supported sections remain usable, but weakly supported regimes should stay preliminary."
             )
         return (
-            "Coverage is incomplete. The following issue buckets are under-supported: "
+            "Coverage is incomplete. The following transactional-tax regimes are under-supported: "
             + ", ".join(BUCKET_LABELS[bucket] for bucket in under_supported_buckets)
-            + ". Supported sections remain usable, but unsupported buckets should be treated as preliminary and kept out of final recommendations."
+            + ". Supported sections remain usable, but unsupported regimes should be treated as preliminary and kept out of final recommendations."
         )
 
     def _confidence_label(

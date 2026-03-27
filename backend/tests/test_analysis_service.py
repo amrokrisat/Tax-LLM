@@ -487,9 +487,15 @@ def test_stock_and_deemed_asset_buckets_have_more_specific_memo_language():
         uploaded_documents=[],
     )
 
-    stock_section = next(section for section in result.memo_sections if section.heading == "Stock sale")
+    stock_section = next(
+        section
+        for section in result.memo_sections
+        if section.heading == "Stock-form acquisition regime"
+    )
     deemed_section = next(
-        section for section in result.memo_sections if section.heading == "Deemed asset sale elections"
+        section
+        for section in result.memo_sections
+        if section.heading == "Deemed asset election regime"
     )
     assert "carryover tax posture" in stock_section.body.lower() or "carryover basis" in stock_section.body.lower()
     assert "seller" in stock_section.body.lower()
@@ -551,7 +557,9 @@ def test_336e_path_produces_distinct_seller_profile_language():
     )
 
     deemed_section = next(
-        section for section in result.memo_sections if section.heading == "Deemed asset sale elections"
+        section
+        for section in result.memo_sections
+        if section.heading == "Deemed asset election regime"
     )
     deemed_text = deemed_section.body.lower()
     alternative_names = {alternative.name for alternative in result.alternatives}
@@ -628,7 +636,11 @@ def test_direct_asset_path_mentions_seller_side_gain_and_recapture_tension():
         uploaded_documents=[],
     )
 
-    asset_section = next(section for section in result.memo_sections if section.heading == "Asset sale")
+    asset_section = next(
+        section
+        for section in result.memo_sections
+        if section.heading == "Direct asset acquisition regime"
+    )
     asset_text = asset_section.body.lower()
     assert "gain-character" in asset_text or "seller" in asset_text
     assert "recapture" in asset_text or "allocation" in asset_text
@@ -649,7 +661,11 @@ def test_stock_sale_analysis_is_not_reduced_to_attribute_preservation_framing():
         uploaded_documents=[],
     )
 
-    stock_section = next(section for section in result.memo_sections if section.heading == "Stock sale")
+    stock_section = next(
+        section
+        for section in result.memo_sections
+        if section.heading == "Stock-form acquisition regime"
+    )
     stock_text = stock_section.body.lower()
     assert "seller" in stock_text
     assert "contracts" in stock_text or "history" in stock_text or "stock form" in stock_text
@@ -703,3 +719,37 @@ def test_unsupported_buckets_trigger_visible_warnings():
     assert any(coverage.notes for coverage in thin_coverages)
     assert any(not section.supported for section in result.memo_sections)
     assert any(coverage.source_priority_warning for coverage in thin_coverages)
+
+
+def test_divisive_transaction_classifies_and_surfaces_section_355_path():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="Separation Deal",
+            summary="Seller is considering a spin-off of a controlled corporation before a later sale and needs section 355 analysis.",
+            entities=["Parent", "SpinCo", "Buyer"],
+            jurisdictions=["United States"],
+            transaction_type="divisive transaction",
+            proposed_steps="Parent contributes selected assets to SpinCo and distributes SpinCo stock in a spin-off before the sale process.",
+            contribution_transactions=True,
+            divisive_transactions=True,
+            state_tax=True,
+        ),
+        uploaded_documents=[
+            UploadedDocument(
+                file_name="separation-plan.txt",
+                document_type="restructuring_plan",
+                content="The parties are testing a spin-off and section 355 path before a later transaction.",
+            )
+        ],
+    )
+
+    classified = {bucket.bucket for bucket in result.classification}
+    assert "divisive_transactions" in classified
+
+    divisive_bucket = next(
+        coverage for coverage in result.bucket_coverage if coverage.bucket == "divisive_transactions"
+    )
+    assert divisive_bucket.authorities
+    assert divisive_bucket.authorities[0].authority_id in {"code-355", "reg-1-355-1"}
+    assert any("Divisive" in alternative.name or "355" in alternative.name for alternative in result.alternatives)

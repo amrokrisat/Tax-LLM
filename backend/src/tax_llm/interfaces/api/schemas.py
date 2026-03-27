@@ -27,6 +27,7 @@ class TransactionFactsInput(BaseModel):
     rollover_equity: bool = False
     deemed_asset_sale_election: bool = False
     contribution_transactions: bool = False
+    divisive_transactions: bool = False
     partnership_issues: bool = False
     debt_financing: bool = False
     earnout: bool = False

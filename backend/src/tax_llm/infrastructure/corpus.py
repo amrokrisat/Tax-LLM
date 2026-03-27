@@ -36,6 +36,7 @@ BUCKET_CONTEXT_TERMS: dict[str, list[str]] = {
     "merger_reorganization": ["merger", "reorganization", "continuity", "business purpose", "merger sub", "triangular"],
     "rollover_equity": ["rollover", "continuing equity", "seller equity", "governance", "redemption", "downside protection"],
     "contribution_transactions": ["contribution", "drop-down", "holdco", "control"],
+    "divisive_transactions": ["355", "spin-off", "split-off", "split-up", "divisive", "controlled corporation", "device", "active trade or business", "distribution"],
     "partnership_issues": ["partnership", "llc", "disguised sale", "704(c)"],
     "debt_overlay": ["debt", "refinancing", "leverage", "interest limitation", "seller note", "significant modification", "acquisition indebtedness"],
     "earnout_overlay": ["earnout", "contingent consideration", "deferred payment", "installment"],
@@ -72,6 +73,8 @@ AUTHORITY_GATING_TERMS: dict[str, list[str]] = {
     "code-1274-483": ["earnout", "deferred", "seller note", "imputed interest"],
     "reg-1-707-3": ["partnership", "llc", "contribution", "disguised sale", "liability allocation", "leveraged distribution"],
     "reg-1-368-2k": ["merger sub", "triangular merger", "parent stock", "reorganization"],
+    "code-355": ["355", "spin-off", "split-off", "split-up", "divisive", "controlled corporation", "device"],
+    "reg-1-355-1": ["355", "spin-off", "split-off", "split-up", "device", "active trade or business", "controlled corporation"],
     "case-letulle": ["debt-like", "security", "redemption", "preferred", "continuity"],
     "case-minnesota-tea": ["continuity", "stock consideration", "mixed consideration", "reorganization"],
     "case-gregory": ["business purpose", "substance over form", "reorganization"],
@@ -491,6 +494,7 @@ def rank_authority(
         score += 0.3
 
     specific_signal_groups = {
+        "355": ["355", "spin-off", "spin off", "split-off", "split off", "split-up", "split up", "divisive", "controlled corporation", "device"],
         "336e": ["336(e)", "336 e", "qualified stock disposition", "protective election", "election statement", "s corporation"],
         "338h10": ["338(h)(10)", "338 h 10", "joint election", "seller consent"],
         "338g": ["338(g)", "338 g"],
@@ -507,6 +511,15 @@ def rank_authority(
                 score += 0.8
             elif authority.authority_id in {"code-338", "code-368", "reg-1-368-2-framework"}:
                 score -= 0.65
+
+    if "divisive_transactions" in issue_buckets:
+        divisive_terms = ["355", "spin-off", "spin off", "split-off", "split off", "split-up", "split up", "divisive", "controlled corporation", "distribution"]
+        if authority.authority_id in {"code-355", "reg-1-355-1"} and any(
+            term in query_text for term in divisive_terms
+        ):
+            score += 1.2
+        elif authority.authority_id in {"code-338", "code-368", "reg-1-368-1-framework"}:
+            score -= 0.5
 
     if any(bucket in issue_buckets for bucket in {"debt_overlay", "earnout_overlay", "merger_reorganization"}) and authority.authority_id in {"code-382", "reg-1-382", "notice-2003-65"}:
         score -= 1.0

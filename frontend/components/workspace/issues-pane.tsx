@@ -18,13 +18,13 @@ export const IssuesPane = memo(function IssuesPane({
   toggleReviewedSection: (sectionKey: string) => void;
 }) {
   if (!activeAnalysis) {
-    return <p className="muted">Run analysis to populate issues and bucket triage.</p>;
+    return <p className="muted">Run analysis to populate issue spotting and regime triage.</p>;
   }
 
   return (
     <div className="stack">
       <div className="subpanel">
-        <h3>Classified issue buckets</h3>
+        <h3>Classified transactional tax regimes</h3>
         <ul className="list-tight">
           {activeAnalysis.classification.map((bucket) => (
             <li key={bucket.bucket}>
@@ -44,7 +44,7 @@ export const IssuesPane = memo(function IssuesPane({
       </div>
 
       <div className="subpanel">
-        <h3>Issues</h3>
+        <h3>Regime-driven issues</h3>
         <ul className="list-tight">
           {activeAnalysis.issues.map((issue) => {
             const bucket = activeAnalysis.bucket_coverage.find((item) => item.bucket === issue.bucket);

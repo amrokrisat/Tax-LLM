@@ -53,6 +53,7 @@ class TransactionFacts(BaseModel):
     rollover_equity: bool = False
     deemed_asset_sale_election: bool = False
     contribution_transactions: bool = False
+    divisive_transactions: bool = False
     partnership_issues: bool = False
     debt_financing: bool = False
     earnout: bool = False
@@ -86,10 +87,13 @@ class AuthorityRecord(BaseModel):
     citation: str
     excerpt: str
     issue_buckets: List[str] = Field(default_factory=list)
+    transaction_type_tags: List[str] = Field(default_factory=list)
+    structure_tags: List[str] = Field(default_factory=list)
     jurisdiction: str | None = None
     effective_date: str | None = None
     tax_year: str | None = None
     date_range: str | None = None
+    procedural_or_substantive: Literal["procedural", "substantive", "mixed"] = "substantive"
     authority_weight: float = 1.0
     file_path: str
     source_url: str | None = None

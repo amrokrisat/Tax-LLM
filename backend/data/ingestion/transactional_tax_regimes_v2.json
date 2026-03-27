@@ -588,6 +588,44 @@
       "tags": ["letulle", "debt-like consideration", "continuity"],
       "body": "LeTulle is useful where the facts suggest that retained consideration may behave more like debt or other fixed-value paper than real continuing equity. It helps the engine explain why a nominally reorganization-sensitive path can weaken when the rollover instrument lacks true stock characteristics.",
       "normalization_mode": "manual_text"
+    },
+    {
+      "authority_id": "code-355",
+      "target_source_type": "code",
+      "target_path": "section_355.md",
+      "title": "Distribution of stock and securities of a controlled corporation",
+      "citation": "IRC Section 355",
+      "issue_buckets": ["divisive_transactions"],
+      "transaction_type_tags": ["divisive transaction", "stock sale"],
+      "structure_tags": ["spin-off", "split-off", "split-up", "controlled corporation", "device"],
+      "jurisdiction": "United States",
+      "effective_date": "2025-01-01",
+      "authority_weight": 0.98,
+      "source_url": "https://www.law.cornell.edu/uscode/text/26/355",
+      "source_quality": "primary_authority",
+      "procedural_or_substantive": "substantive",
+      "tags": ["355", "spin-off", "split-off", "split-up", "controlled corporation", "divisive transaction"],
+      "body": "Section 355 is the core statutory framework for divisive transactions, including spin-offs, split-offs, and split-ups. It matters whenever a separation step is being considered before a sale, contribution, or acquisition because controlled-corporation mechanics, active-trade-or-business requirements, and device sensitivity can determine whether the separation is supportable at all.",
+      "normalization_mode": "manual_text"
+    },
+    {
+      "authority_id": "reg-1-355-1",
+      "target_source_type": "regs",
+      "target_path": "section_355_regs.md",
+      "title": "General regulatory framework for divisive transactions under section 355",
+      "citation": "Treas. Reg. Section 1.355-1",
+      "issue_buckets": ["divisive_transactions"],
+      "transaction_type_tags": ["divisive transaction"],
+      "structure_tags": ["spin-off", "split-off", "split-up", "controlled corporation", "device", "active trade or business"],
+      "jurisdiction": "United States",
+      "effective_date": "2025-01-01",
+      "authority_weight": 0.97,
+      "source_url": "https://www.law.cornell.edu/cfr/text/26/1.355-1",
+      "source_quality": "primary_authority",
+      "procedural_or_substantive": "substantive",
+      "tags": ["1.355-1", "355", "spin-off", "split-off", "split-up", "device"],
+      "body": "Regulation 1.355-1 provides the operative framework for evaluating whether a divisive distribution can stay inside section 355. It matters because the real-world analysis turns on whether the separation has a supportable distribution and controlled-corporation posture, whether active-trade-or-business requirements can be satisfied, and whether the overall step sequence looks like a genuine corporate separation rather than a taxable precursor to a sale.",
+      "normalization_mode": "manual_text"
     }
   ]
 }

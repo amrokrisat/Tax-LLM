@@ -21,6 +21,7 @@ const transactionTypes = [
   "asset sale",
   "merger",
   "contribution transaction",
+  "divisive transaction",
   "partnership transaction",
 ];
 
@@ -54,6 +55,7 @@ export function IntakeForm({
       | "rollover_equity"
       | "deemed_asset_sale_election"
       | "contribution_transactions"
+      | "divisive_transactions"
       | "partnership_issues"
       | "debt_financing"
       | "earnout"
@@ -240,6 +242,7 @@ export function IntakeForm({
           ["rollover_equity", "Rollover equity"],
           ["deemed_asset_sale_election", "Deemed asset sale election"],
           ["contribution_transactions", "Contribution transactions"],
+          ["divisive_transactions", "Divisive / section 355"],
           ["partnership_issues", "Partnership issues"],
           ["debt_financing", "Debt financing"],
           ["earnout", "Earnout"],
@@ -257,6 +260,7 @@ export function IntakeForm({
                     | "rollover_equity"
                     | "deemed_asset_sale_election"
                     | "contribution_transactions"
+                    | "divisive_transactions"
                     | "partnership_issues"
                     | "debt_financing"
                     | "earnout"

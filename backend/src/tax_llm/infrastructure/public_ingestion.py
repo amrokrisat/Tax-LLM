@@ -24,22 +24,25 @@ class IngestionEntry:
     title: str
     citation: str
     issue_buckets: list[str]
+    transaction_type_tags: list[str]
+    structure_tags: list[str]
     jurisdiction: str
     effective_date: str
     authority_weight: float
     source_url: str
     source_quality: str
+    procedural_or_substantive: str
     tags: list[str]
     body: str
     normalization_mode: NormalizationMode = "manual_text"
 
 
 def default_manifest_path() -> Path:
-    return backend_data_path("ingestion", "transactional_tax_wedge_v1.json")
+    return backend_data_path("ingestion", "transactional_tax_regimes_v2.json")
 
 
 def default_output_manifest_path() -> Path:
-    return backend_data_path("corpus", "manifests", "transactional_tax_wedge_v1_manifest.json")
+    return backend_data_path("corpus", "manifests", "transactional_tax_regimes_v2_manifest.json")
 
 
 def load_manifest(path: Path | None = None) -> list[IngestionEntry]:
@@ -63,15 +66,17 @@ def ingest_public_authorities(
         written.append(
             {
                 "authority_id": entry.authority_id,
+                "target_source_type": entry.target_source_type,
                 "target_path": str(target),
                 "source_url": entry.source_url,
+                "source_quality": entry.source_quality,
                 "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
                 "ingested_at": current_timestamp(),
             }
         )
 
     manifest = {
-        "pack_name": "transactional_tax_wedge_v1",
+        "pack_name": (manifest_path or default_manifest_path()).stem,
         "generated_at": current_timestamp(),
         "entries": written,
     }
@@ -87,11 +92,14 @@ def render_entry(entry: IngestionEntry) -> str:
         "title": entry.title,
         "citation": entry.citation,
         "issue_buckets": entry.issue_buckets,
+        "transaction_type_tags": entry.transaction_type_tags,
+        "structure_tags": entry.structure_tags,
         "jurisdiction": entry.jurisdiction,
         "effective_date": entry.effective_date,
         "authority_weight": entry.authority_weight,
         "source_url": entry.source_url,
         "ingestion_timestamp": current_timestamp(),
+        "procedural_or_substantive": entry.procedural_or_substantive,
         "primary_authority": entry.source_quality == "primary_authority",
         "secondary_authority": entry.source_quality == "secondary_authority",
         "internal_only": entry.source_quality == "internal_only",

@@ -24,7 +24,7 @@ export const AuthoritiesPane = memo(function AuthoritiesPane({
   togglePinnedAuthority: (authorityId: string) => void;
 }) {
   if (!activeAnalysis) {
-    return <p className="muted">Run analysis to inspect retrieved authorities and pinned support.</p>;
+    return <p className="muted">Run analysis to inspect retrieved authorities, regime coverage, and pinned support.</p>;
   }
 
   return (
@@ -50,7 +50,7 @@ export const AuthoritiesPane = memo(function AuthoritiesPane({
             </div>
 
             {Object.keys(groups).length === 0 ? (
-              <p className="muted">No authorities were retrieved for this issue area.</p>
+              <p className="muted">No authorities were retrieved for this regime yet.</p>
             ) : (
               Object.entries(groups).map(([sourceType, authorities]) => (
                 <div key={`${bucket.bucket}-${sourceType}`} className="stack">
@@ -63,6 +63,18 @@ export const AuthoritiesPane = memo(function AuthoritiesPane({
                           <div className="row-between">
                             <div className="chip-row">
                               <span className="chip">{sourceType}</span>
+                              <span className="chip">
+                                {authority.primary_authority
+                                  ? "Primary"
+                                  : authority.secondary_authority
+                                    ? "Secondary"
+                                    : authority.internal_only
+                                      ? "Internal"
+                                      : "Authority"}
+                              </span>
+                              {authority.procedural_or_substantive ? (
+                                <span className="chip">{authority.procedural_or_substantive}</span>
+                              ) : null}
                               <span className="chip">Score {authority.relevance_score.toFixed(2)}</span>
                             </div>
                             {selectedRun ? (
@@ -75,6 +87,15 @@ export const AuthoritiesPane = memo(function AuthoritiesPane({
                             <strong>{authority.citation}</strong>
                           </p>
                           <p>{authority.title}</p>
+                          {authority.structure_tags?.length ? (
+                            <div className="chip-row">
+                              {authority.structure_tags.slice(0, 3).map((tag) => (
+                                <span key={`${authority.authority_id}-${tag}`} className="chip">
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                          ) : null}
                           <p className="muted">{authority.excerpt}</p>
                         </article>
                       );

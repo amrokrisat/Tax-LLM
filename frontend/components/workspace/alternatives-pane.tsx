@@ -10,7 +10,7 @@ export const AlternativesPane = memo(function AlternativesPane({
   activeAnalysis: AnalysisResult | null;
 }) {
   if (!activeAnalysis) {
-    return <p className="muted">Run analysis to compare structure alternatives and decision tradeoffs.</p>;
+    return <p className="muted">Run analysis to compare structure alternatives across the triggered transactional-tax regimes.</p>;
   }
 
   return (

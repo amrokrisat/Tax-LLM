@@ -14,7 +14,7 @@ export const WarningsPane = memo(function WarningsPane({
   supportLabel: (bucket: BucketCoverage) => string;
 }) {
   if (!activeAnalysis) {
-    return <p className="muted">Run analysis to populate coverage notes and warning items.</p>;
+    return <p className="muted">Run analysis to populate regime coverage notes and warning items.</p>;
   }
 
   return (
@@ -27,7 +27,7 @@ export const WarningsPane = memo(function WarningsPane({
       {warningBuckets.length === 0 ? (
         <div className="subpanel stack">
           <h3>No open warning items</h3>
-          <p className="muted">This run does not currently show bucket-level warnings beyond the overall coverage note above.</p>
+          <p className="muted">This run does not currently show regime-level warnings beyond the overall coverage note above.</p>
         </div>
       ) : (
         <div className="stack">
@@ -50,7 +50,7 @@ export const WarningsPane = memo(function WarningsPane({
                   <li key={note}>{note}</li>
                 ))}
                 {bucket.notes.length === 0 ? (
-                  <li>This issue area is being kept out of the supported analysis because the retrieved support remains incomplete.</li>
+                  <li>This regime is being kept out of the supported analysis because the retrieved support remains incomplete.</li>
                 ) : null}
               </ul>
             </article>
