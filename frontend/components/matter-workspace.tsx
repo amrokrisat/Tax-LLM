@@ -218,6 +218,82 @@ function mergeConfirmedFactsIntoDraft(
       .map((fragment) => fragment.trim())
       .filter(Boolean),
   );
+  const goalSet = new Set(nextFacts.stated_goals);
+  const constraintSet = new Set(nextFacts.constraints);
+  const entitySet = new Set(nextFacts.entities);
+  const jurisdictionSet = new Set(nextFacts.jurisdictions);
+
+  function appendSentence(target: "summary" | "proposed_steps" | "consideration_mix", text: string) {
+    const cleaned = text.trim();
+    if (!cleaned) {
+      return;
+    }
+    if (target === "summary") {
+      summaryFragments.add(cleaned.endsWith(".") ? cleaned : `${cleaned}.`);
+      return;
+    }
+    const existing = nextFacts[target].trim();
+    if (!existing.toLowerCase().includes(cleaned.toLowerCase())) {
+      nextFacts[target] = [existing, cleaned].filter(Boolean).join(existing ? " " : "");
+    }
+  }
+
+  function applyNormalizedFact(fact: ExtractedFact) {
+    const field = fact.normalized_field;
+    const normalizedValue = fact.normalized_value?.trim();
+    if (!field || !normalizedValue) {
+      return;
+    }
+
+    if (field === "transaction_type") {
+      nextFacts.transaction_type = normalizedValue;
+      return;
+    }
+    if (field === "summary") {
+      appendSentence("summary", normalizedValue);
+      return;
+    }
+    if (field === "proposed_steps") {
+      appendSentence("proposed_steps", normalizedValue);
+      return;
+    }
+    if (field === "consideration_mix") {
+      appendSentence("consideration_mix", normalizedValue);
+      return;
+    }
+    if (field === "stated_goals") {
+      goalSet.add(normalizedValue);
+      return;
+    }
+    if (field === "constraints") {
+      constraintSet.add(normalizedValue);
+      return;
+    }
+    if (field === "entities") {
+      entitySet.add(normalizedValue);
+      return;
+    }
+    if (field === "jurisdictions") {
+      jurisdictionSet.add(normalizedValue);
+      return;
+    }
+    if (
+      [
+        "rollover_equity",
+        "deemed_asset_sale_election",
+        "contribution_transactions",
+        "divisive_transactions",
+        "partnership_issues",
+        "debt_financing",
+        "earnout",
+        "withholding",
+        "state_tax",
+        "international",
+      ].includes(field)
+    ) {
+      (nextFacts as Record<string, unknown>)[field] = normalizedValue === "true";
+    }
+  }
 
   for (const fact of confirmed) {
     const value = fact.value.trim();
@@ -225,6 +301,8 @@ function mergeConfirmedFactsIntoDraft(
     if (!value) {
       continue;
     }
+
+    applyNormalizedFact(fact);
 
     if (fact.label === "Potential transaction form") {
       if (lowered.includes("merger")) {
@@ -259,9 +337,43 @@ function mergeConfirmedFactsIntoDraft(
       nextFacts.earnout = true;
       summaryFragments.add(value.endsWith(".") ? value : `${value}.`);
     }
+
+    if (fact.category === "election_language") {
+      nextFacts.deemed_asset_sale_election = true;
+      appendSentence("summary", value);
+    }
+    if (fact.category === "structure_signal") {
+      if (lowered.includes("divisive") || lowered.includes("355") || lowered.includes("spin")) {
+        nextFacts.divisive_transactions = true;
+      }
+      if (lowered.includes("partnership") || lowered.includes("disguised sale") || lowered.includes("721") || lowered.includes("707")) {
+        nextFacts.partnership_issues = true;
+      }
+      if (lowered.includes("contribution") || lowered.includes("351") || lowered.includes("drop-down")) {
+        nextFacts.contribution_transactions = true;
+      }
+      appendSentence("proposed_steps", value);
+    }
+    if (fact.category === "attribute_signal") {
+      goalSet.add("Preserve tax attributes where possible");
+      appendSentence("summary", value);
+    }
+    if (fact.category === "party_profile" && lowered.includes("seller")) {
+      constraintSet.add("Seller profile remains material to transaction form and election availability.");
+    }
+    if (fact.category === "party_profile" && lowered.includes("buyer")) {
+      goalSet.add("Quantify buyer-side basis step-up and authority-supported election value.");
+    }
+    if (fact.category === "jurisdictional_overlay") {
+      appendSentence("summary", value);
+    }
   }
 
   nextFacts.summary = [...summaryFragments].join(" ");
+  nextFacts.stated_goals = [...goalSet];
+  nextFacts.constraints = [...constraintSet];
+  nextFacts.entities = [...entitySet];
+  nextFacts.jurisdictions = [...jurisdictionSet];
   return nextFacts;
 }
 

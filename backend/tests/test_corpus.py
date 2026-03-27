@@ -401,6 +401,30 @@ def test_divisive_transaction_facts_prefer_section_355_over_broad_reorg_backgrou
     assert "code-368" not in [authority.authority_id for authority in results[:2]]
 
 
+def test_partnership_transaction_facts_prefer_partnership_authorities_over_corporate_contribution_rules():
+    repository = AuthorityCorpusRepository(root_path=corpus_root())
+    facts = TransactionFacts(
+        transaction_name="Partnership Roll Deal",
+        summary="Seller is considering contributing assets to an LLC taxed as a partnership and may receive a leveraged distribution that raises disguised sale and section 752 concerns.",
+        entities=["Seller", "JV LLC", "Buyer"],
+        jurisdictions=["United States"],
+        transaction_type="stock sale",
+        proposed_steps="Contribution to JV LLC followed by debt-financed distribution and broader sale process.",
+        partnership_issues=True,
+        debt_financing=True,
+    )
+
+    results = repository.search_by_issue_bucket(
+        facts=facts,
+        documents=[],
+        issue_bucket="partnership_issues",
+    )
+
+    assert results
+    assert results[0].authority_id in {"code-707", "reg-1-707-3", "reg-1-707-5", "code-721", "reg-1-721-1"}
+    assert "code-351" not in [authority.authority_id for authority in results[:3]]
+
+
 def test_336e_facts_pull_specific_336e_rules_ahead_of_338h10():
     repository = AuthorityCorpusRepository(root_path=corpus_root())
     facts = TransactionFacts(

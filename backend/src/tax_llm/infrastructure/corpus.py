@@ -36,8 +36,8 @@ BUCKET_CONTEXT_TERMS: dict[str, list[str]] = {
     "merger_reorganization": ["merger", "reorganization", "continuity", "business purpose", "merger sub", "triangular"],
     "rollover_equity": ["rollover", "continuing equity", "seller equity", "governance", "redemption", "downside protection"],
     "contribution_transactions": ["contribution", "drop-down", "holdco", "control"],
-    "divisive_transactions": ["355", "spin-off", "split-off", "split-up", "divisive", "controlled corporation", "device", "active trade or business", "distribution"],
-    "partnership_issues": ["partnership", "llc", "disguised sale", "704(c)"],
+    "divisive_transactions": ["355", "spin-off", "split-off", "split-up", "divisive", "controlled corporation", "device", "active trade or business", "distribution", "business purpose", "distributing corporation"],
+    "partnership_issues": ["partnership", "llc", "disguised sale", "704(c)", "721", "707", "752", "leveraged distribution", "debt-financed distribution"],
     "debt_overlay": ["debt", "refinancing", "leverage", "interest limitation", "seller note", "significant modification", "acquisition indebtedness"],
     "earnout_overlay": ["earnout", "contingent consideration", "deferred payment", "installment"],
     "withholding_overlay": ["withholding", "certificate", "foreign payee"],
@@ -72,9 +72,19 @@ AUTHORITY_GATING_TERMS: dict[str, list[str]] = {
     "code-453": ["earnout", "contingent", "deferred", "installment"],
     "code-1274-483": ["earnout", "deferred", "seller note", "imputed interest"],
     "reg-1-707-3": ["partnership", "llc", "contribution", "disguised sale", "liability allocation", "leveraged distribution"],
+    "code-707": ["partnership", "disguised sale", "partner", "leveraged distribution", "sale"],
+    "code-704c": ["partnership", "704(c)", "contributed property", "built-in gain", "built-in loss"],
+    "code-752": ["partnership", "liability allocation", "debt", "outside basis"],
+    "reg-1-721-1": ["partnership", "contribution", "section 721", "llc taxed as a partnership"],
+    "reg-1-704-3": ["704(c)", "contributed property", "built-in gain", "built-in loss", "allocation"],
+    "reg-1-707-5": ["debt-financed distribution", "leveraged distribution", "partnership", "disguised sale", "debt"],
+    "reg-1-752-1": ["partnership", "liability allocation", "debt", "outside basis"],
     "reg-1-368-2k": ["merger sub", "triangular merger", "parent stock", "reorganization"],
     "code-355": ["355", "spin-off", "split-off", "split-up", "divisive", "controlled corporation", "device"],
     "reg-1-355-1": ["355", "spin-off", "split-off", "split-up", "device", "active trade or business", "controlled corporation"],
+    "reg-1-355-2": ["355", "device", "business purpose", "distribution", "sale sequencing", "prearranged sale"],
+    "reg-1-355-3": ["355", "active trade or business", "controlled corporation", "distributing corporation"],
+    "case-morris-trust": ["355", "spin-off", "sale sequencing", "prearranged sale", "divisive"],
     "case-letulle": ["debt-like", "security", "redemption", "preferred", "continuity"],
     "case-minnesota-tea": ["continuity", "stock consideration", "mixed consideration", "reorganization"],
     "case-gregory": ["business purpose", "substance over form", "reorganization"],
@@ -582,13 +592,75 @@ def rank_authority(
                 score -= 0.65
 
     if "divisive_transactions" in issue_buckets:
-        divisive_terms = ["355", "spin-off", "spin off", "split-off", "split off", "split-up", "split up", "divisive", "controlled corporation", "distribution"]
-        if authority.authority_id in {"code-355", "reg-1-355-1"} and any(
+        divisive_terms = [
+            "355",
+            "spin-off",
+            "spin off",
+            "split-off",
+            "split off",
+            "split-up",
+            "split up",
+            "divisive",
+            "controlled corporation",
+            "distribution",
+            "device",
+            "active trade or business",
+            "business purpose",
+            "distributing corporation",
+        ]
+        if authority.authority_id in {"code-355", "reg-1-355-1", "reg-1-355-2", "reg-1-355-3"} and any(
             term in query_text for term in divisive_terms
         ):
             score += 1.2
+        if authority.authority_id == "reg-1-355-2" and any(
+            term in query_text for term in ["device", "business purpose", "prearranged sale", "sale sequencing"]
+        ):
+            score += 0.95
+        if authority.authority_id == "reg-1-355-3" and any(
+            term in query_text for term in ["active trade or business", "controlled corporation", "distributing corporation"]
+        ):
+            score += 0.95
+        if authority.authority_id == "case-morris-trust" and any(
+            term in query_text for term in ["sale sequencing", "prearranged sale", "post-separation sale", "morris trust"]
+        ):
+            score += 0.35
         elif authority.authority_id in {"code-338", "code-368", "reg-1-368-1-framework"}:
             score -= 0.5
+    if "partnership_issues" in issue_buckets:
+        partnership_terms = [
+            "partnership",
+            "llc",
+            "llc taxed as a partnership",
+            "joint venture",
+            "disguised sale",
+            "721",
+            "707",
+            "704(c)",
+            "752",
+            "leveraged distribution",
+            "debt-financed distribution",
+            "liability allocation",
+        ]
+        if authority.authority_id in {"code-707", "reg-1-707-3", "reg-1-707-5"} and any(
+            term in query_text for term in ["disguised sale", "leveraged distribution", "debt-financed distribution", "partner"]
+        ):
+            score += 1.15
+        if authority.authority_id in {"code-721", "reg-1-721-1"} and any(
+            term in query_text for term in ["721", "contribution", "joint venture", "partnership"]
+        ):
+            score += 0.95
+        if authority.authority_id in {"code-704c", "reg-1-704-3"} and any(
+            term in query_text for term in ["704(c)", "contributed property", "built-in gain", "built-in loss", "allocation"]
+        ):
+            score += 0.9
+        if authority.authority_id in {"code-752", "reg-1-752-1"} and any(
+            term in query_text for term in ["752", "liability allocation", "debt", "outside basis"]
+        ):
+            score += 0.9
+        if authority.authority_id in {"code-351", "reg-1-351"} and any(
+            term in query_text for term in partnership_terms
+        ):
+            score -= 1.4
 
     if any(bucket in issue_buckets for bucket in {"debt_overlay", "earnout_overlay", "merger_reorganization"}) and authority.authority_id in {"code-382", "reg-1-382", "notice-2003-65"}:
         score -= 1.0

@@ -7,6 +7,7 @@ export type UploadedDocumentInput = {
   extraction_status?: "not_requested" | "pending" | "completed" | "needs_review";
   extracted_text?: string | null;
   extracted_facts?: ExtractedFact[];
+  extraction_ambiguities?: string[];
 };
 
 export type ExtractedFact = {
@@ -15,6 +16,11 @@ export type ExtractedFact = {
   value: string;
   source_document: string;
   confidence: number;
+  category?: string;
+  certainty?: "high" | "medium" | "low";
+  normalized_field?: string | null;
+  normalized_value?: string | null;
+  ambiguity_note?: string | null;
   status: "pending" | "confirmed" | "rejected";
 };
 

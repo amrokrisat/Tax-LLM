@@ -390,14 +390,31 @@ class AnalysisService:
                 "split up",
                 "divisive",
                 "controlled corporation",
+                "active trade or business",
+                "business purpose",
+                "distributing corporation",
             ]
         ):
             add(
                 "divisive_transactions",
                 "Facts indicate a separation, spin-off, split-off, split-up, or other section 355-sensitive divisive path.",
             )
-        if facts.partnership_issues or "partnership" in text or "llc" in text:
-            add("partnership_issues", "Facts indicate partnership or passthrough tax issues.")
+        if facts.partnership_issues or any(
+            term in text
+            for term in [
+                "partnership",
+                "llc",
+                "joint venture",
+                "disguised sale",
+                "section 721",
+                "section 707",
+                "section 704(c)",
+                "section 752",
+                "leveraged distribution",
+                "debt-financed distribution",
+            ]
+        ):
+            add("partnership_issues", "Facts indicate partnership, disguised-sale, or partnership liability-allocation issues.")
         if facts.debt_financing or "debt" in text or "financing" in text or "refinancing" in text:
             add("debt_overlay", "Facts indicate acquisition debt or financing overlays.")
         if facts.earnout or "earnout" in text or "contingent consideration" in text:
@@ -414,6 +431,28 @@ class AnalysisService:
 
         return buckets
 
+    def _bucket_has_real_depth(self, bucket: str, authorities: list[AuthorityRecord]) -> bool:
+        authority_ids = {authority.authority_id for authority in authorities}
+        if bucket == "divisive_transactions":
+            divisive_regs = {"reg-1-355-1", "reg-1-355-2", "reg-1-355-3"}
+            return "code-355" in authority_ids and len(divisive_regs & authority_ids) >= 2
+        if bucket == "partnership_issues":
+            partnership_depth_ids = {
+                "reg-1-707-3",
+                "reg-1-707-5",
+                "reg-1-721-1",
+                "code-752",
+                "reg-1-752-1",
+                "code-704c",
+                "reg-1-704-3",
+            }
+            return (
+                "code-721" in authority_ids
+                and "code-707" in authority_ids
+                and len(partnership_depth_ids & authority_ids) >= 2
+            )
+        return False
+
     def _retrieve_bucket_support(
         self,
         facts: TransactionFacts,
@@ -427,6 +466,7 @@ class AnalysisService:
                 documents=parsed_documents,
                 issue_bucket=bucket.bucket,
                 source_priority=DEFAULT_SOURCE_PRIORITY,
+                limit=8 if bucket.bucket in {"divisive_transactions", "partnership_issues"} else 6,
             )
             status = "covered" if authorities else "under_supported"
             notes = []
@@ -438,13 +478,10 @@ class AnalysisService:
                 source_priority_warning = (
                     "Retrieved authority exists, but the current lead support is still preliminary because it is background, procedural-only, or otherwise not the strongest operative support for this bucket."
                 )
-            thin_bucket = bucket.bucket in {
-                "divisive_transactions",
-                "partnership_issues",
-                "withholding_overlay",
-                "state_overlay",
-                "international_overlay",
-            }
+            thin_bucket = bucket.bucket in {"withholding_overlay", "state_overlay", "international_overlay"} or (
+                bucket.bucket in {"divisive_transactions", "partnership_issues"}
+                and not self._bucket_has_real_depth(bucket.bucket, authorities)
+            )
             if thin_bucket and authorities:
                 thin_note = (
                     "This bucket remains relatively thin in the current corpus and should stay preliminary unless the retrieved authority is directly operative and primary."
@@ -594,6 +631,10 @@ class AnalysisService:
             return (
                 "The current facts suggest a spin-off, split-off, split-up, or other section 355-sensitive separation step, so active-trade-or-business, device, distribution sequencing, and controlled-corporation posture need to be tested directly rather than treated as generic restructuring background."
             )
+        if bucket == "partnership_issues":
+            return (
+                "The current facts suggest a partnership, LLC taxed as a partnership, or disguised-sale-sensitive contribution path, so section 721, section 707, section 704(c), and liability-allocation mechanics need to be tested directly rather than folded into a generic rollover story."
+            )
         if bucket == "state_overlay":
             return (
                 "The fact pattern points to state or transfer-tax consequences, but the current support is only internal and should stay at issue-spotting level rather than recommendation level."
@@ -666,6 +707,11 @@ class AnalysisService:
         if coverage.bucket == "divisive_transactions":
             return (
                 f"The divisive-transaction analysis currently relies most heavily on {lead.citation}, because the submitted structure appears to involve a spin-off, split-off, split-up, or other section 355-sensitive separation step. The governing questions are whether the distribution and controlled-corporation mechanics actually fit section 355, whether device and active-trade-or-business limits weaken the path, and whether the separation changes the economics of any later contribution, reorganization, or sale step. "
+                f"{fact_anchor}"
+            )
+        if coverage.bucket == "partnership_issues":
+            return (
+                f"The partnership analysis currently relies most heavily on {lead.citation}, because the submitted structure appears to involve a partnership or LLC taxed as a partnership, a contribution to a partnership vehicle, or a distribution pattern that could raise disguised-sale or liability-allocation consequences. The governing questions are whether the contribution path actually fits section 721, whether section 707 disguised-sale rules or debt-financed distribution rules convert the path into sale treatment, and whether section 704(c) or section 752 consequences change the expected economics among the parties. "
                 f"{fact_anchor}"
             )
         return (
@@ -919,28 +965,55 @@ class AnalysisService:
                     )
                 )
 
-        if "contribution_transactions" in coverage_map or "partnership_issues" in coverage_map:
+        if "contribution_transactions" in coverage_map:
             alternatives.append(
                 self._build_alternative(
-                    name="Contribution and partnership path",
+                    name="Corporate contribution path",
                     description=(
-                        "This path considers whether a contribution or partnership structure better aligns the parties' economics, basis planning, and liability allocation."
+                        "This path considers whether a corporate contribution structure better aligns the parties' economics, basis planning, and control requirements before the broader transaction."
                     ),
-                    buckets=["contribution_transactions", "partnership_issues", "debt_overlay"],
+                    buckets=["contribution_transactions", "debt_overlay"],
                     consequence_texts=[
-                        "Contribution and partnership authorities should drive control, disguised sale, and liability allocation analysis.",
-                        "Debt allocation may change economics and tax basis outcomes among the parties.",
+                        "Corporate contribution authorities should drive control, basis, and rollover qualification analysis.",
+                        "Debt placement may still change economics and tax basis outcomes around the contribution sequence.",
                     ],
                     assumptions=[
-                        "Relevant entities are treated as corporations or partnerships as expected.",
+                        "Relevant entities are treated as corporations for the contribution step under review.",
                         "Contribution timing and control mechanics are respected in the legal documents.",
                     ],
                     missing_facts=[
-                        "Entity classification of all material blockers and intermediate entities.",
-                        "Liability allocation and section 704(c) profile of contributed assets.",
+                        "Identity of the transferor group and whether control exists immediately after the exchange.",
+                        "How liabilities and rollover economics affect basis and built-in gain location in the contributed assets.",
                     ],
                     risk_texts=[
-                        "Unsupported contribution or partnership claims should not be presented as settled conclusions.",
+                        "Unsupported contribution claims should not be presented as settled conclusions.",
+                    ],
+                    coverage_map=coverage_map,
+                )
+            )
+
+        if "partnership_issues" in coverage_map:
+            alternatives.append(
+                self._build_alternative(
+                    name="Partnership contribution / disguised-sale path",
+                    description=(
+                        "This path considers whether a partnership or LLC taxed as a partnership better fits the rollover, liability allocation, and contribution economics than a corporate contribution or direct sale path."
+                    ),
+                    buckets=["partnership_issues", "debt_overlay"],
+                    consequence_texts=[
+                        "Partnership authorities should drive the contribution, disguised-sale, and liability-allocation analysis rather than importing corporate section 351 assumptions.",
+                        "Debt-financed distributions, liability shifts, and section 704(c) allocations can materially change whether the path is tax-efficient in practice.",
+                    ],
+                    assumptions=[
+                        "Relevant entities are treated as partnerships or LLCs taxed as partnerships where the path depends on partnership rules.",
+                        "Contribution and distribution timing is being tested under section 707 and section 752 rather than under corporate rollover assumptions.",
+                    ],
+                    missing_facts=[
+                        "Entity classification of all relevant blockers, LLCs, and intermediate vehicles.",
+                        "Liability allocation, section 704(c), and distribution timing facts for contributed assets or equity.",
+                    ],
+                    risk_texts=[
+                        "This path weakens if the economics look more like a disguised sale than a true continuing partnership investment, or if debt and distribution mechanics are only loosely modeled.",
                     ],
                     coverage_map=coverage_map,
                 )

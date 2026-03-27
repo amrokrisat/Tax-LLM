@@ -4,7 +4,14 @@ from typing import List
 
 from pydantic import BaseModel, Field
 
-from tax_llm.domain.models import AnalysisResult, AnalysisRun, MatterRecord, TransactionFacts, UploadedDocument
+from tax_llm.domain.models import (
+    AnalysisResult,
+    AnalysisRun,
+    ExtractedFact,
+    MatterRecord,
+    TransactionFacts,
+    UploadedDocument,
+)
 
 
 class UploadedDocumentInput(BaseModel):
@@ -12,6 +19,11 @@ class UploadedDocumentInput(BaseModel):
     document_type: str
     content: str
     source: str = "pasted"
+    mime_type: str | None = None
+    extraction_status: str = "not_requested"
+    extracted_text: str | None = None
+    extracted_facts: List[ExtractedFact] = Field(default_factory=list)
+    extraction_ambiguities: List[str] = Field(default_factory=list)
 
 
 class TransactionFactsInput(BaseModel):

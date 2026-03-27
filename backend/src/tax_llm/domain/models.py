@@ -19,6 +19,7 @@ ExtractionStatus = Literal["not_requested", "pending", "completed", "needs_revie
 ExtractedFactStatus = Literal["pending", "confirmed", "rejected"]
 ReviewStatus = Literal["unreviewed", "in_review", "reviewed"]
 AuthorityStatus = Literal["canonical", "legacy", "superseded"]
+ExtractedFactCertainty = Literal["high", "medium", "low"]
 
 # Phase 1 compatibility boundary:
 # - bucket keys remain the canonical persisted/API identifiers
@@ -49,6 +50,11 @@ class ExtractedFact(BaseModel):
     value: str
     source_document: str
     confidence: float = 0.0
+    category: str = "general"
+    certainty: ExtractedFactCertainty = "medium"
+    normalized_field: str | None = None
+    normalized_value: str | None = None
+    ambiguity_note: str | None = None
     status: ExtractedFactStatus = "pending"
 
 
@@ -61,6 +67,7 @@ class UploadedDocument(BaseModel):
     extraction_status: ExtractionStatus = "not_requested"
     extracted_text: str | None = None
     extracted_facts: List[ExtractedFact] = Field(default_factory=list)
+    extraction_ambiguities: List[str] = Field(default_factory=list)
 
 
 class TransactionFacts(BaseModel):

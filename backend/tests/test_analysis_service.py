@@ -354,7 +354,7 @@ def test_thin_support_remains_visibly_preliminary():
     assert any(section.note for section in result.memo_sections if not section.supported)
 
 
-def test_divisive_bucket_remains_preliminary_when_only_anchor_level_support_exists():
+def test_divisive_bucket_surfaces_real_support_when_355_depth_exists():
     service = build_service()
     result = service.analyze(
         facts=TransactionFacts(
@@ -374,10 +374,12 @@ def test_divisive_bucket_remains_preliminary_when_only_anchor_level_support_exis
     )
     divisive_issue = next(issue for issue in result.issues if issue.bucket == "divisive_transactions")
 
-    assert divisive_bucket.source_priority_warning is not None or any(
-        "thin" in note.lower() for note in divisive_bucket.notes
-    )
-    assert not divisive_issue.supported
+    assert divisive_bucket.authorities
+    assert {"code-355", "reg-1-355-1"} & {
+        authority.authority_id for authority in divisive_bucket.authorities
+    }
+    assert divisive_bucket.source_priority_warning is None
+    assert divisive_issue.supported
 
 
 def test_internal_or_secondary_only_support_is_flagged():
@@ -427,7 +429,7 @@ def test_supported_sections_only_generate_for_strongly_supported_buckets():
     assert "State and local regime" not in memo_headings
 
 
-def test_contribution_path_does_not_overstate_grounding_when_support_is_mixed():
+def test_partnership_path_can_stand_on_its_own_when_partnership_support_is_real():
     service = build_service()
     result = service.analyze(
         facts=TransactionFacts(
@@ -444,11 +446,46 @@ def test_contribution_path_does_not_overstate_grounding_when_support_is_mixed():
     )
 
     alternative = next(
-        item for item in result.alternatives if item.name == "Contribution and partnership path"
+        item
+        for item in result.alternatives
+        if item.name == "Partnership contribution / disguised-sale path"
     )
-    assert alternative.unsupported_assertions or any(
-        statement.note for statement in alternative.tax_consequences if not statement.supported
+    assert alternative.governing_authorities
+    assert any(
+        authority.authority_id in {"code-707", "reg-1-707-3", "code-721", "reg-1-721-1"}
+        for authority in alternative.governing_authorities
     )
+    assert any(statement.supported for statement in alternative.tax_consequences)
+
+
+def test_partnership_bucket_prefers_partnership_authorities_over_section_351_when_triggered():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="JV Roll Deal",
+            summary="Seller may contribute assets to an LLC taxed as a partnership, take back rollover equity, and receive a leveraged distribution that could raise disguised sale concerns.",
+            entities=["Seller", "JV LLC", "Buyer"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            proposed_steps="Seller contributes assets to JV LLC and receives a debt-financed distribution before the broader acquisition closes.",
+            partnership_issues=True,
+            debt_financing=True,
+        ),
+        uploaded_documents=[],
+    )
+
+    partnership_bucket = next(
+        coverage for coverage in result.bucket_coverage if coverage.bucket == "partnership_issues"
+    )
+    partnership_ids = [authority.authority_id for authority in partnership_bucket.authorities]
+    assert partnership_ids
+    assert partnership_ids[0] in {"code-707", "reg-1-707-3", "reg-1-707-5", "code-721", "reg-1-721-1"}
+    assert "code-351" not in partnership_ids[:3]
+
+    partnership_issue = next(
+        issue for issue in result.issues if issue.bucket == "partnership_issues"
+    )
+    assert partnership_issue.supported
 
 
 def test_memo_sections_change_meaningfully_when_facts_change():

@@ -2,12 +2,20 @@
 authority_id: code-721
 title: Nonrecognition on contributions to partnerships
 citation: IRC Section 721
-issue_buckets: [contribution_transactions, partnership_issues]
+issue_buckets: [partnership_issues]
+transaction_type_tags: [partnership transaction, joint venture, rollover]
+structure_tags: [partnership, llc, contribution, rollover]
 jurisdiction: United States
 effective_date: 2025-01-01
 tax_year: 2025
 authority_weight: 0.95
-tags: [contribution, partnership, nonrecognition, llc]
+source_url: https://www.law.cornell.edu/uscode/text/26/721
+ingestion_timestamp: 2026-03-26T00:00:00+00:00
+procedural_or_substantive: substantive
+primary_authority: true
+secondary_authority: false
+internal_only: false
+tags: [contribution, partnership, nonrecognition, llc, section 721, joint venture]
 ---
 Section 721 is the baseline nonrecognition authority for contributions of property to partnerships. It becomes relevant whenever a transaction alternative contemplates dropping assets or entities into a partnership vehicle, rolling sellers into an LLC taxed as a partnership, or using a joint venture format instead of a corporate acquisition path.
 

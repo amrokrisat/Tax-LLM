@@ -80,20 +80,20 @@ BUCKET_RETRIEVAL_PROFILES: dict[str, dict[str, object]] = {
     "divisive_transactions": {
         "preferred_source_order": ["code", "regs", "irs_guidance", "cases", "forms", "internal"],
         "query_focus": "qualification",
-        "qualification_terms": ["355", "spin-off", "split-off", "split-up", "device", "controlled corporation", "active trade or business"],
-        "consequence_terms": ["distribution", "separation", "business purpose"],
+        "qualification_terms": ["355", "spin-off", "split-off", "split-up", "device", "controlled corporation", "active trade or business", "distributing corporation"],
+        "consequence_terms": ["distribution", "separation", "business purpose", "prearranged sale", "sale sequencing"],
         "election_terms": [],
         "procedural_terms": [],
         "penalized_background_ids": ["code-368", "reg-1-368-1-framework", "reg-1-368-2-framework"],
     },
     "partnership_issues": {
         "preferred_source_order": ["code", "regs", "irs_guidance", "cases", "forms", "internal"],
-        "query_focus": "overlay",
-        "qualification_terms": ["partnership", "llc", "entity classification"],
-        "consequence_terms": ["disguised sale", "704(c)", "liability allocation"],
+        "query_focus": "qualification",
+        "qualification_terms": ["partnership", "llc taxed as a partnership", "joint venture", "entity classification", "section 721"],
+        "consequence_terms": ["disguised sale", "704(c)", "liability allocation", "section 707", "section 752", "debt-financed distribution", "leveraged distribution"],
         "election_terms": [],
         "procedural_terms": [],
-        "penalized_background_ids": [],
+        "penalized_background_ids": ["code-351", "reg-1-351"],
     },
 }
 
@@ -233,7 +233,6 @@ class AuthorityCorpusRepository:
             "asset_sale",
             "deemed_asset_sale_election",
             "merger_reorganization",
-            "divisive_transactions",
         }
         if issue_bucket in transaction_form_buckets:
             return facts.transaction_type
@@ -297,7 +296,8 @@ class AuthorityCorpusRepository:
             "merger_reorganization": ["reorganization", "continuity", "business purpose", "triangular", "cobe", "boot", "plan of reorganization"],
             "rollover_equity": ["rollover", "continuity", "governance", "redemption", "boot", "securities"],
             "contribution_transactions": ["351", "contribution", "drop-down", "control", "holdco", "property transfer"],
-            "divisive_transactions": ["355", "divisive", "spin-off", "split-off", "split-up", "controlled corporation", "distribution"],
+            "divisive_transactions": ["355", "divisive", "spin-off", "split-off", "split-up", "controlled corporation", "distribution", "device", "active trade or business", "business purpose"],
+            "partnership_issues": ["partnership", "joint venture", "disguised sale", "704(c)", "liability allocation", "leveraged distribution", "debt-financed distribution"],
             "stock_sale": [
                 "stock",
                 "stock acquisition",
@@ -343,8 +343,8 @@ class AuthorityCorpusRepository:
             "merger_reorganization": ["368", "1.368-1", "1.368-2"],
             "rollover_equity": ["368", "351", "1.368-1", "1.368-2", "356"],
             "contribution_transactions": ["351", "1.351", "control"],
-            "divisive_transactions": ["355", "1.355-1", "spin-off", "split-off", "device", "controlled corporation"],
-            "partnership_issues": ["721", "707"],
+            "divisive_transactions": ["355", "1.355-1", "1.355-2", "1.355-3", "spin-off", "split-off", "device", "controlled corporation", "active trade or business"],
+            "partnership_issues": ["721", "1.721-1", "707", "1.707-3", "1.707-5", "704(c)", "1.704-3", "752", "1.752-1"],
             "stock_sale": ["stock form", "carryover basis", "stock acquisition", "338", "qualified stock purchase"],
         }
         result = keywords.get(issue_bucket, []).copy()

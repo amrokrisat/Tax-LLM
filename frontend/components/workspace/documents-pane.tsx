@@ -93,12 +93,29 @@ export const DocumentsPane = memo(function DocumentsPane({
             </div>
           ) : null}
 
+          {(document.extraction_ambiguities ?? []).length ? (
+            <div className="subpanel stack">
+              <div className="row-between">
+                <div>
+                  <h4>Unresolved ambiguities</h4>
+                  <p className="muted">These items still need reviewer judgment before the extracted facts should be treated as settled.</p>
+                </div>
+                <span className="chip">{(document.extraction_ambiguities ?? []).length} items</span>
+              </div>
+              <ul className="list-tight">
+                {(document.extraction_ambiguities ?? []).map((item, ambiguityIndex) => (
+                  <li key={`${document.file_name}-ambiguity-${ambiguityIndex}`}>{item}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           {(document.extracted_facts ?? []).length ? (
             <div className="subpanel stack">
               <div className="row-between">
                 <div>
                   <h4>Extracted fact candidates</h4>
-                  <p className="muted">Confirm, edit, or reject extracted facts before they merge into the matter facts.</p>
+                  <p className="muted">Confirm, edit, or reject extracted fact candidates before they merge into the matter facts.</p>
                 </div>
                 <span className="chip">{(document.extracted_facts ?? []).length} candidates</span>
               </div>
@@ -127,10 +144,37 @@ export const DocumentsPane = memo(function DocumentsPane({
 
                   <div className="chip-row">
                     <span className="chip">Confidence {fact.confidence.toFixed(2)}</span>
+                    {fact.category ? <span className="chip">{fact.category.replaceAll("_", " ")}</span> : null}
+                    {fact.certainty ? <span className="chip">{fact.certainty} certainty</span> : null}
+                    {fact.normalized_field ? <span className="chip">Maps to {fact.normalized_field}</span> : null}
                     <span className="chip">{fact.source_document}</span>
                   </div>
+                  {fact.ambiguity_note ? <p className="muted">{fact.ambiguity_note}</p> : null}
                 </div>
               ))}
+            </div>
+          ) : null}
+
+          {(document.extracted_facts ?? []).some((fact) => fact.status === "confirmed") ? (
+            <div className="subpanel stack">
+              <div className="row-between">
+                <div>
+                  <h4>Confirmed facts ready to merge</h4>
+                  <p className="muted">These reviewed facts are the ones that will be used when you merge confirmed facts into the matter record.</p>
+                </div>
+                <span className="chip">
+                  {(document.extracted_facts ?? []).filter((fact) => fact.status === "confirmed").length} confirmed
+                </span>
+              </div>
+              <ul className="list-tight">
+                {(document.extracted_facts ?? [])
+                  .filter((fact) => fact.status === "confirmed")
+                  .map((fact) => (
+                    <li key={`${fact.fact_id}-confirmed`}>
+                      <strong>{fact.label}</strong>: {fact.value}
+                    </li>
+                  ))}
+              </ul>
             </div>
           ) : null}
         </article>

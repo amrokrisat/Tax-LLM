@@ -209,6 +209,24 @@ def test_v2_document_review_and_export_workflow(monkeypatch, tmp_path):
     extracted_document = extracted.json()["matter"]["uploaded_documents"][0]
     assert extracted_document["extraction_status"] == "completed"
     assert len(extracted_document["extracted_facts"]) >= 1
+    assert "category" in extracted_document["extracted_facts"][0]
+    assert "certainty" in extracted_document["extracted_facts"][0]
+    assert "normalized_field" in extracted_document["extracted_facts"][0]
+    assert "extraction_ambiguities" in extracted_document
+
+    persisted = client.put(
+        f"/api/v1/matters/{matter_id}",
+        json={
+            **payload,
+            "uploaded_documents": [extracted_document],
+        },
+        headers=headers,
+    )
+    assert persisted.status_code == 200
+    persisted_document = persisted.json()["matter"]["uploaded_documents"][0]
+    assert persisted_document["extracted_text"] == extracted_document["extracted_text"]
+    assert persisted_document["extraction_ambiguities"] == extracted_document["extraction_ambiguities"]
+    assert persisted_document["extracted_facts"][0]["category"] == extracted_document["extracted_facts"][0]["category"]
 
     fact_id = extracted_document["extracted_facts"][0]["fact_id"]
     confirmed = client.post(
