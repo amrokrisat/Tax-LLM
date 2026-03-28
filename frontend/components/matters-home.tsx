@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import {
@@ -10,7 +10,6 @@ import {
   emptyRequest,
   getDemoScenario,
   MatterSummary,
-  listMatterSummaries,
 } from "@/lib/api";
 import { LogoutButton } from "@/components/logout-button";
 import { embeddedDemoScenario } from "@/lib/demo-scenario";
@@ -26,29 +25,15 @@ function relativeTimeLabel(timestamp: string) {
   return `${deltaDays}d ago`;
 }
 
-export function MattersHome() {
+type MattersHomeProps = {
+  initialMatters: MatterSummary[];
+};
+
+export function MattersHome({ initialMatters }: MattersHomeProps) {
   const router = useRouter();
-  const [matters, setMatters] = useState<MatterSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [matters] = useState<MatterSummary[]>(initialMatters);
   const [creating, setCreating] = useState<null | "blank" | "demo">(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function load() {
-      const endPerf = startPerf("matters-home.load");
-      try {
-        const nextMatters = await listMatterSummaries();
-        setMatters(nextMatters);
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load matters.");
-      } finally {
-        endPerf();
-        setLoading(false);
-      }
-    }
-
-    void load();
-  }, []);
 
   async function createBlankMatter() {
     const endPerf = startPerf("matters-home.create-blank");
@@ -138,10 +123,10 @@ export function MattersHome() {
               <h2>Matters</h2>
               <p className="muted">Open a saved matter or start a new one.</p>
             </div>
-            {loading ? <span className="chip">Loading matters...</span> : null}
+            {creating ? <span className="chip">Updating matters...</span> : null}
           </div>
 
-          {matters.length === 0 && !loading ? (
+          {matters.length === 0 ? (
             <div className="empty-panel">
               <h3>No matters yet</h3>
               <p className="muted">

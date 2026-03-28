@@ -2,15 +2,14 @@ import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
 import { AuthForm } from "@/components/auth-form";
-import { getServerUser } from "@/lib/server-auth";
+import { hasServerSession } from "@/lib/server-auth";
 
 type LoginPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const user = await getServerUser();
-  if (user) {
+  if (await hasServerSession()) {
     redirect("/app");
   }
 

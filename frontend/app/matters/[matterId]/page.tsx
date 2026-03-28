@@ -1,12 +1,14 @@
 import { MatterWorkspace } from "@/components/matter-workspace";
-import { requireServerUser } from "@/lib/server-auth";
+import { requireServerSession } from "@/lib/server-auth";
+import { getServerMatter } from "@/lib/server-data";
 
 export default async function MatterPage({
   params,
 }: {
   params: Promise<{ matterId: string }>;
 }) {
-  await requireServerUser();
   const { matterId } = await params;
-  return <MatterWorkspace matterId={matterId} />;
+  const sessionToken = await requireServerSession();
+  const initialMatter = await getServerMatter(matterId, sessionToken);
+  return <MatterWorkspace matterId={matterId} initialMatter={initialMatter} />;
 }

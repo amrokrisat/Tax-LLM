@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
+import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
+
+import { matterTag, mattersTag } from "@/lib/cache-tags";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -33,6 +36,10 @@ export async function POST(
     cache: "no-store",
   });
   const body = await response.text();
+  if (response.ok) {
+    revalidateTag(mattersTag(sessionToken), "max");
+    revalidateTag(matterTag(sessionToken, matterId), "max");
+  }
   return new NextResponse(body, {
     status: response.status,
     headers: { "Content-Type": response.headers.get("Content-Type") ?? "application/json" },

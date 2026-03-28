@@ -37,7 +37,6 @@ import {
   extractMatterDocuments,
   getDemoScenario,
   getMatterRun,
-  getMatterWorkspace,
   reviewRun,
   updateMatter,
 } from "@/lib/api";
@@ -58,6 +57,7 @@ import { WarningsPane } from "@/components/workspace/warnings-pane";
 
 type MatterWorkspaceProps = {
   matterId: string;
+  initialMatter: MatterRecord;
 };
 
 function supportLabel(bucket: BucketCoverage) {
@@ -421,24 +421,28 @@ function downloadTextFile(fileName: string, content: string) {
   URL.revokeObjectURL(url);
 }
 
-export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
-  const [matter, setMatter] = useState<MatterWorkspaceRecord | null>(null);
-  const [runDetailsById, setRunDetailsById] = useState<Record<string, AnalysisRun>>({});
-  const [draftMatterName, setDraftMatterName] = useState("");
-  const [draftFacts, setDraftFacts] = useState<MatterRecord["facts"] | null>(null);
-  const [draftDocuments, setDraftDocuments] = useState<UploadedDocumentInput[]>([]);
-  const [draftEntities, setDraftEntities] = useState<Entity[]>([]);
-  const [draftOwnershipLinks, setDraftOwnershipLinks] = useState<OwnershipLink[]>([]);
-  const [draftTaxClassifications, setDraftTaxClassifications] = useState<TaxClassification[]>([]);
-  const [draftTransactionRoles, setDraftTransactionRoles] = useState<TransactionRole[]>([]);
-  const [draftTransactionSteps, setDraftTransactionSteps] = useState<TransactionStep[]>([]);
-  const [draftElectionItems, setDraftElectionItems] = useState<ElectionOrFilingItem[]>([]);
+export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProps) {
+  const [matter, setMatter] = useState<MatterWorkspaceRecord | null>(() => summarizeMatter(initialMatter));
+  const [runDetailsById, setRunDetailsById] = useState<Record<string, AnalysisRun>>(() =>
+    mapRunsById(initialMatter.analysis_runs),
+  );
+  const [draftMatterName, setDraftMatterName] = useState(initialMatter.matter_name);
+  const [draftFacts, setDraftFacts] = useState<MatterRecord["facts"] | null>(initialMatter.facts);
+  const [draftDocuments, setDraftDocuments] = useState<UploadedDocumentInput[]>(initialMatter.uploaded_documents);
+  const [draftEntities, setDraftEntities] = useState<Entity[]>(initialMatter.entities);
+  const [draftOwnershipLinks, setDraftOwnershipLinks] = useState<OwnershipLink[]>(initialMatter.ownership_links);
+  const [draftTaxClassifications, setDraftTaxClassifications] = useState<TaxClassification[]>(
+    initialMatter.tax_classifications,
+  );
+  const [draftTransactionRoles, setDraftTransactionRoles] = useState<TransactionRole[]>(initialMatter.transaction_roles);
+  const [draftTransactionSteps, setDraftTransactionSteps] = useState<TransactionStep[]>(initialMatter.transaction_steps);
+  const [draftElectionItems, setDraftElectionItems] = useState<ElectionOrFilingItem[]>(initialMatter.election_items);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("facts");
-  const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
-  const [compareRunId, setCompareRunId] = useState<string>("");
+  const [selectedRunId, setSelectedRunId] = useState<string | null>(initialMatter.analysis_runs[0]?.run_id ?? null);
+  const [compareRunId, setCompareRunId] = useState<string>(initialMatter.analysis_runs[1]?.run_id ?? "");
   const [reviewerName, setReviewerName] = useState("");
   const [reviewNote, setReviewNote] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [extracting, setExtracting] = useState(false);
@@ -484,26 +488,6 @@ export function MatterWorkspace({ matterId }: MatterWorkspaceProps) {
       setLoadingRunIds((current) => current.filter((currentRunId) => currentRunId !== runId));
     }
   }, [loadingRunIds, matterId, runDetailsById]);
-
-  useEffect(() => {
-    async function loadMatter() {
-      const endPerf = startPerf("matter-workspace.load");
-      setLoading(true);
-      setError(null);
-
-      try {
-        const nextMatter = await getMatterWorkspace(matterId);
-        syncWorkspace(nextMatter);
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Failed to load matter.");
-      } finally {
-        endPerf();
-        setLoading(false);
-      }
-    }
-
-    void loadMatter();
-  }, [matterId]);
 
   useEffect(() => {
     if (selectedRunId) {

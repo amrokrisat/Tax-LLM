@@ -14,51 +14,17 @@ function backendBaseUrl() {
   );
 }
 
-async function warmBackend(baseUrl: string) {
-  try {
-    await fetch(`${baseUrl}/health`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(15_000),
-    });
-  } catch {
-    // Best-effort warmup only. The real auth call still runs even if this fails.
-  }
-}
-
 async function exchangeGoogleSession(
   baseUrl: string,
   body: { email: string; name: string },
 ) {
-  let lastResponse: Response | null = null;
-
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const response = await fetch(`${baseUrl}/api/v1/auth/google`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-        cache: "no-store",
-        signal: AbortSignal.timeout(25_000),
-      });
-
-      if (response.ok) {
-        return response;
-      }
-
-      lastResponse = response;
-      if (![502, 503, 504].includes(response.status) || attempt === 1) {
-        return response;
-      }
-    } catch {
-      if (attempt === 1) {
-        break;
-      }
-    }
-
-    await warmBackend(baseUrl);
-  }
-
-  return lastResponse;
+  return fetch(`${baseUrl}/api/v1/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    cache: "no-store",
+    signal: AbortSignal.timeout(25_000),
+  });
 }
 
 export async function GET(request: NextRequest) {
@@ -70,8 +36,6 @@ export async function GET(request: NextRequest) {
   if (!code || !clientId || !clientSecret) {
     return NextResponse.redirect(new URL("/login?error=google", request.url));
   }
-
-  const backendWarmup = warmBackend(baseUrl);
 
   const redirectUri = `${request.nextUrl.origin}/api/auth/google/callback`;
   const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -103,7 +67,6 @@ export async function GET(request: NextRequest) {
   }
 
   const userInfo = (await userInfoResponse.json()) as { email: string; name: string };
-  await backendWarmup;
   const sessionResponse = await exchangeGoogleSession(baseUrl, {
     email: userInfo.email,
     name: userInfo.name,
