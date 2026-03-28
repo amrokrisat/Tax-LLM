@@ -1,20 +1,14 @@
-import { redirect } from "next/navigation";
-
 import { AppShell } from "@/components/app-shell";
 import { AuthForm } from "@/components/auth-form";
-import { hasServerSession } from "@/lib/server-auth";
 
 type LoginPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  if (await hasServerSession()) {
-    redirect("/app");
-  }
-
   const resolvedSearchParams = (await searchParams) ?? {};
   const googleError = resolvedSearchParams.error === "google";
+  const sessionError = resolvedSearchParams.error === "session";
 
   return (
     <AppShell compact variant="public">
@@ -27,7 +21,15 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               Saved matters, run history, authority review, extraction review, and export are available after authentication.
             </p>
           </div>
-          <AuthForm error={googleError ? "Google sign-in could not be completed. Please try again." : null} />
+          <AuthForm
+            error={
+              googleError
+                ? "Google sign-in could not be completed. Please try again."
+                : sessionError
+                  ? "Your session expired or could not be restored. Please sign in again."
+                  : null
+            }
+          />
         </section>
       </main>
     </AppShell>
