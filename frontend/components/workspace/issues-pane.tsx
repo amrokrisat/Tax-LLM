@@ -25,6 +25,9 @@ export const IssuesPane = memo(function IssuesPane({
     <div className="stack">
       <div className="subpanel">
         <h3>Classified transactional tax analysis areas</h3>
+        <p className="muted">
+          These are the areas the current facts trigger. Some may still remain preliminary if support is thin or incomplete.
+        </p>
         <ul className="list-tight">
           {activeAnalysis.classification.map((bucket) => (
             <li key={bucket.bucket}>
@@ -45,6 +48,7 @@ export const IssuesPane = memo(function IssuesPane({
 
       <div className="subpanel">
         <h3>Analysis-driven issues</h3>
+        <p className="muted">Issue descriptions reflect the current support level for each analysis area.</p>
         <ul className="list-tight">
           {activeAnalysis.issues.map((issue) => {
             const bucket = activeAnalysis.bucket_coverage.find((item) => item.bucket === issue.bucket);

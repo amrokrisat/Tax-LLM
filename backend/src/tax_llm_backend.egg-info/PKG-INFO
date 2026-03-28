@@ -7,6 +7,7 @@ Description-Content-Type: text/markdown
 Requires-Dist: fastapi<1.0.0,>=0.115.0
 Requires-Dist: uvicorn[standard]<1.0.0,>=0.30.0
 Requires-Dist: pydantic<3.0.0,>=2.8.0
+Requires-Dist: httpx<1.0.0,>=0.27.0
 Provides-Extra: test
 Requires-Dist: pytest<9.0.0,>=8.2.0; extra == "test"
 Requires-Dist: httpx<1.0.0,>=0.27.0; extra == "test"
