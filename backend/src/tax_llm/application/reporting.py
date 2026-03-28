@@ -6,6 +6,11 @@ from tax_llm.domain.models import AnalysisRun
 
 def export_run_markdown(run: AnalysisRun) -> str:
     result = run.result
+    memo_sections = (
+        result.ai_assist.memo_sections
+        if result.ai_assist and result.ai_assist.status == "ready" and result.ai_assist.memo_sections
+        else result.memo_sections
+    )
     structured_context = build_structured_transaction_context(
         entities=run.entities,
         ownership_links=run.ownership_links,
@@ -20,7 +25,7 @@ def export_run_markdown(run: AnalysisRun) -> str:
     lines.append(f"_Generated from run {run.run_id} on {run.created_at}_")
     lines.append("")
 
-    for section in result.memo_sections:
+    for section in memo_sections:
         lines.append(f"## {section.heading}")
         lines.append("")
         lines.append(section.body)
@@ -117,6 +122,12 @@ def export_run_markdown(run: AnalysisRun) -> str:
         lines.append("")
         for item in structured_context.structure_ambiguities:
             lines.append(f"- {item}")
+        lines.append("")
+
+    if result.ai_assist and result.ai_assist.status == "ready" and result.ai_assist.comparison_summary:
+        lines.append("## AI Comparison Summary")
+        lines.append("")
+        lines.append(result.ai_assist.comparison_summary)
         lines.append("")
 
     return "\n".join(lines).strip() + "\n"

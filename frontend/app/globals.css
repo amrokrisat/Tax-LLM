@@ -489,6 +489,70 @@ html[data-theme="dark"] .workspace-tab.active {
   color: var(--muted-strong);
 }
 
+.structure-map-roots {
+  display: grid;
+  gap: 16px;
+}
+
+.structure-branch {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.structure-children {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+
+.structure-child-link {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.structure-edge-label {
+  min-width: 120px;
+  padding-top: 10px;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.structure-node-card {
+  min-width: 280px;
+  max-width: 360px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface-muted);
+  display: grid;
+  gap: 10px;
+}
+
+.structure-node-header {
+  display: grid;
+  gap: 8px;
+}
+
+.structure-node-header h4,
+.structure-node-meta p {
+  margin: 0;
+}
+
+.structure-node-meta {
+  display: grid;
+  gap: 6px;
+}
+
+.structure-node-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
 .field {
   display: grid;
   gap: 8px;

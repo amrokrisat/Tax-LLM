@@ -284,6 +284,15 @@ export type MissingFactQuestion = {
   rationale: string;
 };
 
+export type AIAssistPayload = {
+  status: "disabled" | "ready" | "error";
+  model: string | null;
+  error: string | null;
+  memo_sections: MemoSection[];
+  missing_facts: MissingFactQuestion[];
+  comparison_summary: string | null;
+};
+
 export type AnalysisResult = {
   facts: TransactionFactsInput;
   parsed_documents: UploadedDocumentInput[];
@@ -296,6 +305,7 @@ export type AnalysisResult = {
   alternatives: StructuralAlternative[];
   memo_sections: MemoSection[];
   missing_facts: MissingFactQuestion[];
+  ai_assist?: AIAssistPayload | null;
   structure_ambiguities?: string[];
   completeness_warning: string;
   confidence_label: "high" | "medium" | "low";

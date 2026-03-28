@@ -1,4 +1,5 @@
 import {
+  ElectionOrFilingItem,
   Entity,
   OwnershipLink,
   TaxClassification,
@@ -85,4 +86,190 @@ export function summarizeStepPlan(steps: TransactionStep[]) {
       ...step,
       normalizedFamily: normalizeStepFamily(step.step_type),
     }));
+}
+
+export type StructureMapNode = {
+  entity: Entity;
+  classification: TaxClassification | undefined;
+  roles: string[];
+  inbound: OwnershipLink[];
+  outbound: OwnershipLink[];
+  directParentNames: string[];
+  directChildNames: string[];
+  indirectChildren: Array<{ parentName: string; childName: string; percentage: number | null }>;
+  linkedStepCount: number;
+  linkedElectionCount: number;
+  children: StructureMapNode[];
+};
+
+export type StructureMapModel = {
+  roots: StructureMapNode[];
+  multiOwnerNodes: StructureMapNode[];
+  unlinkedNodes: StructureMapNode[];
+};
+
+function buildNode(
+  entity: Entity,
+  byId: Record<string, Entity>,
+  childrenByParent: Record<string, OwnershipLink[]>,
+  inboundByChild: Record<string, OwnershipLink[]>,
+  classificationsByEntityId: Record<string, TaxClassification>,
+  rolesByEntityId: Record<string, string[]>,
+  indirectOwnership: Array<{ parentName: string; childName: string; percentage: number | null }>,
+  stepsByEntityId: Record<string, number>,
+  electionsByEntityId: Record<string, number>,
+  visited: Set<string>,
+): StructureMapNode {
+  const inbound = inboundByChild[entity.entity_id] ?? [];
+  const outbound = childrenByParent[entity.entity_id] ?? [];
+  const nextVisited = new Set([...visited, entity.entity_id]);
+  return {
+    entity,
+    classification: classificationsByEntityId[entity.entity_id],
+    roles: rolesByEntityId[entity.entity_id] ?? [],
+    inbound,
+    outbound,
+    directParentNames: inbound.map((item) => byId[item.parent_entity_id]?.name ?? item.parent_entity_id),
+    directChildNames: outbound.map((item) => byId[item.child_entity_id]?.name ?? item.child_entity_id),
+    indirectChildren: indirectOwnership.filter((item) => item.parentName === entity.name),
+    linkedStepCount: stepsByEntityId[entity.entity_id] ?? 0,
+    linkedElectionCount: electionsByEntityId[entity.entity_id] ?? 0,
+    children: outbound
+      .filter((link) => !nextVisited.has(link.child_entity_id))
+      .map((link) =>
+        buildNode(
+          byId[link.child_entity_id] ?? {
+            entity_id: link.child_entity_id,
+            name: link.child_entity_id,
+            entity_type: "other",
+            jurisdiction: "",
+            status: "uncertain",
+            notes: "",
+            source_fact_ids: [],
+          },
+          byId,
+          childrenByParent,
+          inboundByChild,
+          classificationsByEntityId,
+          rolesByEntityId,
+          indirectOwnership,
+          stepsByEntityId,
+          electionsByEntityId,
+          nextVisited,
+        ),
+      ),
+  };
+}
+
+export function deriveStructureMap(
+  entities: Entity[],
+  ownershipLinks: OwnershipLink[],
+  taxClassifications: TaxClassification[],
+  transactionRoles: TransactionRole[],
+  transactionSteps: TransactionStep[],
+  electionItems: ElectionOrFilingItem[],
+) {
+  const byId = Object.fromEntries(entities.map((entity) => [entity.entity_id, entity]));
+  const childrenByParent = ownershipLinks.reduce<Record<string, OwnershipLink[]>>((acc, link) => {
+    if (!acc[link.parent_entity_id]) {
+      acc[link.parent_entity_id] = [];
+    }
+    acc[link.parent_entity_id].push(link);
+    return acc;
+  }, {});
+  const inboundByChild = ownershipLinks.reduce<Record<string, OwnershipLink[]>>((acc, link) => {
+    if (!acc[link.child_entity_id]) {
+      acc[link.child_entity_id] = [];
+    }
+    acc[link.child_entity_id].push(link);
+    return acc;
+  }, {});
+  const classificationsByEntityId = Object.fromEntries(
+    taxClassifications.map((item) => [item.entity_id, item]),
+  );
+  const rolesByEntityId = transactionRoles.reduce<Record<string, string[]>>((acc, role) => {
+    if (!acc[role.entity_id]) {
+      acc[role.entity_id] = [];
+    }
+    acc[role.entity_id].push(role.role_type);
+    return acc;
+  }, {});
+  const stepsByEntityId = transactionSteps.reduce<Record<string, number>>((acc, step) => {
+    for (const entityId of step.entity_ids) {
+      acc[entityId] = (acc[entityId] ?? 0) + 1;
+    }
+    return acc;
+  }, {});
+  const electionsByEntityId = electionItems.reduce<Record<string, number>>((acc, item) => {
+    for (const entityId of item.related_entity_ids) {
+      acc[entityId] = (acc[entityId] ?? 0) + 1;
+    }
+    return acc;
+  }, {});
+  const indirectOwnership = deriveIndirectOwnership(entities, ownershipLinks);
+
+  const multiOwnerIds = new Set(
+    entities
+      .filter((entity) => (inboundByChild[entity.entity_id] ?? []).length > 1)
+      .map((entity) => entity.entity_id),
+  );
+  const rootEntities = entities.filter((entity) => {
+    const inbound = inboundByChild[entity.entity_id] ?? [];
+    return inbound.length === 0 && !multiOwnerIds.has(entity.entity_id);
+  });
+  const linkedEntityIds = new Set(ownershipLinks.flatMap((link) => [link.parent_entity_id, link.child_entity_id]));
+  const rootIds = new Set(rootEntities.map((entity) => entity.entity_id));
+
+  const roots = rootEntities.map((entity) =>
+    buildNode(
+      entity,
+      byId,
+      childrenByParent,
+      inboundByChild,
+      classificationsByEntityId,
+      rolesByEntityId,
+      indirectOwnership,
+      stepsByEntityId,
+      electionsByEntityId,
+      new Set(),
+    ),
+  );
+  const multiOwnerNodes = entities
+    .filter((entity) => multiOwnerIds.has(entity.entity_id))
+    .map((entity) =>
+      buildNode(
+        entity,
+        byId,
+        childrenByParent,
+        inboundByChild,
+        classificationsByEntityId,
+        rolesByEntityId,
+        indirectOwnership,
+        stepsByEntityId,
+        electionsByEntityId,
+        new Set(),
+      ),
+    );
+  const unlinkedNodes = entities
+    .filter((entity) => !linkedEntityIds.has(entity.entity_id) && !rootIds.has(entity.entity_id))
+    .map((entity) =>
+      buildNode(
+        entity,
+        byId,
+        childrenByParent,
+        inboundByChild,
+        classificationsByEntityId,
+        rolesByEntityId,
+        indirectOwnership,
+        stepsByEntityId,
+        electionsByEntityId,
+        new Set(),
+      ),
+    );
+
+  return {
+    roots,
+    multiOwnerNodes,
+    unlinkedNodes,
+  } satisfies StructureMapModel;
 }

@@ -1,6 +1,9 @@
 from tax_llm.application.services import AnalysisService
 from tax_llm.domain.models import (
+    AIAssistPayload,
     Entity,
+    MemoSection,
+    MissingFactQuestion,
     OwnershipLink,
     TaxClassification,
     TransactionFacts,
@@ -17,6 +20,14 @@ def build_service() -> AnalysisService:
         authority_repository=AuthorityCorpusRepository(),
         document_parser=DemoDocumentParser(),
     )
+
+
+class StubAIAssistService:
+    def __init__(self, payload: AIAssistPayload):
+        self.payload = payload
+
+    def build_ai_assist(self, **kwargs) -> AIAssistPayload:
+        return self.payload
 
 
 def test_retrieval_happens_before_analysis_outputs():
@@ -48,6 +59,91 @@ def test_retrieval_happens_before_analysis_outputs():
     assert result.bucket_coverage
     assert result.authorities_reviewed
     assert all(issue.authorities or not issue.supported for issue in result.issues)
+
+
+def test_analysis_defaults_to_disabled_ai_assist_when_no_key_is_present():
+    service = build_service()
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="No Key Deal",
+            summary="Testing deterministic analysis without an OpenAI API key.",
+            entities=["Buyer", "Target"],
+            jurisdictions=["United States"],
+            transaction_type="stock sale",
+            consideration_mix="Cash",
+            proposed_steps="Buyer acquires stock.",
+        ),
+        uploaded_documents=[],
+    )
+
+    assert result.ai_assist is None or result.ai_assist.status in {"disabled", "error"}
+
+
+def test_analysis_can_attach_ai_assist_payload_without_overwriting_deterministic_fields():
+    deterministic_service = build_service()
+    deterministic = deterministic_service.analyze(
+        facts=TransactionFacts(
+            transaction_name="AI Ready Deal",
+            summary="Buyer compares stock and merger alternatives.",
+            entities=["Buyer", "Target"],
+            jurisdictions=["United States"],
+            transaction_type="merger",
+            consideration_mix="Cash and rollover equity",
+            proposed_steps="Merger through merger sub.",
+            rollover_equity=True,
+        ),
+        uploaded_documents=[],
+    )
+
+    service = AnalysisService(
+        authority_repository=AuthorityCorpusRepository(),
+        document_parser=DemoDocumentParser(),
+        ai_assist_service=StubAIAssistService(
+            AIAssistPayload(
+                status="ready",
+                model="gpt-5.4-mini",
+                comparison_summary="AI comparison summary text.",
+                memo_sections=[
+                    MemoSection(
+                        heading=section.heading,
+                        body=f"AI enhanced: {section.body}",
+                        citations=section.citations,
+                        supported=section.supported,
+                        note=section.note,
+                    )
+                    for section in deterministic.memo_sections
+                ],
+                missing_facts=[
+                    MissingFactQuestion(
+                        bucket="stock_sale",
+                        question="What are the exact buyer and target entities?",
+                        rationale="AI wording should stay attached as a supplemental prose layer.",
+                    )
+                ],
+            )
+        ),
+    )
+
+    result = service.analyze(
+        facts=TransactionFacts(
+            transaction_name="AI Ready Deal",
+            summary="Buyer compares stock and merger alternatives.",
+            entities=["Buyer", "Target"],
+            jurisdictions=["United States"],
+            transaction_type="merger",
+            consideration_mix="Cash and rollover equity",
+            proposed_steps="Merger through merger sub.",
+            rollover_equity=True,
+        ),
+        uploaded_documents=[],
+    )
+
+    assert result.ai_assist is not None
+    assert result.ai_assist.status == "ready"
+    assert result.ai_assist.comparison_summary == "AI comparison summary text."
+    assert result.memo_sections
+    assert not result.memo_sections[0].body.startswith("AI enhanced:")
+    assert result.ai_assist.memo_sections[0].body.startswith("AI enhanced:")
 
 
 def test_fact_sensitivity_changes_bucket_mix():

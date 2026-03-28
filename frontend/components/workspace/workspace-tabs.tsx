@@ -6,6 +6,7 @@ export type WorkspaceTab =
   | "facts"
   | "documents"
   | "entity_structure"
+  | "structure_map"
   | "transaction_steps"
   | "issues"
   | "authorities"
@@ -17,6 +18,7 @@ const workspaceTabs: Array<{ key: WorkspaceTab; label: string }> = [
   { key: "facts", label: "Facts" },
   { key: "documents", label: "Documents" },
   { key: "entity_structure", label: "Entity Structure" },
+  { key: "structure_map", label: "Structure Map" },
   { key: "transaction_steps", label: "Transaction Steps" },
   { key: "issues", label: "Issues" },
   { key: "authorities", label: "Authorities" },

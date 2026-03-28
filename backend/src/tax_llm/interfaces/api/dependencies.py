@@ -5,6 +5,7 @@ from fastapi import Depends, Header, HTTPException
 from tax_llm.application.services import AnalysisService
 from tax_llm.application.use_cases import AnalyzeTransactionUseCase
 from tax_llm.infrastructure.auth_store import AuthStore
+from tax_llm.infrastructure.ai_assist import OpenAIAssistService
 from tax_llm.infrastructure.document_parser import DemoDocumentParser
 from tax_llm.infrastructure.repositories import AuthorityCorpusRepository
 
@@ -13,6 +14,7 @@ def get_analyze_transaction_use_case() -> AnalyzeTransactionUseCase:
     service = AnalysisService(
         authority_repository=AuthorityCorpusRepository(),
         document_parser=DemoDocumentParser(),
+        ai_assist_service=OpenAIAssistService(),
     )
     return AnalyzeTransactionUseCase(service=service)
 

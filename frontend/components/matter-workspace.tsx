@@ -48,6 +48,7 @@ import { WorkspaceTab, WorkspaceTabs } from "@/components/workspace/workspace-ta
 import { FactsPane } from "@/components/workspace/facts-pane";
 import { DocumentsPane } from "@/components/workspace/documents-pane";
 import { EntityStructurePane } from "@/components/workspace/entity-structure-pane";
+import { StructureMapPane } from "@/components/workspace/structure-map-pane";
 import { IssuesPane } from "@/components/workspace/issues-pane";
 import { AuthoritiesPane } from "@/components/workspace/authorities-pane";
 import { AlternativesPane } from "@/components/workspace/alternatives-pane";
@@ -1197,6 +1198,7 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
 
             {selectedRunLoading &&
             (deferredActiveTab === "entity_structure" ||
+              deferredActiveTab === "structure_map" ||
               deferredActiveTab === "transaction_steps" ||
               deferredActiveTab === "issues" ||
               deferredActiveTab === "authorities" ||
@@ -1250,6 +1252,17 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
                 updateOwnershipLink={updateOwnershipLink}
                 updateTaxClassification={updateTaxClassification}
                 updateTransactionRole={updateTransactionRole}
+              />
+            ) : null}
+
+            {deferredActiveTab === "structure_map" && !selectedRunLoading ? (
+              <StructureMapPane
+                entities={activeEntities}
+                ownershipLinks={activeOwnershipLinks}
+                taxClassifications={activeTaxClassifications}
+                transactionRoles={activeTransactionRoles}
+                transactionSteps={activeTransactionSteps}
+                electionItems={activeElectionItems}
               />
             ) : null}
 

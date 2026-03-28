@@ -331,6 +331,15 @@ class MissingFactQuestion(BaseModel):
     rationale: str
 
 
+class AIAssistPayload(BaseModel):
+    status: Literal["disabled", "ready", "error"] = "disabled"
+    model: str | None = None
+    error: str | None = None
+    memo_sections: List[MemoSection] = Field(default_factory=list)
+    missing_facts: List[MissingFactQuestion] = Field(default_factory=list)
+    comparison_summary: str | None = None
+
+
 class AnalysisResult(BaseModel):
     facts: TransactionFacts
     parsed_documents: List[UploadedDocument] = Field(default_factory=list)
@@ -343,6 +352,7 @@ class AnalysisResult(BaseModel):
     alternatives: List[StructuralAlternative] = Field(default_factory=list)
     memo_sections: List[MemoSection] = Field(default_factory=list)
     missing_facts: List[MissingFactQuestion] = Field(default_factory=list)
+    ai_assist: AIAssistPayload | None = None
     structure_ambiguities: List[str] = Field(default_factory=list)
     completeness_warning: str
     confidence_label: Literal["high", "medium", "low"]

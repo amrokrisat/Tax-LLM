@@ -27,6 +27,7 @@ from tax_llm.domain.models import (
     UploadedDocument,
 )
 from tax_llm.infrastructure.document_parser import DemoDocumentParser
+from tax_llm.infrastructure.ai_assist import OpenAIAssistService
 from tax_llm.infrastructure.repositories import (
     DEFAULT_SOURCE_PRIORITY,
     AuthorityCorpusRepository,
@@ -131,6 +132,7 @@ ISSUE_LIBRARY = {
 class AnalysisService:
     authority_repository: AuthorityCorpusRepository
     document_parser: DemoDocumentParser
+    ai_assist_service: OpenAIAssistService | None = None
 
     def analyze(
         self,
@@ -186,6 +188,20 @@ class AnalysisService:
             under_supported_buckets, weakly_supported_buckets, structured_context
         )
         missing_facts = self._missing_fact_questions(bucket_coverage, facts, structured_context)
+        ai_assist = (
+            self.ai_assist_service.build_ai_assist(
+                facts=facts,
+                structured_context=structured_context,
+                bucket_coverage=bucket_coverage,
+                issues=issues,
+                alternatives=alternatives,
+                memo_sections=memo_sections,
+                missing_facts=missing_facts,
+                completeness_warning=completeness_warning,
+            )
+            if self.ai_assist_service
+            else None
+        )
 
         return AnalysisResult(
             facts=facts,
@@ -199,6 +215,7 @@ class AnalysisService:
             alternatives=alternatives,
             memo_sections=memo_sections,
             missing_facts=missing_facts,
+            ai_assist=ai_assist,
             structure_ambiguities=structured_context.structure_ambiguities,
             completeness_warning=completeness_warning,
             confidence_label=self._confidence_label(
