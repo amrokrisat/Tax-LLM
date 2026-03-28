@@ -51,7 +51,7 @@ async function fetchBackendJson<T>(
   });
 
   if (response.status === 401 || response.status === 403) {
-    redirect("/login");
+    redirect(`/api/auth/logout?redirect=${encodeURIComponent("/login")}`);
   }
 
   if (!response.ok) {

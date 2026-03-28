@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -14,7 +14,7 @@ function backendBaseUrl() {
   );
 }
 
-export async function POST() {
+async function clearSessionCookie() {
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get(SESSION_COOKIE)?.value;
 
@@ -35,6 +35,17 @@ export async function POST() {
     path: "/",
     maxAge: 0,
   });
+}
+
+export async function POST() {
+  await clearSessionCookie();
 
   return NextResponse.json({ ok: true });
+}
+
+export async function GET(request: NextRequest) {
+  await clearSessionCookie();
+
+  const redirectTo = request.nextUrl.searchParams.get("redirect") || "/login";
+  return NextResponse.redirect(new URL(redirectTo, request.url));
 }
