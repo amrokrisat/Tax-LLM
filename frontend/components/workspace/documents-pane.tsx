@@ -2,7 +2,7 @@
 
 import { ChangeEvent, memo } from "react";
 
-import { ExtractedFact, UploadedDocumentInput } from "@/lib/api";
+import { ExtractedFact, StructureProposal, UploadedDocumentInput } from "@/lib/api";
 
 function categoryLabel(category?: string | null) {
   if (!category) {
@@ -35,21 +35,29 @@ function targetKindLabel(kind?: string | null) {
 
 export const DocumentsPane = memo(function DocumentsPane({
   draftDocuments,
+  structureProposals,
   extracting,
   confirmingFacts,
+  buildingStructure,
   onAddDocument,
   onExtract,
   onConfirmFacts,
+  onBuildStructure,
+  onReviewProposal,
   onFileUpload,
   updateDocument,
   updateExtractedFact,
 }: {
   draftDocuments: UploadedDocumentInput[];
+  structureProposals: StructureProposal[];
   extracting: boolean;
   confirmingFacts: boolean;
+  buildingStructure: boolean;
   onAddDocument: () => void;
   onExtract: () => void;
   onConfirmFacts: () => void;
+  onBuildStructure: () => void;
+  onReviewProposal: (proposalId: string, status: "accepted" | "rejected") => void;
   onFileUpload: (index: number, event: ChangeEvent<HTMLInputElement>) => void;
   updateDocument: (index: number, key: keyof UploadedDocumentInput, value: string) => void;
   updateExtractedFact: (
@@ -73,11 +81,67 @@ export const DocumentsPane = memo(function DocumentsPane({
           <button className="button-subtle" onClick={onExtract} disabled={extracting} type="button">
             {extracting ? "Extracting..." : "Run extraction"}
           </button>
+          <button className="button-subtle" onClick={onBuildStructure} disabled={buildingStructure} type="button">
+            {buildingStructure ? "Building..." : "Build structure"}
+          </button>
           <button className="button-subtle" onClick={onConfirmFacts} disabled={confirmingFacts} type="button">
             {confirmingFacts ? "Saving review..." : "Save extraction review"}
           </button>
         </div>
       </div>
+
+      {structureProposals.length ? (
+        <div className="subpanel stack">
+          <div className="row-between">
+            <div>
+              <h3>Structure proposals</h3>
+              <p className="muted">Review synthesized entity, ownership, classification, role, step, and filing proposals before they populate the transaction file.</p>
+            </div>
+            <span className="chip">{structureProposals.length} proposals</span>
+          </div>
+          {["entity", "ownership_link", "tax_classification", "transaction_role", "transaction_step", "election_filing_item"].map((kind) => {
+            const proposals = structureProposals.filter((item) => item.proposal_kind === kind);
+            if (!proposals.length) {
+              return null;
+            }
+            return (
+              <div key={kind} className="stack">
+                <h4>{targetKindLabel(kind) ?? kind.replaceAll("_", " ")}</h4>
+                {proposals.map((proposal) => (
+                  <div key={proposal.proposal_id} className="extracted-fact-card">
+                    <div className="row-between">
+                      <div className="chip-row">
+                        <span className="chip">{proposal.review_status}</span>
+                        <span className="chip">{proposal.confidence.toFixed(2)} confidence</span>
+                        <span className="chip">{proposal.certainty} certainty</span>
+                      </div>
+                      <span className="chip">{proposal.label}</span>
+                    </div>
+                    <p>{proposal.rationale}</p>
+                    {proposal.source_document_names.length ? (
+                      <p className="muted">Sources: {proposal.source_document_names.join(", ")}</p>
+                    ) : null}
+                    {proposal.normalized_payload ? (
+                      <p className="muted">Structured payload: {JSON.stringify(proposal.normalized_payload)}</p>
+                    ) : null}
+                    {proposal.ambiguity_note ? <p className="muted">{proposal.ambiguity_note}</p> : null}
+                    {proposal.review_status === "pending" ? (
+                      <div className="button-row">
+                        <button className="button-subtle" type="button" onClick={() => onReviewProposal(proposal.proposal_id, "accepted")}>
+                          Accept
+                        </button>
+                        <button className="button-ghost" type="button" onClick={() => onReviewProposal(proposal.proposal_id, "rejected")}>
+                          Reject
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
 
       {draftDocuments.map((document, index) => (
         <article key={`${document.file_name}-${index}`} className="document-card stack">

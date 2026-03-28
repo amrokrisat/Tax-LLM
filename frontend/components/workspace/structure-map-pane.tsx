@@ -6,6 +6,7 @@ import {
   ElectionOrFilingItem,
   Entity,
   OwnershipLink,
+  StructureProposal,
   TaxClassification,
   TransactionRole,
   TransactionStep,
@@ -15,6 +16,10 @@ import { deriveStructureMap, StructureMapNode } from "@/lib/structure";
 function ownershipLabel(link: OwnershipLink) {
   const pct = link.ownership_percentage != null ? ` ${link.ownership_percentage}%` : "";
   return `${link.relationship_type.replaceAll("_", " ")}${pct}`;
+}
+
+function statusLabel(status: string) {
+  return status.replaceAll("_", " ");
 }
 
 const StructureNodeCard = memo(function StructureNodeCard({
@@ -27,6 +32,7 @@ const StructureNodeCard = memo(function StructureNodeCard({
       <div className="structure-node-header">
         <h4>{node.entity.name || "Unnamed entity"}</h4>
         <div className="chip-row">
+          <span className={`chip chip-status chip-status-${node.displayStatus}`}>{statusLabel(node.displayStatus)}</span>
           <span className="chip">{node.entity.entity_type.replaceAll("_", " ")}</span>
           {node.classification ? (
             <span className="chip">{node.classification.classification_type.replaceAll("_", " ")}</span>
@@ -98,6 +104,7 @@ export const StructureMapPane = memo(function StructureMapPane({
   transactionRoles,
   transactionSteps,
   electionItems,
+  structureProposals,
 }: {
   entities: Entity[];
   ownershipLinks: OwnershipLink[];
@@ -105,6 +112,7 @@ export const StructureMapPane = memo(function StructureMapPane({
   transactionRoles: TransactionRole[];
   transactionSteps: TransactionStep[];
   electionItems: ElectionOrFilingItem[];
+  structureProposals?: StructureProposal[];
 }) {
   const map = deriveStructureMap(
     entities,
@@ -113,6 +121,7 @@ export const StructureMapPane = memo(function StructureMapPane({
     transactionRoles,
     transactionSteps,
     electionItems,
+    structureProposals,
   );
 
   return (
@@ -122,6 +131,11 @@ export const StructureMapPane = memo(function StructureMapPane({
         <p className="muted">
           Visualize ownership, legal form, tax classification, transaction roles, and linked step or filing activity across the current matter structure.
         </p>
+        <div className="chip-row">
+          <span className="chip chip-status chip-status-confirmed">confirmed</span>
+          <span className="chip chip-status chip-status-proposed">proposed</span>
+          <span className="chip chip-status chip-status-uncertain">uncertain</span>
+        </div>
       </div>
 
       {map.roots.length ? (

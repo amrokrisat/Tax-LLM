@@ -21,6 +21,15 @@ ReviewStatus = Literal["unreviewed", "in_review", "reviewed"]
 AuthorityStatus = Literal["canonical", "legacy", "superseded"]
 ExtractedFactCertainty = Literal["high", "medium", "low"]
 StructuredRecordStatus = Literal["proposed", "confirmed", "uncertain"]
+StructureProposalStatus = Literal["pending", "accepted", "rejected"]
+StructureProposalKind = Literal[
+    "entity",
+    "ownership_link",
+    "tax_classification",
+    "transaction_role",
+    "transaction_step",
+    "election_filing_item",
+]
 EntityType = Literal[
     "corporation",
     "llc",
@@ -234,6 +243,24 @@ class ElectionOrFilingItem(BaseModel):
     source_fact_ids: List[str] = Field(default_factory=list)
 
 
+class StructureProposal(BaseModel):
+    proposal_id: str
+    proposal_kind: StructureProposalKind
+    record_status: StructuredRecordStatus = "proposed"
+    review_status: StructureProposalStatus = "pending"
+    label: str
+    rationale: str = ""
+    confidence: float = 0.0
+    certainty: ExtractedFactCertainty = "medium"
+    ambiguity_note: str | None = None
+    source_document_names: List[str] = Field(default_factory=list)
+    source_fact_ids: List[str] = Field(default_factory=list)
+    normalized_payload: dict[str, str | float | int | list[str] | None] = Field(default_factory=dict)
+    mapped_record_kind: str | None = None
+    mapped_record_id: str | None = None
+    mapped_record_label: str | None = None
+
+
 class TransactionBucket(BaseModel):
     bucket: str
     label: str
@@ -392,6 +419,7 @@ class MatterRecord(BaseModel):
     transaction_roles: List[TransactionRole] = Field(default_factory=list)
     transaction_steps: List[TransactionStep] = Field(default_factory=list)
     election_items: List[ElectionOrFilingItem] = Field(default_factory=list)
+    structure_proposals: List[StructureProposal] = Field(default_factory=list)
     latest_analysis: AnalysisResult | None = None
     analysis_runs: List[AnalysisRun] = Field(default_factory=list)
     created_at: str

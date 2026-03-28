@@ -55,6 +55,7 @@ export function MattersHome({ initialMatters }: MattersHomeProps) {
         transaction_roles: [],
         transaction_steps: [],
         election_items: [],
+        structure_proposals: [],
       });
       router.push(`/matters/${matter.matter_id}`);
     } catch (createError) {
@@ -83,6 +84,7 @@ export function MattersHome({ initialMatters }: MattersHomeProps) {
         transaction_roles: scenario.transaction_roles ?? [],
         transaction_steps: scenario.transaction_steps ?? [],
         election_items: scenario.election_items ?? [],
+        structure_proposals: scenario.structure_proposals ?? [],
       });
       router.push(`/matters/${matter.matter_id}`);
     } catch (createError) {

@@ -532,6 +532,24 @@ html[data-theme="dark"] .workspace-tab.active {
   gap: 10px;
 }
 
+.chip-status-confirmed {
+  background: var(--success-soft);
+  color: var(--success);
+  border-color: color-mix(in srgb, var(--success) 24%, transparent);
+}
+
+.chip-status-proposed {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border-color: color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.chip-status-uncertain {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 22%, transparent);
+}
+
 .structure-node-header {
   display: grid;
   gap: 8px;

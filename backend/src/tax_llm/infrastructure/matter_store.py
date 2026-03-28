@@ -13,6 +13,7 @@ from tax_llm.domain.models import (
     ExtractedFact,
     MatterRecord,
     OwnershipLink,
+    StructureProposal,
     TaxClassification,
     TransactionFacts,
     TransactionRole,
@@ -33,6 +34,7 @@ STRUCTURED_MATTER_COLUMNS = {
     "transaction_roles_json": "[]",
     "transaction_steps_json": "[]",
     "election_items_json": "[]",
+    "structure_proposals_json": "[]",
 }
 
 
@@ -49,7 +51,7 @@ class MatterStore:
                 SELECT matter_id, owner_user_id, matter_name, transaction_type, facts_json,
                        uploaded_documents_json, entities_json, ownership_links_json,
                        tax_classifications_json, transaction_roles_json, transaction_steps_json,
-                       election_items_json, latest_analysis_json, created_at, updated_at
+                       election_items_json, structure_proposals_json, latest_analysis_json, created_at, updated_at
                 FROM matters
                 ORDER BY updated_at DESC
                 """
@@ -63,7 +65,7 @@ class MatterStore:
                 SELECT matter_id, owner_user_id, matter_name, transaction_type, facts_json,
                        uploaded_documents_json, entities_json, ownership_links_json,
                        tax_classifications_json, transaction_roles_json, transaction_steps_json,
-                       election_items_json, latest_analysis_json, created_at, updated_at
+                       election_items_json, structure_proposals_json, latest_analysis_json, created_at, updated_at
                 FROM matters
                 WHERE owner_user_id = ?
                 ORDER BY updated_at DESC
@@ -88,6 +90,7 @@ class MatterStore:
                     m.transaction_roles_json,
                     m.transaction_steps_json,
                     m.election_items_json,
+                    m.structure_proposals_json,
                     m.created_at,
                     m.updated_at,
                     COUNT(ar.run_id) AS analysis_run_count
@@ -106,6 +109,7 @@ class MatterStore:
                     m.transaction_roles_json,
                     m.transaction_steps_json,
                     m.election_items_json,
+                    m.structure_proposals_json,
                     m.created_at,
                     m.updated_at
                 ORDER BY m.updated_at DESC
@@ -138,7 +142,7 @@ class MatterStore:
                 SELECT matter_id, owner_user_id, matter_name, transaction_type, facts_json,
                        uploaded_documents_json, entities_json, ownership_links_json,
                        tax_classifications_json, transaction_roles_json, transaction_steps_json,
-                       election_items_json, created_at, updated_at
+                       election_items_json, structure_proposals_json, created_at, updated_at
                 FROM matters
                 WHERE matter_id = ?
                 """,
@@ -193,6 +197,7 @@ class MatterStore:
             "transaction_roles": json.loads(row["transaction_roles_json"]),
             "transaction_steps": json.loads(row["transaction_steps_json"]),
             "election_items": json.loads(row["election_items_json"]),
+            "structure_proposals": json.loads(row["structure_proposals_json"] or "[]"),
             "analysis_runs": run_summaries,
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
@@ -211,6 +216,7 @@ class MatterStore:
         transaction_roles: list[TransactionRole] | None = None,
         transaction_steps: list[TransactionStep] | None = None,
         election_items: list[ElectionOrFilingItem] | None = None,
+        structure_proposals: list[StructureProposal] | None = None,
     ) -> MatterRecord:
         timestamp = utc_now_iso()
         matter = MatterRecord(
@@ -226,6 +232,7 @@ class MatterStore:
             transaction_roles=transaction_roles or [],
             transaction_steps=transaction_steps or [],
             election_items=election_items or [],
+            structure_proposals=structure_proposals or [],
             latest_analysis=None,
             analysis_runs=[],
             created_at=timestamp,
@@ -240,7 +247,7 @@ class MatterStore:
                 SELECT matter_id, owner_user_id, matter_name, transaction_type, facts_json,
                        uploaded_documents_json, entities_json, ownership_links_json,
                        tax_classifications_json, transaction_roles_json, transaction_steps_json,
-                       election_items_json, latest_analysis_json, created_at, updated_at
+                       election_items_json, structure_proposals_json, latest_analysis_json, created_at, updated_at
                 FROM matters
                 WHERE matter_id = ?
                 """,
@@ -261,9 +268,9 @@ class MatterStore:
                     matter_id, owner_user_id, matter_name, transaction_type, facts_json,
                     uploaded_documents_json, entities_json, ownership_links_json,
                     tax_classifications_json, transaction_roles_json, transaction_steps_json,
-                    election_items_json, latest_analysis_json, created_at, updated_at
+                    election_items_json, structure_proposals_json, latest_analysis_json, created_at, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(matter_id) DO UPDATE SET
                     owner_user_id = excluded.owner_user_id,
                     matter_name = excluded.matter_name,
@@ -276,6 +283,7 @@ class MatterStore:
                     transaction_roles_json = excluded.transaction_roles_json,
                     transaction_steps_json = excluded.transaction_steps_json,
                     election_items_json = excluded.election_items_json,
+                    structure_proposals_json = excluded.structure_proposals_json,
                     latest_analysis_json = excluded.latest_analysis_json,
                     created_at = excluded.created_at,
                     updated_at = excluded.updated_at
@@ -293,6 +301,7 @@ class MatterStore:
                     self._dump(matter.transaction_roles),
                     self._dump(matter.transaction_steps),
                     self._dump(matter.election_items),
+                    self._dump(matter.structure_proposals),
                     self._dump(matter.latest_analysis),
                     matter.created_at,
                     matter.updated_at,
@@ -314,6 +323,7 @@ class MatterStore:
         transaction_roles: list[TransactionRole],
         transaction_steps: list[TransactionStep],
         election_items: list[ElectionOrFilingItem],
+        structure_proposals: list[StructureProposal],
     ) -> MatterRecord:
         matter = self.get_matter(matter_id, user_id=user_id)
         matter.matter_name = matter_name
@@ -326,6 +336,7 @@ class MatterStore:
         matter.transaction_roles = transaction_roles
         matter.transaction_steps = transaction_steps
         matter.election_items = election_items
+        matter.structure_proposals = structure_proposals
         matter.updated_at = utc_now_iso()
         return self.save_matter(matter)
 
@@ -431,6 +442,17 @@ class MatterStore:
         matter.updated_at = utc_now_iso()
         return self.save_matter(matter)
 
+    def replace_structure_proposals(
+        self,
+        matter_id: str,
+        user_id: str,
+        proposals: list[StructureProposal],
+    ) -> MatterRecord:
+        matter = self.get_matter(matter_id, user_id=user_id)
+        matter.structure_proposals = proposals
+        matter.updated_at = utc_now_iso()
+        return self.save_matter(matter)
+
     def update_extracted_fact_statuses(
         self,
         matter_id: str,
@@ -452,6 +474,43 @@ class MatterStore:
                     updated_fact = self._apply_structured_fact(matter, updated_fact)
                 next_facts.append(updated_fact)
             document.extracted_facts = next_facts
+        matter.updated_at = utc_now_iso()
+        return self.save_matter(matter)
+
+    def review_structure_proposals(
+        self,
+        matter_id: str,
+        user_id: str,
+        reviews: list[tuple[str, str]],
+    ) -> MatterRecord:
+        matter = self.get_matter(matter_id, user_id=user_id)
+        by_id = {proposal.proposal_id: proposal for proposal in matter.structure_proposals}
+        updated: list[StructureProposal] = []
+        review_map = {proposal_id: status for proposal_id, status in reviews}
+
+        for proposal in matter.structure_proposals:
+            status = review_map.get(proposal.proposal_id)
+            if not status:
+                updated.append(proposal)
+                continue
+            next_proposal = proposal.model_copy(update={"review_status": status})
+            if status == "accepted":
+                next_proposal = self._apply_structure_proposal(matter, next_proposal)
+            updated.append(next_proposal)
+
+        for proposal_id, status in reviews:
+            if proposal_id in by_id:
+                continue
+            updated.append(
+                StructureProposal(
+                    proposal_id=proposal_id,
+                    proposal_kind="entity",
+                    label=proposal_id,
+                    review_status=status if status in {"accepted", "rejected", "pending"} else "pending",
+                )
+            )
+
+        matter.structure_proposals = updated
         matter.updated_at = utc_now_iso()
         return self.save_matter(matter)
 
@@ -586,6 +645,135 @@ class MatterStore:
             return fact.model_copy(update=update_payload)
 
         return fact
+
+    def _apply_structure_proposal(
+        self, matter: MatterRecord, proposal: StructureProposal
+    ) -> StructureProposal:
+        payload = proposal.normalized_payload or {}
+        source_fact_id = proposal.source_fact_ids[0] if proposal.source_fact_ids else proposal.proposal_id
+        label_prefix = proposal.label or proposal.proposal_kind.replace("_", " ")
+
+        if proposal.proposal_kind == "entity":
+            entity = self._upsert_entity(
+                matter,
+                name=str(payload.get("name") or label_prefix).strip(),
+                entity_type=str(payload.get("entity_type") or "other"),
+                jurisdiction=self._optional_text(payload.get("jurisdiction")),
+                status=str(payload.get("status") or proposal.record_status or "confirmed"),
+                source_fact_id=source_fact_id,
+            )
+            return proposal.model_copy(
+                update={
+                    "mapped_record_kind": "entity",
+                    "mapped_record_id": entity.entity_id,
+                    "mapped_record_label": entity.name,
+                }
+            )
+
+        if proposal.proposal_kind == "tax_classification":
+            entity = self._find_entity_by_name(matter, self._optional_text(payload.get("entity_name")))
+            if not entity:
+                return proposal.model_copy(update={"ambiguity_note": "Referenced entity still unresolved."})
+            classification = self._upsert_tax_classification(
+                matter,
+                entity_id=entity.entity_id,
+                classification_type=str(payload.get("classification_type") or "unknown"),
+                status=str(payload.get("status") or proposal.record_status or "confirmed"),
+                source_fact_id=source_fact_id,
+            )
+            return proposal.model_copy(
+                update={
+                    "mapped_record_kind": "tax_classification",
+                    "mapped_record_id": classification.classification_id,
+                    "mapped_record_label": f"{entity.name}: {classification.classification_type}",
+                }
+            )
+
+        if proposal.proposal_kind == "transaction_role":
+            entity = self._find_entity_by_name(matter, self._optional_text(payload.get("entity_name")))
+            if not entity:
+                return proposal.model_copy(update={"ambiguity_note": "Referenced entity still unresolved."})
+            role = self._upsert_transaction_role(
+                matter,
+                entity_id=entity.entity_id,
+                role_type=str(payload.get("role_type") or "other"),
+                status=str(payload.get("status") or proposal.record_status or "confirmed"),
+                source_fact_id=source_fact_id,
+            )
+            return proposal.model_copy(
+                update={
+                    "mapped_record_kind": "transaction_role",
+                    "mapped_record_id": role.role_id,
+                    "mapped_record_label": f"{entity.name}: {role.role_type}",
+                }
+            )
+
+        if proposal.proposal_kind == "ownership_link":
+            parent = self._find_entity_by_name(matter, self._optional_text(payload.get("parent_entity_name")))
+            child = self._find_entity_by_name(matter, self._optional_text(payload.get("child_entity_name")))
+            if not parent or not child:
+                return proposal.model_copy(update={"ambiguity_note": "Parent or child entity still unresolved."})
+            link = self._upsert_ownership_link(
+                matter,
+                parent_entity_id=parent.entity_id,
+                child_entity_id=child.entity_id,
+                relationship_type=str(payload.get("relationship_type") or "owns"),
+                ownership_scope=str(payload.get("ownership_scope") or "direct"),
+                ownership_percentage=self._optional_float(payload.get("ownership_percentage")),
+                status=str(payload.get("status") or proposal.record_status or "confirmed"),
+                source_fact_id=source_fact_id,
+            )
+            return proposal.model_copy(
+                update={
+                    "mapped_record_kind": "ownership_link",
+                    "mapped_record_id": link.link_id,
+                    "mapped_record_label": f"{parent.name} -> {child.name}",
+                }
+            )
+
+        if proposal.proposal_kind == "transaction_step":
+            entity_ids = self._resolve_entity_ids(matter, payload.get("entity_names"))
+            step = self._upsert_transaction_step(
+                matter,
+                phase=str(payload.get("phase") or "pre_closing"),
+                step_type=str(payload.get("step_type") or "other"),
+                title=str(payload.get("title") or label_prefix),
+                description=str(payload.get("description") or proposal.rationale or ""),
+                entity_ids=entity_ids,
+                status=str(payload.get("status") or proposal.record_status or "confirmed"),
+                source_fact_id=source_fact_id,
+            )
+            return proposal.model_copy(
+                update={
+                    "mapped_record_kind": "transaction_step",
+                    "mapped_record_id": step.step_id,
+                    "mapped_record_label": step.title,
+                }
+            )
+
+        if proposal.proposal_kind == "election_filing_item":
+            entity_ids = self._resolve_entity_ids(matter, payload.get("related_entity_names"))
+            step_ids = self._resolve_step_ids(matter, payload.get("related_step_titles"))
+            item = self._upsert_election_item(
+                matter,
+                name=str(payload.get("name") or label_prefix),
+                item_type=str(payload.get("item_type") or "other"),
+                citation_or_form=str(payload.get("citation_or_form") or ""),
+                related_entity_ids=entity_ids,
+                related_step_ids=step_ids,
+                status=str(payload.get("status") or "possible"),
+                notes=str(payload.get("notes") or proposal.rationale or ""),
+                source_fact_id=source_fact_id,
+            )
+            return proposal.model_copy(
+                update={
+                    "mapped_record_kind": "election_filing_item",
+                    "mapped_record_id": item.item_id,
+                    "mapped_record_label": item.name,
+                }
+            )
+
+        return proposal
 
     def update_run_review(
         self,
@@ -967,6 +1155,7 @@ class MatterStore:
                     transaction_roles_json TEXT NOT NULL DEFAULT '[]',
                     transaction_steps_json TEXT NOT NULL DEFAULT '[]',
                     election_items_json TEXT NOT NULL DEFAULT '[]',
+                    structure_proposals_json TEXT NOT NULL DEFAULT '[]',
                     latest_analysis_json TEXT,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
@@ -1051,9 +1240,9 @@ class MatterStore:
                         matter_id, owner_user_id, matter_name, transaction_type, facts_json,
                         uploaded_documents_json, entities_json, ownership_links_json,
                         tax_classifications_json, transaction_roles_json, transaction_steps_json,
-                        election_items_json, latest_analysis_json, created_at, updated_at
+                        election_items_json, structure_proposals_json, latest_analysis_json, created_at, updated_at
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         matter.matter_id,
@@ -1068,6 +1257,7 @@ class MatterStore:
                         self._dump(matter.transaction_roles),
                         self._dump(matter.transaction_steps),
                         self._dump(matter.election_items),
+                        self._dump(matter.structure_proposals),
                         self._dump(matter.latest_analysis),
                         matter.created_at,
                         matter.updated_at,
@@ -1152,6 +1342,7 @@ class MatterStore:
             transaction_roles=[TransactionRole.model_validate(item) for item in json.loads(row["transaction_roles_json"])],
             transaction_steps=[TransactionStep.model_validate(item) for item in json.loads(row["transaction_steps_json"])],
             election_items=[ElectionOrFilingItem.model_validate(item) for item in json.loads(row["election_items_json"])],
+            structure_proposals=[StructureProposal.model_validate(item) for item in json.loads(row["structure_proposals_json"] or "[]")],
             latest_analysis=AnalysisResult.model_validate(json.loads(row["latest_analysis_json"])) if row["latest_analysis_json"] else None,
             analysis_runs=[
                 AnalysisRun(

@@ -12,6 +12,7 @@ from tax_llm.domain.models import (
     ExtractedFact,
     MatterRecord,
     OwnershipLink,
+    StructureProposal,
     TaxClassification,
     TransactionRole,
     TransactionFacts,
@@ -63,6 +64,7 @@ class AnalyzeTransactionRequest(BaseModel):
     transaction_roles: List[TransactionRole] = Field(default_factory=list)
     transaction_steps: List[TransactionStep] = Field(default_factory=list)
     election_items: List[ElectionOrFilingItem] = Field(default_factory=list)
+    structure_proposals: List[StructureProposal] = Field(default_factory=list)
 
 
 class AnalyzeTransactionResponse(BaseModel):
@@ -73,6 +75,7 @@ class AnalyzeTransactionResponse(BaseModel):
     transaction_roles: List[TransactionRole] = Field(default_factory=list)
     transaction_steps: List[TransactionStep] = Field(default_factory=list)
     election_items: List[ElectionOrFilingItem] = Field(default_factory=list)
+    structure_proposals: List[StructureProposal] = Field(default_factory=list)
 
 
 class MatterInput(BaseModel):
@@ -86,6 +89,7 @@ class MatterInput(BaseModel):
     transaction_roles: List[TransactionRole] = Field(default_factory=list)
     transaction_steps: List[TransactionStep] = Field(default_factory=list)
     election_items: List[ElectionOrFilingItem] = Field(default_factory=list)
+    structure_proposals: List[StructureProposal] = Field(default_factory=list)
 
 
 class MatterResponse(BaseModel):
@@ -116,6 +120,7 @@ class MatterWorkspace(BaseModel):
     transaction_roles: List[TransactionRole] = Field(default_factory=list)
     transaction_steps: List[TransactionStep] = Field(default_factory=list)
     election_items: List[ElectionOrFilingItem] = Field(default_factory=list)
+    structure_proposals: List[StructureProposal] = Field(default_factory=list)
     analysis_runs: List[AnalysisRunSummary] = Field(default_factory=list)
     created_at: str
     updated_at: str
@@ -156,6 +161,15 @@ class DocumentFactConfirmationInput(BaseModel):
 
 class DocumentFactConfirmationRequest(BaseModel):
     confirmations: List[DocumentFactConfirmationInput] = Field(default_factory=list)
+
+
+class StructureProposalReviewInput(BaseModel):
+    proposal_id: str
+    status: str
+
+
+class StructureProposalReviewRequest(BaseModel):
+    proposals: List[StructureProposalReviewInput] = Field(default_factory=list)
 
 
 class RunReviewInput(BaseModel):

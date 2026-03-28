@@ -27,17 +27,21 @@ import {
   MatterWorkspaceRecord,
   OwnershipLink,
   RunReviewInput,
+  StructureProposal,
+  StructureProposalReview,
   TaxClassification,
   TransactionRole,
   TransactionStep,
   UploadedDocumentInput,
   analyzeMatter,
+  buildMatterStructure,
   confirmExtractedFacts,
   exportRunMarkdown,
   extractMatterDocuments,
   getDemoScenario,
   getMatterRun,
   reviewRun,
+  reviewStructureProposals,
   updateMatter,
 } from "@/lib/api";
 import { embeddedDemoScenario } from "@/lib/demo-scenario";
@@ -129,6 +133,7 @@ function createMatterInput(
   transactionRoles: TransactionRole[],
   transactionSteps: TransactionStep[],
   electionItems: ElectionOrFilingItem[],
+  structureProposals: StructureProposal[],
 ): MatterInput {
   return {
     matter_name: matterName,
@@ -141,6 +146,7 @@ function createMatterInput(
     transaction_roles: transactionRoles,
     transaction_steps: transactionSteps,
     election_items: electionItems,
+    structure_proposals: structureProposals,
   };
 }
 
@@ -169,6 +175,7 @@ function summarizeMatter(matter: MatterRecord): MatterWorkspaceRecord {
     transaction_roles: matter.transaction_roles,
     transaction_steps: matter.transaction_steps,
     election_items: matter.election_items,
+    structure_proposals: matter.structure_proposals,
     analysis_runs: matter.analysis_runs.map(summarizeRun),
     created_at: matter.created_at,
     updated_at: matter.updated_at,
@@ -438,6 +445,7 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
   const [draftTransactionRoles, setDraftTransactionRoles] = useState<TransactionRole[]>(initialMatter.transaction_roles);
   const [draftTransactionSteps, setDraftTransactionSteps] = useState<TransactionStep[]>(initialMatter.transaction_steps);
   const [draftElectionItems, setDraftElectionItems] = useState<ElectionOrFilingItem[]>(initialMatter.election_items);
+  const [draftStructureProposals, setDraftStructureProposals] = useState<StructureProposal[]>(initialMatter.structure_proposals);
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("facts");
   const [selectedRunId, setSelectedRunId] = useState<string | null>(initialMatter.analysis_runs[0]?.run_id ?? null);
   const [compareRunId, setCompareRunId] = useState<string>(initialMatter.analysis_runs[1]?.run_id ?? "");
@@ -448,6 +456,7 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
   const [analyzing, setAnalyzing] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [confirmingFacts, setConfirmingFacts] = useState(false);
+  const [buildingStructure, setBuildingStructure] = useState(false);
   const [reviewSaving, setReviewSaving] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [copyingExport, setCopyingExport] = useState(false);
@@ -468,6 +477,7 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
     setDraftTransactionRoles(nextMatter.transaction_roles);
     setDraftTransactionSteps(nextMatter.transaction_steps);
     setDraftElectionItems(nextMatter.election_items);
+    setDraftStructureProposals(nextMatter.structure_proposals);
     setSelectedRunId((current) => current ?? nextMatter.analysis_runs[0]?.run_id ?? null);
     setCompareRunId((current) => current || (nextMatter.analysis_runs[1]?.run_id ?? ""));
   }
@@ -572,6 +582,7 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
     viewingHistoricalRun && deferredSelectedRun ? deferredSelectedRun.transaction_steps : draftTransactionSteps;
   const activeElectionItems =
     viewingHistoricalRun && deferredSelectedRun ? deferredSelectedRun.election_items : draftElectionItems;
+  const activeStructureProposals = viewingHistoricalRun ? [] : draftStructureProposals;
   const selectedRunLoading = Boolean(selectedRunId && !deferredSelectedRun && loadingRunIds.includes(selectedRunId));
   const warningBuckets =
     activeAnalysis?.bucket_coverage.filter(
@@ -589,7 +600,8 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
     JSON.stringify(draftTaxClassifications) !== JSON.stringify(matter.tax_classifications) ||
     JSON.stringify(draftTransactionRoles) !== JSON.stringify(matter.transaction_roles) ||
     JSON.stringify(draftTransactionSteps) !== JSON.stringify(matter.transaction_steps) ||
-    JSON.stringify(draftElectionItems) !== JSON.stringify(matter.election_items);
+    JSON.stringify(draftElectionItems) !== JSON.stringify(matter.election_items) ||
+    JSON.stringify(draftStructureProposals) !== JSON.stringify(matter.structure_proposals);
   const confirmedExtractedFacts = draftDocuments.flatMap((document) =>
     (document.extracted_facts ?? []).filter((fact) => fact.status === "confirmed"),
   );
@@ -869,6 +881,7 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
           draftTransactionRoles,
           draftTransactionSteps,
           draftElectionItems,
+          draftStructureProposals,
         ),
       );
     syncFullMatter(nextMatter);
@@ -890,6 +903,7 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
       setDraftTransactionRoles(scenario.transaction_roles ?? []);
       setDraftTransactionSteps(scenario.transaction_steps ?? []);
       setDraftElectionItems(scenario.election_items ?? []);
+      setDraftStructureProposals(scenario.structure_proposals ?? []);
       setActiveTab("facts");
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load demo matter.");
@@ -946,6 +960,7 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
           draftTransactionRoles,
           draftTransactionSteps,
           draftElectionItems,
+          draftStructureProposals,
         ),
       );
       syncFullMatter(nextMatter);
@@ -1013,6 +1028,47 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
     } finally {
       endPerf();
       setConfirmingFacts(false);
+    }
+  }
+
+  async function buildStructureAction() {
+    const endPerf = startPerf("matter-workspace.build-structure");
+    setBuildingStructure(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      if (hasUnsavedChanges) {
+        await persistDraftMatter();
+      }
+      const nextMatter = await buildMatterStructure(currentMatterId);
+      syncFullMatter(nextMatter);
+      setSuccess("Structure proposals refreshed.");
+      setActiveTab("documents");
+    } catch (buildError) {
+      setError(buildError instanceof Error ? buildError.message : "Failed to build structure proposals.");
+    } finally {
+      endPerf();
+      setBuildingStructure(false);
+    }
+  }
+
+  async function reviewStructureProposalAction(
+    proposalId: string,
+    status: StructureProposalReview["status"],
+  ) {
+    const endPerf = startPerf("matter-workspace.review-structure");
+    setBuildingStructure(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const nextMatter = await reviewStructureProposals(currentMatterId, [{ proposal_id: proposalId, status }]);
+      syncFullMatter(nextMatter);
+      setSuccess(status === "accepted" ? "Structure proposal accepted." : "Structure proposal rejected.");
+    } catch (reviewError) {
+      setError(reviewError instanceof Error ? reviewError.message : "Failed to review structure proposal.");
+    } finally {
+      endPerf();
+      setBuildingStructure(false);
     }
   }
 
@@ -1228,11 +1284,15 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
             {deferredActiveTab === "documents" ? (
               <DocumentsPane
                 draftDocuments={draftDocuments}
+                structureProposals={draftStructureProposals}
                 extracting={extracting}
                 confirmingFacts={confirmingFacts}
+                buildingStructure={buildingStructure}
                 onAddDocument={addDocument}
                 onExtract={() => void extractDocumentsAction()}
                 onConfirmFacts={() => void confirmFactsAction()}
+                onBuildStructure={() => void buildStructureAction()}
+                onReviewProposal={(proposalId, status) => void reviewStructureProposalAction(proposalId, status)}
                 onFileUpload={(index, event) => void handleFileUpload(index, event)}
                 updateDocument={updateDocument}
                 updateExtractedFact={updateExtractedFact}
@@ -1263,6 +1323,7 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
                 transactionRoles={activeTransactionRoles}
                 transactionSteps={activeTransactionSteps}
                 electionItems={activeElectionItems}
+                structureProposals={activeStructureProposals}
               />
             ) : null}
 

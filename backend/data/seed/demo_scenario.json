@@ -1,29 +1,29 @@
 {
   "facts": {
-    "transaction_name": "Project Atlas",
-    "summary": "US buyer is evaluating a stock acquisition of a domestic software target after a possible pre-close contribution and divisive separation step, and wants to compare a straight stock path against section 338(h)(10), 338(g), or 336(e) election-sensitive paths while preserving attribute value, managing financing, and tracking state overlays.",
-    "entities": ["Atlas Parent", "TargetCo", "Legacy HoldCo", "SpinCo"],
+    "transaction_name": "Project Redwood",
+    "summary": "A strategic buyer is evaluating an acquisition of a software operating business held through an ownership stack in which an individual owner holds HoldCo LLC, HoldCo LLC owns Blocker Corporation, and Blocker Corporation owns Target LLC, which the seller treats as a disregarded entity. The parties want the workspace to surface the ownership chain, merger-sub sequencing, classification-sensitive step-up questions, and filing or election items that may matter if the buyer pushes for stock-form execution with election sensitivity.",
+    "entities": ["Alex Founder", "Redwood HoldCo LLC", "Redwood Blocker Corporation", "Redwood Target LLC", "Acq Parent", "Acq Merger Sub"],
     "jurisdictions": ["United States", "Delaware"],
     "transaction_type": "stock sale",
     "stated_goals": [
-      "Compare stock-form execution against basis step-up value",
-      "Preserve usable tax attributes where possible",
-      "Support post-closing financing flexibility",
-      "Test whether any contribution or divisive step improves the transaction posture"
+      "Map the ownership stack automatically from deal facts and diligence notes",
+      "Compare merger-sub stock execution against election-sensitive step-up paths",
+      "Track classification-sensitive risks created by the blocker and disregarded target structure",
+      "Connect the structure to election or filing-sensitive items early"
     ],
     "constraints": [
-      "Seller prefers stock-sale treatment",
-      "Buyer will pay more only if step-up economics are real",
-      "Any pre-close separation must be supportable as a real corporate restructuring step"
+      "Seller prefers stock-form execution through the blocker chain",
+      "Buyer wants the structure and step plan mapped before pricing any gross-up for a deemed asset election",
+      "The target LLC classification and the merger-sub path must stay visible in the analysis and structure map"
     ],
-    "consideration_mix": "Cash consideration, with possible deemed asset election, limited rollover flexibility, and post-closing refinancing.",
-    "proposed_steps": "Seller may contribute selected assets to a controlled corporation and evaluate a divisive separation before buyer acquires target stock through a merger-sub structure, models a qualified stock purchase and a 338(h)(10), 338(g), or 336(e) path if available, and may refinance debt after closing.",
+    "consideration_mix": "Cash consideration with a possible merger-sub acquisition structure, a possible section 338(h)(10) or 336(e)-sensitive discussion if the seller profile supports it, and post-closing integration planning.",
+    "proposed_steps": "Alex Founder owns Redwood HoldCo LLC. Redwood HoldCo LLC owns Redwood Blocker Corporation. Redwood Blocker Corporation owns Redwood Target LLC, which seller materials describe as a disregarded entity. Acq Parent may form Acq Merger Sub to acquire the blocker stock in a merger-sub structure, may evaluate whether a section 338(h)(10) or 336(e)-sensitive path is commercially realistic, and expects post-closing integration after the acquisition.",
     "rollover_equity": false,
     "deemed_asset_sale_election": true,
     "contribution_transactions": false,
     "divisive_transactions": false,
     "partnership_issues": false,
-    "debt_financing": true,
+    "debt_financing": false,
     "earnout": false,
     "withholding": false,
     "state_tax": true,
@@ -31,14 +31,161 @@
   },
   "uploaded_documents": [
     {
-      "file_name": "LOI.txt",
+      "file_name": "Letter of intent.txt",
       "document_type": "letter_of_intent",
-      "content": "Buyer proposes a stock acquisition of TargetCo through merger sub but may request a 338(h)(10), 338(g), or 336(e) election if the step-up value justifies the added seller tax cost and the seller-target profile permits the relevant election mechanics."
+      "content": "Acq Parent intends to form Acq Merger Sub for a merger-sub acquisition of Redwood Blocker Corporation. Seller side materials describe Alex Founder as the sole owner of Redwood HoldCo LLC, Redwood HoldCo LLC as the sole owner of Redwood Blocker Corporation, and Redwood Blocker Corporation as the owner of Redwood Target LLC. Buyer may ask whether a 338(h)(10) or 336(e)-sensitive structure should be modeled if the ownership profile and seller consent support it."
     },
     {
       "file_name": "Tax diligence notes.txt",
       "document_type": "diligence_notes",
-      "content": "TargetCo has legacy NOLs, prior ownership churn, significant amortizable software intangibles, and pending refinancing discussions. Seller is also considering whether a contribution or divisive separation step would be used before the transaction. Buyer wants to compare straight stock form against a qualified stock purchase with possible 338(g), 338(h)(10), or 336(e) treatment."
+      "content": "Redwood Target LLC is treated by seller as a disregarded entity under its current structure. Redwood Blocker Corporation functions as a blocker above the target operating business. The parties want the workspace to map the chain Alex Founder -> Redwood HoldCo LLC -> Redwood Blocker Corporation -> Redwood Target LLC, flag the disregarded-entity posture, and tie any merger-sub stock path to election and filing items such as Form 8023 if the facts ever support a section 338 election path."
+    }
+  ],
+  "structure_proposals": [
+    {
+      "proposal_id": "demo-entity-founder",
+      "proposal_kind": "entity",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Alex Founder",
+      "rationale": "Named as the individual owner in the demo facts.",
+      "confidence": 0.95,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "name": "Alex Founder",
+        "entity_type": "individual",
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-entity-holdco",
+      "proposal_kind": "entity",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Redwood HoldCo LLC",
+      "rationale": "Named as the holding company in the ownership stack.",
+      "confidence": 0.95,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "name": "Redwood HoldCo LLC",
+        "entity_type": "llc",
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-entity-blocker",
+      "proposal_kind": "entity",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Redwood Blocker Corporation",
+      "rationale": "Named as the blocker corporation in the stack.",
+      "confidence": 0.95,
+      "certainty": "high",
+      "source_document_names": ["Tax diligence notes.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "name": "Redwood Blocker Corporation",
+        "entity_type": "corporation",
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-entity-target",
+      "proposal_kind": "entity",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Redwood Target LLC",
+      "rationale": "Named as the operating target in the diligence notes.",
+      "confidence": 0.95,
+      "certainty": "high",
+      "source_document_names": ["Tax diligence notes.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "name": "Redwood Target LLC",
+        "entity_type": "llc",
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-owner-founder-holdco",
+      "proposal_kind": "ownership_link",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Alex Founder -> Redwood HoldCo LLC",
+      "rationale": "The facts describe Alex Founder as the individual owner above HoldCo.",
+      "confidence": 0.9,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "parent_entity_name": "Alex Founder",
+        "child_entity_name": "Redwood HoldCo LLC",
+        "relationship_type": "owns",
+        "ownership_scope": "direct",
+        "ownership_percentage": 100,
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-owner-holdco-blocker",
+      "proposal_kind": "ownership_link",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Redwood HoldCo LLC -> Redwood Blocker Corporation",
+      "rationale": "The facts describe HoldCo as the sole owner of the blocker.",
+      "confidence": 0.9,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "parent_entity_name": "Redwood HoldCo LLC",
+        "child_entity_name": "Redwood Blocker Corporation",
+        "relationship_type": "owns",
+        "ownership_scope": "direct",
+        "ownership_percentage": 100,
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-owner-blocker-target",
+      "proposal_kind": "ownership_link",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Redwood Blocker Corporation -> Redwood Target LLC",
+      "rationale": "The facts describe the blocker as the owner of the target LLC.",
+      "confidence": 0.9,
+      "certainty": "high",
+      "source_document_names": ["Tax diligence notes.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "parent_entity_name": "Redwood Blocker Corporation",
+        "child_entity_name": "Redwood Target LLC",
+        "relationship_type": "owns",
+        "ownership_scope": "direct",
+        "ownership_percentage": 100,
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-classification-target",
+      "proposal_kind": "tax_classification",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Redwood Target LLC: disregarded entity",
+      "rationale": "Seller materials explicitly describe Redwood Target LLC as a disregarded entity.",
+      "confidence": 0.88,
+      "certainty": "high",
+      "source_document_names": ["Tax diligence notes.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "entity_name": "Redwood Target LLC",
+        "classification_type": "disregarded_entity",
+        "status": "proposed"
+      }
     }
   ]
 }

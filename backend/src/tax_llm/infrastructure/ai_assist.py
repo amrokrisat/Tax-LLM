@@ -14,6 +14,7 @@ from tax_llm.domain.models import (
     MemoSection,
     MissingFactQuestion,
     StructuralAlternative,
+    StructureProposal,
     TaxIssue,
     TransactionFacts,
 )
@@ -31,6 +32,19 @@ Rules:
 - Prefer concrete transactional-tax phrasing over generic prose.
 - Keep memo sections practical and deal-focused.
 - Return strict JSON matching the requested schema.
+""".strip()
+
+STRUCTURE_PROMPT = """
+You are assisting a transactional tax workspace with review-first structure synthesis.
+Use the provided facts, extracted signals, structured context, and narrow authority hints
+to propose entities, ownership links, tax classifications, transaction roles, transaction steps,
+and election/filing items.
+
+Rules:
+- Return only proposed structure. Do not mark anything confirmed.
+- Do not invent parties that are not reasonably grounded in the provided signals.
+- Emit explicit ambiguity notes where structure is uncertain.
+- Use strict JSON matching the requested schema.
 """.strip()
 
 
@@ -245,3 +259,108 @@ class OpenAIAssistService:
             "missing_facts": [question.model_dump() for question in missing_facts],
             "completeness_warning": completeness_warning,
         }
+
+    def build_structure_proposals(
+        self,
+        *,
+        synthesis_payload: dict,
+    ) -> list[StructureProposal]:
+        if not self.enabled:
+            return []
+
+        try:
+            with httpx.Client(timeout=self.timeout_seconds) as client:
+                response = client.post(
+                    "https://api.openai.com/v1/responses",
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": self.model,
+                        "input": [
+                            {"role": "system", "content": [{"type": "input_text", "text": STRUCTURE_PROMPT}]},
+                            {"role": "user", "content": [{"type": "input_text", "text": json.dumps(synthesis_payload)}]},
+                        ],
+                        "text": {
+                            "format": {
+                                "type": "json_schema",
+                                "name": "tax_llm_structure_proposals",
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": False,
+                                    "properties": {
+                                        "proposals": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "additionalProperties": False,
+                                                "properties": {
+                                                    "proposal_kind": {"type": "string"},
+                                                    "label": {"type": "string"},
+                                                    "rationale": {"type": "string"},
+                                                    "confidence": {"type": "number"},
+                                                    "certainty": {"type": "string"},
+                                                    "ambiguity_note": {"type": ["string", "null"]},
+                                                    "source_document_names": {
+                                                        "type": "array",
+                                                        "items": {"type": "string"},
+                                                    },
+                                                    "source_fact_ids": {
+                                                        "type": "array",
+                                                        "items": {"type": "string"},
+                                                    },
+                                                    "normalized_payload": {
+                                                        "type": "object",
+                                                        "additionalProperties": {
+                                                            "type": ["string", "number", "null", "array"]
+                                                        },
+                                                    },
+                                                },
+                                                "required": [
+                                                    "proposal_kind",
+                                                    "label",
+                                                    "rationale",
+                                                    "confidence",
+                                                    "certainty",
+                                                    "ambiguity_note",
+                                                    "source_document_names",
+                                                    "source_fact_ids",
+                                                    "normalized_payload",
+                                                ],
+                                            },
+                                        }
+                                    },
+                                    "required": ["proposals"],
+                                },
+                            }
+                        },
+                    },
+                )
+                response.raise_for_status()
+                parsed = json.loads(response.json().get("output_text", "{}"))
+        except Exception:
+            return []
+
+        proposals: list[StructureProposal] = []
+        for index, item in enumerate(parsed.get("proposals", [])):
+            try:
+                proposals.append(
+                    StructureProposal(
+                        proposal_id=f"ai-structure-{index}-{item.get('proposal_kind', 'proposal')}",
+                        proposal_kind=item.get("proposal_kind", "entity"),
+                        record_status="proposed",
+                        review_status="pending",
+                        label=item.get("label", "AI structure proposal"),
+                        rationale=item.get("rationale", ""),
+                        confidence=float(item.get("confidence", 0.0)),
+                        certainty=item.get("certainty", "medium"),
+                        ambiguity_note=item.get("ambiguity_note"),
+                        source_document_names=list(item.get("source_document_names", [])),
+                        source_fact_ids=list(item.get("source_fact_ids", [])),
+                        normalized_payload=item.get("normalized_payload", {}),
+                    )
+                )
+            except Exception:
+                continue
+        return proposals

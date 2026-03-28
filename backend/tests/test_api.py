@@ -20,7 +20,7 @@ def test_demo_scenario():
     response = client.get("/api/v1/demo/scenario")
 
     assert response.status_code == 200
-    assert response.json()["facts"]["transaction_name"] == "Project Atlas"
+    assert response.json()["facts"]["transaction_name"] == "Project Redwood"
 
 
 def test_analyze_transaction():

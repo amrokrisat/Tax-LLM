@@ -6,11 +6,15 @@ from fastapi import APIRouter, Depends, Header
 from fastapi import HTTPException
 
 from tax_llm.application.reporting import export_run_markdown
+from tax_llm.application.structure_synthesis import StructureSynthesisService
+from tax_llm.application.use_cases import AnalyzeTransactionUseCase
 from tax_llm.domain.models import TransactionFacts, UploadedDocument
 from tax_llm.infrastructure.auth_store import AuthStore
+from tax_llm.infrastructure.ai_assist import OpenAIAssistService
 from tax_llm.infrastructure.document_extraction import DocumentExtractionService
 from tax_llm.infrastructure.matter_store import MatterStore
 from tax_llm.infrastructure.paths import backend_data_path
+from tax_llm.infrastructure.repositories import AuthorityCorpusRepository
 from tax_llm.interfaces.api.dependencies import (
     get_analyze_transaction_use_case,
     get_auth_store,
@@ -32,8 +36,8 @@ from tax_llm.interfaces.api.schemas import (
     MatterSummaryListResponse,
     MatterWorkspaceResponse,
     RunReviewInput,
+    StructureProposalReviewRequest,
 )
-from tax_llm.application.use_cases import AnalyzeTransactionUseCase
 
 router = APIRouter(prefix="/api/v1")
 
@@ -81,6 +85,7 @@ def analyze_transaction(
         transaction_roles=payload.transaction_roles,
         transaction_steps=payload.transaction_steps,
         election_items=payload.election_items,
+        structure_proposals=payload.structure_proposals,
     )
 
 
@@ -90,6 +95,13 @@ def _matter_store() -> MatterStore:
 
 def _document_extraction_service() -> DocumentExtractionService:
     return DocumentExtractionService()
+
+
+def _structure_synthesis_service() -> StructureSynthesisService:
+    return StructureSynthesisService(
+        authority_repository=AuthorityCorpusRepository(),
+        ai_assist_service=OpenAIAssistService(),
+    )
 
 
 @router.post("/auth/signup", response_model=AuthSessionResponse)
@@ -188,6 +200,7 @@ def create_matter(
         transaction_roles=payload.transaction_roles,
         transaction_steps=payload.transaction_steps,
         election_items=payload.election_items,
+        structure_proposals=payload.structure_proposals,
     )
     return MatterResponse(matter=matter)
 
@@ -231,6 +244,7 @@ def update_matter(
             transaction_roles=payload.transaction_roles,
             transaction_steps=payload.transaction_steps,
             election_items=payload.election_items,
+            structure_proposals=payload.structure_proposals,
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Matter not found.") from exc
@@ -294,6 +308,8 @@ def extract_documents(
         matter = store.get_matter(matter_id, user_id=current_user_id)
         extracted = _document_extraction_service().extract(matter.uploaded_documents)
         updated = store.update_document_extractions(matter_id, current_user_id, extracted)
+        proposals = _structure_synthesis_service().synthesize(updated)
+        updated = store.replace_structure_proposals(matter_id, current_user_id, proposals)
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Matter not found.") from exc
     return MatterResponse(matter=updated)
@@ -310,6 +326,46 @@ def confirm_document_facts(
             matter_id,
             current_user_id,
             [(item.document_index, item.fact_id, item.status) for item in payload.confirmations],
+        )
+        matter = _matter_store().replace_structure_proposals(
+            matter_id,
+            current_user_id,
+            _structure_synthesis_service().synthesize(matter),
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Matter not found.") from exc
+    return MatterResponse(matter=matter)
+
+
+@router.post("/matters/{matter_id}/structure/build", response_model=MatterResponse)
+def build_structure(
+    matter_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    store = _matter_store()
+    try:
+        matter = store.get_matter(matter_id, user_id=current_user_id)
+        matter = store.replace_structure_proposals(
+            matter_id,
+            current_user_id,
+            _structure_synthesis_service().synthesize(matter),
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Matter not found.") from exc
+    return MatterResponse(matter=matter)
+
+
+@router.post("/matters/{matter_id}/structure/review", response_model=MatterResponse)
+def review_structure(
+    matter_id: str,
+    payload: StructureProposalReviewRequest,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    try:
+        matter = _matter_store().review_structure_proposals(
+            matter_id,
+            current_user_id,
+            [(item.proposal_id, item.status) for item in payload.proposals],
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Matter not found.") from exc

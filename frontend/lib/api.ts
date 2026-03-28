@@ -30,6 +30,7 @@ export type ExtractedFact = {
 };
 
 export type StructuredRecordStatus = "proposed" | "confirmed" | "uncertain";
+export type StructureProposalStatus = "pending" | "accepted" | "rejected";
 export type EntityType =
   | "corporation"
   | "llc"
@@ -97,6 +98,30 @@ export type TransactionStepType =
   | "other";
 export type ElectionOrFilingStatus = "possible" | "required" | "selected" | "filed" | "uncertain";
 export type ElectionOrFilingType = "election" | "filing" | "compliance" | "other";
+
+export type StructureProposal = {
+  proposal_id: string;
+  proposal_kind:
+    | "entity"
+    | "ownership_link"
+    | "tax_classification"
+    | "transaction_role"
+    | "transaction_step"
+    | "election_filing_item";
+  record_status: StructuredRecordStatus;
+  review_status: StructureProposalStatus;
+  label: string;
+  rationale: string;
+  confidence: number;
+  certainty: "high" | "medium" | "low";
+  ambiguity_note?: string | null;
+  source_document_names: string[];
+  source_fact_ids: string[];
+  normalized_payload: Record<string, string | number | string[] | null>;
+  mapped_record_kind?: string | null;
+  mapped_record_id?: string | null;
+  mapped_record_label?: string | null;
+};
 
 export type Entity = {
   entity_id: string;
@@ -193,6 +218,7 @@ export type AnalyzeTransactionRequest = {
   transaction_roles?: TransactionRole[];
   transaction_steps?: TransactionStep[];
   election_items?: ElectionOrFilingItem[];
+  structure_proposals?: StructureProposal[];
 };
 
 export type AuthorityRecord = {
@@ -354,6 +380,7 @@ export type MatterRecord = {
   transaction_roles: TransactionRole[];
   transaction_steps: TransactionStep[];
   election_items: ElectionOrFilingItem[];
+  structure_proposals: StructureProposal[];
   latest_analysis: AnalysisResult | null;
   analysis_runs: AnalysisRun[];
   created_at: string;
@@ -372,6 +399,7 @@ export type MatterWorkspaceRecord = {
   transaction_roles: TransactionRole[];
   transaction_steps: TransactionStep[];
   election_items: ElectionOrFilingItem[];
+  structure_proposals: StructureProposal[];
   analysis_runs: AnalysisRunSummary[];
   created_at: string;
   updated_at: string;
@@ -399,12 +427,18 @@ export type MatterInput = {
   transaction_roles: TransactionRole[];
   transaction_steps: TransactionStep[];
   election_items: ElectionOrFilingItem[];
+  structure_proposals: StructureProposal[];
 };
 
 export type DocumentFactConfirmation = {
   document_index: number;
   fact_id: string;
   status: "pending" | "confirmed" | "rejected";
+};
+
+export type StructureProposalReview = {
+  proposal_id: string;
+  status: StructureProposalStatus;
 };
 
 export type RunReviewInput = {
@@ -632,6 +666,25 @@ export async function confirmExtractedFacts(
   return parseMatterResponse(response);
 }
 
+export async function buildMatterStructure(matterId: string): Promise<MatterRecord> {
+  const response = await fetch(`/api/matters/${matterId}/structure/build`, {
+    method: "POST",
+  });
+  return parseMatterResponse(response);
+}
+
+export async function reviewStructureProposals(
+  matterId: string,
+  proposals: StructureProposalReview[],
+): Promise<MatterRecord> {
+  const response = await fetch(`/api/matters/${matterId}/structure/review`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ proposals }),
+  });
+  return parseMatterResponse(response);
+}
+
 export async function reviewRun(
   matterId: string,
   runId: string,
@@ -691,4 +744,5 @@ export const emptyRequest: AnalyzeTransactionRequest = {
   transaction_roles: [],
   transaction_steps: [],
   election_items: [],
+  structure_proposals: [],
 };
