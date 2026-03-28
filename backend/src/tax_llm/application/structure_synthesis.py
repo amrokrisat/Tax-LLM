@@ -12,6 +12,49 @@ def _clean_name(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip(" .,:;")
 
 
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-") or "item"
+
+
+def _infer_entity_type(name: str, context_text: str) -> str:
+    lowered = name.lower()
+    if "llc" in lowered:
+        return "llc"
+    if any(term in lowered for term in ["corporation", "corp", "inc"]):
+        return "corporation"
+    if any(term in lowered for term in ["lp", "l.p.", "fund", "partners"]) and "corp" not in lowered:
+        return "partnership"
+    if any(term in lowered for term in ["trust", "trustee"]):
+        return "trust"
+    if any(term in lowered for term in ["parent", "merger sub", "sub", "blocker", "holdco", "target", "buyer", "acq "]):
+        return "corporation"
+    if "individual" in context_text.lower() and lowered in context_text.lower():
+        return "individual"
+    return "other"
+
+
+def _infer_roles(name: str) -> list[str]:
+    lowered = name.lower()
+    roles: list[str] = []
+    if "buyer" in lowered or "acq parent" in lowered:
+        roles.append("buyer")
+    if "seller" in lowered:
+        roles.append("seller")
+    if "target" in lowered:
+        roles.append("target")
+    if "parent" in lowered:
+        roles.append("parent")
+    if "merger sub" in lowered or re.search(r"\bsub\b", lowered):
+        roles.append("merger_sub")
+    if "holdco" in lowered or "holding" in lowered:
+        roles.append("holding_company")
+    if "blocker" in lowered:
+        roles.append("blocker")
+    if "founder" in lowered or "individual" in lowered:
+        roles.append("individual_owner")
+    return list(dict.fromkeys(roles))
+
+
 def _normalized_label(kind: str, payload: dict[str, object]) -> str:
     if kind == "entity":
         return str(payload.get("name") or "Entity")
@@ -91,7 +134,7 @@ class StructureSynthesisService:
             cleaned = _clean_name(name)
             if not cleaned or cleaned.lower() in known_entities:
                 continue
-            entity_type = "llc" if "llc" in cleaned.lower() else "corporation" if any(term in cleaned.lower() for term in ["corp", "inc"]) else "individual" if "individual" in lowered and cleaned.lower() in lowered else "other"
+            entity_type = _infer_entity_type(cleaned, text)
             proposals.append(
                 StructureProposal(
                     proposal_id=f"proposal-{uuid4()}",
@@ -105,6 +148,24 @@ class StructureSynthesisService:
                     normalized_payload={"name": cleaned, "entity_type": entity_type, "status": "proposed"},
                 )
             )
+            for role in _infer_roles(cleaned):
+                proposals.append(
+                    StructureProposal(
+                        proposal_id=f"proposal-{uuid4()}",
+                        proposal_kind="transaction_role",
+                        label=f"{cleaned}: {role}",
+                        rationale="Role inferred from the entity name and transaction wording in the current matter facts.",
+                        confidence=0.63 if role in {"buyer", "seller", "target", "parent", "merger_sub"} else 0.59,
+                        certainty="medium",
+                        source_document_names=[],
+                        source_fact_ids=[],
+                        normalized_payload={
+                            "entity_name": cleaned,
+                            "role_type": role,
+                            "status": "proposed",
+                        },
+                    )
+                )
 
         chains = re.findall(
             r"([A-Z][A-Za-z0-9& ]+(?:LLC|Corp(?:oration)?|Inc\.?|HoldCo|Target(?: LLC)?|Buyer|Merger Sub|Blocker))\s+(?:owns|owned|wholly owns|wholly-owned)\s+([A-Z][A-Za-z0-9& ]+(?:LLC|Corp(?:oration)?|Inc\.?|HoldCo|Target(?: LLC)?|Buyer|Merger Sub|Blocker))",
@@ -129,6 +190,123 @@ class StructureSynthesisService:
                         "relationship_type": "owns",
                         "ownership_scope": "direct",
                         "status": "proposed",
+                    },
+                    )
+                )
+
+        acquisition_candidates = [
+            name for name in matter.facts.entities if any(token in name.lower() for token in ["blocker", "target", "parent", "merger sub", "holdco"])
+        ]
+
+        if "form acq merger sub" in lowered or "form acq merger sub" in lowered or "form acq merger sub to acquire" in lowered:
+            proposals.append(
+                StructureProposal(
+                    proposal_id=f"proposal-step-{uuid4()}",
+                    proposal_kind="transaction_step",
+                    label="Acq Parent forms Acq Merger Sub",
+                    rationale="The current matter text describes a pre-closing formation of the merger subsidiary.",
+                    confidence=0.72,
+                    certainty="medium",
+                    source_document_names=[],
+                    source_fact_ids=[],
+                    normalized_payload={
+                        "title": "Acq Parent forms Acq Merger Sub",
+                        "phase": "pre_closing",
+                        "step_type": "pre_closing_reorganization",
+                        "description": "Buyer forms merger subsidiary before the acquisition closing.",
+                        "entity_names": [name for name in acquisition_candidates if name in {"Acq Parent", "Acq Merger Sub"}],
+                        "status": "proposed",
+                    },
+                )
+            )
+
+        if "merger-sub acquisition" in lowered or "merger sub acquisition" in lowered or "acquire the blocker stock" in lowered or "acquires target stock" in lowered:
+            entities = [
+                name
+                for name in matter.facts.entities
+                if any(token in name.lower() for token in ["acq merger sub", "acq parent", "blocker", "target"])
+            ]
+            proposals.append(
+                StructureProposal(
+                    proposal_id=f"proposal-step-{uuid4()}",
+                    proposal_kind="transaction_step",
+                    label="Acq Merger Sub closes stock acquisition",
+                    rationale="The matter text describes a closing acquisition step through merger sub or blocker stock purchase language.",
+                    confidence=0.76,
+                    certainty="medium",
+                    source_document_names=[],
+                    source_fact_ids=[],
+                    normalized_payload={
+                        "title": "Acq Merger Sub closes stock acquisition",
+                        "phase": "closing",
+                        "step_type": "stock_purchase" if "stock" in lowered else "merger",
+                        "description": "Closing acquisition step for the contemplated merger-sub / blocker structure.",
+                        "entity_names": entities,
+                        "status": "proposed",
+                    },
+                )
+            )
+
+        if "post-closing integration" in lowered or "post closing integration" in lowered or "expects post-closing integration" in lowered:
+            proposals.append(
+                StructureProposal(
+                    proposal_id=f"proposal-step-{uuid4()}",
+                    proposal_kind="transaction_step",
+                    label="Post-closing integration",
+                    rationale="The matter text explicitly references post-closing integration planning.",
+                    confidence=0.68,
+                    certainty="medium",
+                    source_document_names=[],
+                    source_fact_ids=[],
+                    normalized_payload={
+                        "title": "Post-closing integration",
+                        "phase": "post_closing",
+                        "step_type": "post_closing_integration",
+                        "description": "Post-closing integration of the acquired business into buyer operations.",
+                        "entity_names": [name for name in matter.facts.entities if any(token in name.lower() for token in ["acq", "target", "blocker"])],
+                        "status": "proposed",
+                    },
+                )
+            )
+
+        if any(term in lowered for term in ["338(h)(10)", "336(e)", "338 election", "form 8023"]):
+            proposals.append(
+                StructureProposal(
+                    proposal_id=f"proposal-step-{uuid4()}",
+                    proposal_kind="transaction_step",
+                    label="Evaluate election mechanics",
+                    rationale="The deal materials explicitly raise election-sensitive modeling and filing mechanics.",
+                    confidence=0.65,
+                    certainty="medium",
+                    source_document_names=[],
+                    source_fact_ids=[],
+                    normalized_payload={
+                        "title": "Evaluate election mechanics",
+                        "phase": "pre_closing",
+                        "step_type": "election",
+                        "description": "Model and coordinate section 338(h)(10) / 336(e)-sensitive election availability before closing.",
+                        "entity_names": [name for name in matter.facts.entities if any(token in name.lower() for token in ["acq", "blocker", "target"])],
+                        "status": "proposed",
+                    },
+                )
+            )
+            proposals.append(
+                StructureProposal(
+                    proposal_id=f"proposal-item-{uuid4()}",
+                    proposal_kind="election_filing_item",
+                    label="Form 8023 workstream",
+                    rationale="Election-sensitive language in the matter suggests a filing workstream should be tracked early.",
+                    confidence=0.64,
+                    certainty="medium",
+                    source_document_names=[],
+                    source_fact_ids=[],
+                    normalized_payload={
+                        "name": "Form 8023 workstream",
+                        "item_type": "filing",
+                        "citation_or_form": "Form 8023",
+                        "related_entity_names": [name for name in matter.facts.entities if any(token in name.lower() for token in ["acq", "blocker", "target"])],
+                        "status": "possible",
+                        "notes": "Track election and filing mechanics if the deal facts support a section 338 path.",
                     },
                 )
             )

@@ -171,6 +171,142 @@
       }
     },
     {
+      "proposal_id": "demo-entity-acq-parent",
+      "proposal_kind": "entity",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Acq Parent",
+      "rationale": "Named as the buyer parent in the merger-sub acquisition structure.",
+      "confidence": 0.92,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "name": "Acq Parent",
+        "entity_type": "corporation",
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-entity-acq-merger-sub",
+      "proposal_kind": "entity",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Acq Merger Sub",
+      "rationale": "Named as the merger subsidiary in the acquisition structure.",
+      "confidence": 0.92,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "name": "Acq Merger Sub",
+        "entity_type": "corporation",
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-role-acq-parent",
+      "proposal_kind": "transaction_role",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Acq Parent: buyer",
+      "rationale": "The LOI positions Acq Parent as the buyer parent.",
+      "confidence": 0.9,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "entity_name": "Acq Parent",
+        "role_type": "buyer",
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-role-acq-parent-parent",
+      "proposal_kind": "transaction_role",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Acq Parent: parent",
+      "rationale": "The LOI positions Acq Parent above merger sub.",
+      "confidence": 0.86,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "entity_name": "Acq Parent",
+        "role_type": "parent",
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-role-acq-merger-sub",
+      "proposal_kind": "transaction_role",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Acq Merger Sub: merger sub",
+      "rationale": "The LOI explicitly references Acq Merger Sub.",
+      "confidence": 0.9,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "entity_name": "Acq Merger Sub",
+        "role_type": "merger_sub",
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-role-blocker",
+      "proposal_kind": "transaction_role",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Redwood Blocker Corporation: blocker",
+      "rationale": "The diligence notes describe the corporation as a blocker.",
+      "confidence": 0.9,
+      "certainty": "high",
+      "source_document_names": ["Tax diligence notes.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "entity_name": "Redwood Blocker Corporation",
+        "role_type": "blocker",
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-role-holdco",
+      "proposal_kind": "transaction_role",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Redwood HoldCo LLC: holding company",
+      "rationale": "The ownership chain describes HoldCo as the holding company.",
+      "confidence": 0.88,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "entity_name": "Redwood HoldCo LLC",
+        "role_type": "holding_company",
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-role-target",
+      "proposal_kind": "transaction_role",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Redwood Target LLC: target",
+      "rationale": "The diligence notes identify the target operating business.",
+      "confidence": 0.9,
+      "certainty": "high",
+      "source_document_names": ["Tax diligence notes.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "entity_name": "Redwood Target LLC",
+        "role_type": "target",
+        "status": "proposed"
+      }
+    },
+    {
       "proposal_id": "demo-classification-target",
       "proposal_kind": "tax_classification",
       "record_status": "proposed",
@@ -185,6 +321,86 @@
         "entity_name": "Redwood Target LLC",
         "classification_type": "disregarded_entity",
         "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-step-form-merger-sub",
+      "proposal_kind": "transaction_step",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Acq Parent forms Acq Merger Sub",
+      "rationale": "The LOI contemplates a pre-closing formation of merger sub.",
+      "confidence": 0.86,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "title": "Acq Parent forms Acq Merger Sub",
+        "phase": "pre_closing",
+        "step_type": "pre_closing_reorganization",
+        "description": "Buyer forms merger subsidiary before closing.",
+        "entity_names": ["Acq Parent", "Acq Merger Sub"],
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-step-close-acquisition",
+      "proposal_kind": "transaction_step",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Acq Merger Sub closes stock acquisition",
+      "rationale": "The LOI contemplates a stock-form acquisition through merger sub.",
+      "confidence": 0.88,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "title": "Acq Merger Sub closes stock acquisition",
+        "phase": "closing",
+        "step_type": "stock_purchase",
+        "description": "Closing acquisition step for the blocker / target structure.",
+        "entity_names": ["Acq Parent", "Acq Merger Sub", "Redwood Blocker Corporation", "Redwood Target LLC"],
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-step-election",
+      "proposal_kind": "transaction_step",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Evaluate election mechanics",
+      "rationale": "The materials call out 338(h)(10), 336(e), and Form 8023-sensitive modeling.",
+      "confidence": 0.8,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt", "Tax diligence notes.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "title": "Evaluate election mechanics",
+        "phase": "pre_closing",
+        "step_type": "election",
+        "description": "Model election availability and economics before closing.",
+        "entity_names": ["Acq Parent", "Redwood Blocker Corporation", "Redwood Target LLC"],
+        "status": "proposed"
+      }
+    },
+    {
+      "proposal_id": "demo-filing-8023",
+      "proposal_kind": "election_filing_item",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Form 8023 workstream",
+      "rationale": "The diligence materials explicitly reference Form 8023-sensitive planning.",
+      "confidence": 0.78,
+      "certainty": "high",
+      "source_document_names": ["Tax diligence notes.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "name": "Form 8023 workstream",
+        "item_type": "filing",
+        "citation_or_form": "Form 8023",
+        "related_entity_names": ["Acq Parent", "Redwood Blocker Corporation", "Redwood Target LLC"],
+        "status": "possible",
+        "notes": "Track if the final facts support a section 338 filing path."
       }
     }
   ]
