@@ -18,8 +18,6 @@ export async function GET(request: NextRequest) {
     redirect_uri: redirectUri,
     response_type: "code",
     scope: "openid email profile",
-    access_type: "offline",
-    prompt: "consent",
   });
 
   return NextResponse.redirect(
