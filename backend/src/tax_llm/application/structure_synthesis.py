@@ -201,6 +201,26 @@ class StructureSynthesisService:
         if "form acq merger sub" in lowered or "form acq merger sub" in lowered or "form acq merger sub to acquire" in lowered:
             proposals.append(
                 StructureProposal(
+                    proposal_id=f"proposal-link-{uuid4()}",
+                    proposal_kind="ownership_link",
+                    label="Acq Parent -> Acq Merger Sub",
+                    rationale="The matter text describes Acq Parent forming and owning the merger subsidiary before closing.",
+                    confidence=0.74,
+                    certainty="medium",
+                    source_document_names=[],
+                    source_fact_ids=[],
+                    normalized_payload={
+                        "parent_entity_name": "Acq Parent",
+                        "child_entity_name": "Acq Merger Sub",
+                        "relationship_type": "owns",
+                        "ownership_scope": "direct",
+                        "ownership_percentage": 100,
+                        "status": "proposed",
+                    },
+                )
+            )
+            proposals.append(
+                StructureProposal(
                     proposal_id=f"proposal-step-{uuid4()}",
                     proposal_kind="transaction_step",
                     label="Acq Parent forms Acq Merger Sub",

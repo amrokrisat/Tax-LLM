@@ -391,16 +391,28 @@ export type StructureDiagramArrow = {
   proposalId?: string;
 };
 
+export type StructureDiagramPendingReviewGroups = {
+  entities: StructureProposal[];
+  relationships: StructureProposal[];
+  taxAndRoles: StructureProposal[];
+  stepsAndFilings: StructureProposal[];
+};
+
 export type StructureDiagramModel = {
   nodes: StructureDiagramNode[];
   ownershipEdges: StructureDiagramOwnershipEdge[];
   crossLinks: StructureDiagramOwnershipEdge[];
   transactionArrows: StructureDiagramArrow[];
+  hiddenTransactionArrows: StructureDiagramArrow[];
   pendingProposals: StructureProposal[];
+  pendingReviewGroups: StructureDiagramPendingReviewGroups;
   canvasWidth: number;
   canvasHeight: number;
   unlinkedNodes: StructureDiagramNode[];
   multiOwnerNodes: StructureDiagramNode[];
+  primaryNodes: StructureDiagramNode[];
+  primaryOwnershipEdges: StructureDiagramOwnershipEdge[];
+  secondaryNodes: StructureDiagramNode[];
 };
 
 function statusRank(status: StructuredRecordStatus) {
@@ -526,6 +538,90 @@ function edgeLabel(link: OwnershipLink) {
     return `${link.ownership_percentage}%`;
   }
   return titleFromStatus(link.relationship_type);
+}
+
+function rolePriority(role: string) {
+  switch (role) {
+    case "target":
+      return 64;
+    case "blocker":
+      return 46;
+    case "holding_company":
+      return 34;
+    case "individual_owner":
+    case "seller":
+      return 28;
+    case "buyer":
+      return 38;
+    case "parent":
+      return 30;
+    case "merger_sub":
+      return 30;
+    default:
+      return 8;
+  }
+}
+
+function inferNameSignals(name: string) {
+  const lowered = normalizeName(name);
+  return {
+    sellerSide:
+      /founder|holdco|blocker|target|seller/.test(lowered),
+    buyerSide: /acq|buyer|parent|merger sub|sub/.test(lowered),
+  };
+}
+
+function componentLabel(
+  entityIds: string[],
+  rolesByEntityId: Record<string, string[]>,
+  entitiesById: Record<string, Entity>,
+) {
+  let sellerSignals = 0;
+  let buyerSignals = 0;
+  for (const entityId of entityIds) {
+    const entity = entitiesById[entityId];
+    const roles = rolesByEntityId[entityId] ?? [];
+    for (const role of roles) {
+      if (["target", "blocker", "holding_company", "individual_owner", "seller"].includes(role)) {
+        sellerSignals += 2;
+      }
+      if (["buyer", "parent", "merger_sub"].includes(role)) {
+        buyerSignals += 2;
+      }
+    }
+    const signals = inferNameSignals(entity?.name ?? "");
+    if (signals.sellerSide) {
+      sellerSignals += 1;
+    }
+    if (signals.buyerSide) {
+      buyerSignals += 1;
+    }
+  }
+  if (sellerSignals >= buyerSignals && sellerSignals > 0) {
+    return "Seller-side legal chain";
+  }
+  if (buyerSignals > 0) {
+    return "Buyer-side chain";
+  }
+  return "Additional legal chain";
+}
+
+function buildPendingReviewGroups(
+  proposals: StructureProposal[],
+): StructureDiagramPendingReviewGroups {
+  const pending = proposals.filter((proposal) => proposal.review_status === "pending");
+  return {
+    entities: pending.filter((proposal) => proposal.proposal_kind === "entity"),
+    relationships: pending.filter((proposal) =>
+      ["ownership_link"].includes(proposal.proposal_kind),
+    ),
+    taxAndRoles: pending.filter((proposal) =>
+      ["tax_classification", "transaction_role"].includes(proposal.proposal_kind),
+    ),
+    stepsAndFilings: pending.filter((proposal) =>
+      ["transaction_step", "election_filing_item"].includes(proposal.proposal_kind),
+    ),
+  };
 }
 
 type BaseNodeData = Omit<
@@ -764,26 +860,6 @@ export function deriveStructureDiagram(
   const byId = Object.fromEntries(
     materialized.entities.map((entity) => [entity.entity_id, entity]),
   );
-  const inboundByChild = materialized.ownershipLinks.reduce<Record<string, OwnershipLink[]>>(
-    (acc, link) => {
-      if (!acc[link.child_entity_id]) {
-        acc[link.child_entity_id] = [];
-      }
-      acc[link.child_entity_id].push(link);
-      return acc;
-    },
-    {},
-  );
-  const outboundByParent = materialized.ownershipLinks.reduce<Record<string, OwnershipLink[]>>(
-    (acc, link) => {
-      if (!acc[link.parent_entity_id]) {
-        acc[link.parent_entity_id] = [];
-      }
-      acc[link.parent_entity_id].push(link);
-      return acc;
-    },
-    {},
-  );
   const classificationsByEntityId = Object.fromEntries(
     materialized.taxClassifications.map((item) => [item.entity_id, item]),
   );
@@ -820,9 +896,53 @@ export function deriveStructureDiagram(
     materialized.ownershipLinks,
   );
 
+  const chartLinks = [...materialized.ownershipLinks];
+  const parentCandidates = materialized.entities.filter((entity) =>
+    (rolesByEntityId[entity.entity_id] ?? []).includes("parent"),
+  );
+  const mergerSubCandidates = materialized.entities.filter((entity) =>
+    (rolesByEntityId[entity.entity_id] ?? []).includes("merger_sub"),
+  );
+  if (
+    parentCandidates.length === 1 &&
+    mergerSubCandidates.length === 1 &&
+    !chartLinks.some(
+      (link) =>
+        link.parent_entity_id === parentCandidates[0].entity_id &&
+        link.child_entity_id === mergerSubCandidates[0].entity_id,
+    )
+  ) {
+    chartLinks.push({
+      link_id: `derived-parent-${parentCandidates[0].entity_id}-${mergerSubCandidates[0].entity_id}`,
+      parent_entity_id: parentCandidates[0].entity_id,
+      child_entity_id: mergerSubCandidates[0].entity_id,
+      relationship_type: "owns",
+      ownership_scope: "direct",
+      ownership_percentage: 100,
+      status: "proposed",
+      notes: "Derived display link from the parent / merger-sub structure.",
+      source_fact_ids: [],
+    });
+  }
+
+  const inboundByChild = chartLinks.reduce<Record<string, OwnershipLink[]>>((acc, link) => {
+    if (!acc[link.child_entity_id]) {
+      acc[link.child_entity_id] = [];
+    }
+    acc[link.child_entity_id].push(link);
+    return acc;
+  }, {});
+  const outboundByParent = chartLinks.reduce<Record<string, OwnershipLink[]>>((acc, link) => {
+    if (!acc[link.parent_entity_id]) {
+      acc[link.parent_entity_id] = [];
+    }
+    acc[link.parent_entity_id].push(link);
+    return acc;
+  }, {});
+
   const multiOwnerIds = new Set(
     materialized.entities
-      .filter((entity) => (inboundByChild[entity.entity_id] ?? []).length > 1)
+      .filter((entity) => (chartLinks.filter((link) => link.child_entity_id === entity.entity_id)).length > 1)
       .map((entity) => entity.entity_id),
   );
 
@@ -844,9 +964,96 @@ export function deriveStructureDiagram(
     ]),
   ) as Record<string, BaseNodeData>;
 
-  const mainTreeChildIdsByParent = materialized.ownershipLinks.reduce<Record<string, string[]>>(
+  const connectedIdsByEntity = chartLinks.reduce<Record<string, Set<string>>>((acc, link) => {
+    if (!acc[link.parent_entity_id]) {
+      acc[link.parent_entity_id] = new Set();
+    }
+    if (!acc[link.child_entity_id]) {
+      acc[link.child_entity_id] = new Set();
+    }
+    acc[link.parent_entity_id].add(link.child_entity_id);
+    acc[link.child_entity_id].add(link.parent_entity_id);
+    return acc;
+  }, {});
+
+  const visited = new Set<string>();
+  const components = materialized.entities.map((entity) => entity.entity_id).reduce<string[][]>((acc, entityId) => {
+    if (visited.has(entityId)) {
+      return acc;
+    }
+    const stack = [entityId];
+    const component: string[] = [];
+    visited.add(entityId);
+    while (stack.length) {
+      const current = stack.pop()!;
+      component.push(current);
+      for (const neighbor of connectedIdsByEntity[current] ?? []) {
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor);
+          stack.push(neighbor);
+        }
+      }
+    }
+    acc.push(component);
+    return acc;
+  }, []);
+
+  function structuralImportance(entityId: string) {
+    const entity = byId[entityId];
+    const roles = rolesByEntityId[entityId] ?? [];
+    const classification = classificationsByEntityId[entityId];
+    const inboundCount = chartLinks.filter((link) => link.child_entity_id === entityId).length;
+    const outboundCount = chartLinks.filter((link) => link.parent_entity_id === entityId).length;
+    return (
+      statusRank(entity?.status ?? "proposed") * 40 +
+      roles.reduce((sum, role) => sum + rolePriority(role), 0) +
+      (classification?.classification_type === "disregarded_entity" ? 24 : 0) +
+      (classification?.classification_type === "partnership" ? 16 : 0) +
+      inboundCount * 8 +
+      outboundCount * 10 +
+      (stepsByEntityId[entityId] ?? 0) * 4 +
+      (electionsByEntityId[entityId] ?? 0) * 3
+    );
+  }
+
+  const componentMeta = components.map((entityIds) => {
+    const label = componentLabel(entityIds, rolesByEntityId, byId);
+    return {
+      entityIds,
+      label,
+      score:
+        entityIds.reduce((sum, entityId) => sum + structuralImportance(entityId), 0) +
+        chartLinks.filter(
+          (link) =>
+            entityIds.includes(link.parent_entity_id) &&
+            entityIds.includes(link.child_entity_id),
+        ).length *
+          12,
+    };
+  });
+
+  const sellerComponent = componentMeta
+    .filter((component) => component.label === "Seller-side legal chain")
+    .sort((left, right) => right.score - left.score)[0];
+  const buyerComponent = componentMeta
+    .filter((component) => component.label === "Buyer-side chain")
+    .sort((left, right) => right.score - left.score)
+    .find((component) => component !== sellerComponent);
+  const selectedComponents =
+    [sellerComponent, buyerComponent].filter(Boolean) as Array<(typeof componentMeta)[number]>;
+  const fallbackComponents =
+    selectedComponents.length > 0
+      ? selectedComponents
+      : componentMeta.sort((left, right) => right.score - left.score).slice(0, 1);
+  const primaryEntityIds = new Set(fallbackComponents.flatMap((component) => component.entityIds));
+
+  const mainTreeChildIdsByParent = chartLinks.reduce<Record<string, string[]>>(
     (acc, link) => {
-      if (multiOwnerIds.has(link.child_entity_id)) {
+      if (
+        multiOwnerIds.has(link.child_entity_id) ||
+        !primaryEntityIds.has(link.parent_entity_id) ||
+        !primaryEntityIds.has(link.child_entity_id)
+      ) {
         return acc;
       }
       if (!acc[link.parent_entity_id]) {
@@ -858,8 +1065,43 @@ export function deriveStructureDiagram(
     {},
   );
 
+  const inboundCountByChild = chartLinks.reduce<Record<string, number>>((acc, link) => {
+    acc[link.child_entity_id] = (acc[link.child_entity_id] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const componentByEntityId = new Map<string, (typeof componentMeta)[number]>();
+  for (const component of componentMeta) {
+    for (const entityId of component.entityIds) {
+      componentByEntityId.set(entityId, component);
+    }
+  }
+
   const rootIds = materialized.entities
-    .filter((entity) => (inboundByChild[entity.entity_id] ?? []).length === 0)
+    .filter(
+      (entity) =>
+        primaryEntityIds.has(entity.entity_id) &&
+        (inboundCountByChild[entity.entity_id] ?? 0) === 0,
+    )
+    .sort((left, right) => {
+      const leftComponent = componentByEntityId.get(left.entity_id);
+      const rightComponent = componentByEntityId.get(right.entity_id);
+      if ((leftComponent?.label ?? "") !== (rightComponent?.label ?? "")) {
+        if (leftComponent?.label === "Seller-side legal chain") {
+          return -1;
+        }
+        if (rightComponent?.label === "Seller-side legal chain") {
+          return 1;
+        }
+        if (leftComponent?.label === "Buyer-side chain") {
+          return -1;
+        }
+        if (rightComponent?.label === "Buyer-side chain") {
+          return 1;
+        }
+      }
+      return (rightComponent?.score ?? 0) - (leftComponent?.score ?? 0);
+    })
     .map((entity) => entity.entity_id);
 
   const positionedNodeById = new Map<string, StructureDiagramNode>();
@@ -908,7 +1150,7 @@ export function deriveStructureDiagram(
   );
   const positionedIds = new Set(nodes.map((node) => node.entity.entity_id));
 
-  const ownershipEdges = materialized.ownershipLinks
+  const ownershipEdges = chartLinks
     .filter(
       (link) =>
         positionedIds.has(link.parent_entity_id) &&
@@ -928,11 +1170,11 @@ export function deriveStructureDiagram(
         }) satisfies StructureDiagramOwnershipEdge,
     );
 
-  const crossLinks = materialized.ownershipLinks
+  const crossLinks = chartLinks
     .filter(
       (link) =>
-        positionedIds.has(link.parent_entity_id) &&
-        positionedIds.has(link.child_entity_id) &&
+        primaryEntityIds.has(link.parent_entity_id) &&
+        primaryEntityIds.has(link.child_entity_id) &&
         multiOwnerIds.has(link.child_entity_id),
     )
     .map(
@@ -948,8 +1190,8 @@ export function deriveStructureDiagram(
         }) satisfies StructureDiagramOwnershipEdge,
     );
 
-  const unlinkedNodes = materialized.entities
-    .filter((entity) => !positionedIds.has(entity.entity_id))
+  const secondaryNodes = materialized.entities
+    .filter((entity) => !primaryEntityIds.has(entity.entity_id))
     .map((entity, index) => ({
       ...baseNodeById[entity.entity_id],
       x: CANVAS_PADDING_X + (index % 3) * (NODE_WIDTH + 20),
@@ -958,7 +1200,7 @@ export function deriveStructureDiagram(
       height: NODE_HEIGHT,
     }));
 
-  const multiOwnerNodes = unlinkedNodes.filter((node) =>
+  const multiOwnerNodes = secondaryNodes.filter((node) =>
     multiOwnerIds.has(node.entity.entity_id),
   );
 
@@ -979,12 +1221,26 @@ export function deriveStructureDiagram(
       proposalIndexes.stepById,
     ).filter(
       (arrow) =>
-        positionedIds.has(arrow.sourceEntityId) && positionedIds.has(arrow.targetEntityId),
+        primaryEntityIds.has(arrow.sourceEntityId) && primaryEntityIds.has(arrow.targetEntityId),
+    ),
+    hiddenTransactionArrows: deriveTransactionArrows(
+      materialized.transactionSteps,
+      byId,
+      proposalIndexes.stepById,
+    ).filter(
+      (arrow) =>
+        !(
+          primaryEntityIds.has(arrow.sourceEntityId) && primaryEntityIds.has(arrow.targetEntityId)
+        ),
     ),
     pendingProposals: proposalIndexes.pending,
+    pendingReviewGroups: buildPendingReviewGroups(proposalIndexes.pending),
     canvasWidth: maxRight + CANVAS_PADDING_X,
     canvasHeight: maxBottom + CANVAS_PADDING_Y,
-    unlinkedNodes,
+    unlinkedNodes: secondaryNodes,
     multiOwnerNodes,
+    primaryNodes: nodes,
+    primaryOwnershipEdges: ownershipEdges,
+    secondaryNodes,
   };
 }

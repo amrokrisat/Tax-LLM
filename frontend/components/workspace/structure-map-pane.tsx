@@ -23,6 +23,13 @@ function titleCase(value: string) {
   return value.replaceAll("_", " ");
 }
 
+function truncateList(values: string[], limit = 3) {
+  if (values.length <= limit) {
+    return values.join(", ");
+  }
+  return `${values.slice(0, limit).join(", ")} +${values.length - limit} more`;
+}
+
 function proposalKindLabel(kind: StructureProposal["proposal_kind"]) {
   switch (kind) {
     case "ownership_link":
@@ -584,6 +591,18 @@ export const StructureMapPane = memo(function StructureMapPane({
   );
   const boardRef = useRef<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState(1);
+  const primaryProposalIds = useMemo(
+    () =>
+      new Set(
+        diagram.primaryNodes.flatMap((node) => [
+          node.proposalIdsByKind.entity,
+          node.proposalIdsByKind.classification,
+          ...node.proposalIdsByKind.roles,
+          ...node.proposalIdsByKind.steps,
+        ]),
+      ),
+    [diagram.primaryNodes],
+  );
   const activeProposalId = useMemo(() => {
     if (
       selectedProposalId &&
@@ -591,8 +610,13 @@ export const StructureMapPane = memo(function StructureMapPane({
     ) {
       return selectedProposalId;
     }
-    return diagram.pendingProposals[0]?.proposal_id ?? null;
-  }, [diagram.pendingProposals, proposals, selectedProposalId]);
+    return (
+      diagram.pendingProposals.find((proposal) => primaryProposalIds.has(proposal.proposal_id))
+        ?.proposal_id ??
+      diagram.pendingProposals[0]?.proposal_id ??
+      null
+    );
+  }, [diagram.pendingProposals, primaryProposalIds, proposals, selectedProposalId]);
   const selectedProposal = useMemo(
     () => proposals.find((proposal) => proposal.proposal_id === activeProposalId) ?? null,
     [activeProposalId, proposals],
@@ -600,9 +624,9 @@ export const StructureMapPane = memo(function StructureMapPane({
   const labelEntityById = useMemo(
     () =>
       Object.fromEntries(
-        [...diagram.nodes, ...diagram.unlinkedNodes].map((node) => [node.entity.entity_id, node.entity]),
+        [...diagram.primaryNodes, ...diagram.secondaryNodes].map((node) => [node.entity.entity_id, node.entity]),
       ) as Record<string, Entity>,
-    [diagram.nodes, diagram.unlinkedNodes],
+    [diagram.primaryNodes, diagram.secondaryNodes],
   );
 
   function fitView() {
@@ -643,14 +667,24 @@ export const StructureMapPane = memo(function StructureMapPane({
         <Legend />
         <div className="chip-row">
           <span className="chip">{diagram.pendingProposals.length} pending review items</span>
+          <span className="chip">{diagram.primaryNodes.length} core chart entities</span>
+          <span className="chip">{diagram.secondaryNodes.length} secondary entities</span>
           <span className="chip">Canvas auto-layout</span>
         </div>
       </div>
 
       <div className="structure-diagram-layout">
         <div className="stack structure-diagram-main">
-          {diagram.nodes.length ? (
+          {diagram.primaryNodes.length ? (
             <div className="subpanel stack">
+              <div className="structure-section-copy">
+                <h3>Main legal chart</h3>
+                <p className="muted">
+                  The canvas is intentionally focused on the best-supported legal ownership
+                  structure first. Secondary inferred items stay reviewable below so the
+                  company chart remains readable.
+                </p>
+              </div>
               <div ref={boardRef} className="structure-board-shell">
                 <div
                   className="structure-board-scale"
@@ -678,8 +712,8 @@ export const StructureMapPane = memo(function StructureMapPane({
                     </pattern>
                     <rect x={0} y={0} width={diagram.canvasWidth} height={diagram.canvasHeight} fill="url(#structure-grid)" />
                     <DiagramCanvas
-                      nodes={diagram.nodes}
-                      ownershipEdges={diagram.ownershipEdges}
+                      nodes={diagram.primaryNodes}
+                      ownershipEdges={diagram.primaryOwnershipEdges}
                       transactionArrows={diagram.transactionArrows}
                       selectedProposalId={activeProposalId}
                       onSelectProposal={setSelectedProposalId}
@@ -691,8 +725,8 @@ export const StructureMapPane = memo(function StructureMapPane({
           ) : (
             <div className="subpanel">
               <p className="muted">
-                No structure has been inferred yet. Update the facts or documents and the
-                chart proposals will refresh automatically.
+                No primary legal chart is available yet. Update the facts or documents and the
+                structure proposals will refresh automatically.
               </p>
             </div>
           )}
@@ -721,11 +755,18 @@ export const StructureMapPane = memo(function StructureMapPane({
             </div>
           ) : null}
 
-          {diagram.unlinkedNodes.length ? (
+          {diagram.secondaryNodes.length ? (
             <div className="subpanel stack">
-              <h3>Unlinked participants</h3>
+              <div className="structure-section-copy">
+                <h3>Additional entities</h3>
+                <p className="muted">
+                  These inferred entities are still reviewable, but they are intentionally kept
+                  off the primary company chart until they are structurally important enough to
+                  clarify the legal diagram.
+                </p>
+              </div>
               <div className="structure-unlinked-grid">
-                {diagram.unlinkedNodes.map((node) => (
+                {diagram.secondaryNodes.map((node) => (
                   <button
                     key={node.entity.entity_id}
                     type="button"
@@ -753,11 +794,72 @@ export const StructureMapPane = memo(function StructureMapPane({
                       {titleCase(node.entity.entity_type)}
                       {node.classificationLabel ? ` · ${node.classificationLabel}` : ""}
                     </span>
+                    {node.roles.length ? (
+                      <span className="muted">{truncateList(node.roles.map(titleCase), 2)}</span>
+                    ) : null}
                   </button>
                 ))}
               </div>
             </div>
           ) : null}
+
+          {diagram.hiddenTransactionArrows.length ? (
+            <div className="subpanel stack">
+              <div className="structure-section-copy">
+                <h3>Hidden transaction overlays</h3>
+                <p className="muted">
+                  These step-driven arrows are being kept off the main chart because they do not
+                  currently clarify the core legal structure.
+                </p>
+              </div>
+              <div className="structure-arrow-list">
+                {diagram.hiddenTransactionArrows.map((arrow) => (
+                  <button
+                    key={arrow.arrowId}
+                    type="button"
+                    className={`structure-arrow-card ${activeProposalId === arrow.proposalId ? "selected" : ""}`}
+                    onClick={() => setSelectedProposalId(arrow.proposalId ?? null)}
+                  >
+                    <span className={`chip chip-status chip-status-${arrow.status}`}>{titleCase(arrow.status)}</span>
+                    <strong>{arrow.stepTitle}</strong>
+                    <span className="muted">
+                      {labelEntityById[arrow.sourceEntityId]?.name ?? arrow.sourceEntityId}
+                      {" → "}
+                      {labelEntityById[arrow.targetEntityId]?.name ?? arrow.targetEntityId}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="subpanel stack">
+            <div className="structure-section-copy">
+              <h3>Pending structure items</h3>
+              <p className="muted">
+                Everything inferred by extraction and synthesis remains reviewable, even when it
+                is not drawn on the primary chart.
+              </p>
+            </div>
+            <div className="structure-pending-groups">
+              <div className="structure-pending-card">
+                <strong>Entities</strong>
+                <span className="muted">{diagram.pendingReviewGroups.entities.length} pending</span>
+              </div>
+              <div className="structure-pending-card">
+                <strong>Relationships</strong>
+                <span className="muted">{diagram.pendingReviewGroups.relationships.length} pending</span>
+              </div>
+              <div className="structure-pending-card">
+                <strong>Tax + roles</strong>
+                <span className="muted">{diagram.pendingReviewGroups.taxAndRoles.length} pending</span>
+              </div>
+              <div className="structure-pending-card">
+                <strong>Steps + filings</strong>
+                <span className="muted">{diagram.pendingReviewGroups.stepsAndFilings.length} pending</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <ProposalEditor

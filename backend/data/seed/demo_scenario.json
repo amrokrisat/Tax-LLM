@@ -205,6 +205,26 @@
       }
     },
     {
+      "proposal_id": "demo-owner-acq-parent-merger-sub",
+      "proposal_kind": "ownership_link",
+      "record_status": "proposed",
+      "review_status": "pending",
+      "label": "Acq Parent -> Acq Merger Sub",
+      "rationale": "The LOI contemplates Acq Parent forming and owning the merger subsidiary before closing.",
+      "confidence": 0.9,
+      "certainty": "high",
+      "source_document_names": ["Letter of intent.txt"],
+      "source_fact_ids": [],
+      "normalized_payload": {
+        "parent_entity_name": "Acq Parent",
+        "child_entity_name": "Acq Merger Sub",
+        "relationship_type": "owns",
+        "ownership_scope": "direct",
+        "ownership_percentage": 100,
+        "status": "proposed"
+      }
+    },
+    {
       "proposal_id": "demo-role-acq-parent",
       "proposal_kind": "transaction_role",
       "record_status": "proposed",

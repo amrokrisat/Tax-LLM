@@ -582,6 +582,15 @@ html[data-theme="dark"] .workspace-tab.active {
   min-width: 0;
 }
 
+.structure-section-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.structure-section-copy h3 {
+  margin: 0;
+}
+
 .structure-arrow-card.selected,
 .structure-crosslink-card.selected,
 .structure-unlinked-card.selected {
@@ -827,6 +836,12 @@ html[data-theme="dark"] .workspace-tab.active {
   gap: 12px;
 }
 
+.structure-pending-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
 .structure-crosslink-card,
 .structure-unlinked-card {
   display: grid;
@@ -836,6 +851,15 @@ html[data-theme="dark"] .workspace-tab.active {
   border: 1px solid var(--line);
   background: var(--surface);
   text-align: left;
+}
+
+.structure-pending-card {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 94%, #f7efdf 6%);
 }
 
 .structure-review-panel {
