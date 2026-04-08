@@ -8,6 +8,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -464,8 +465,12 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const deferredActiveTab = useDeferredValue(activeTab);
+  const autoStructureAttemptedRef = useRef(false);
 
-  function syncWorkspace(nextMatter: MatterWorkspaceRecord, nextRunDetailsById: Record<string, AnalysisRun> = {}) {
+  const syncWorkspace = useCallback((
+    nextMatter: MatterWorkspaceRecord,
+    nextRunDetailsById: Record<string, AnalysisRun> = {},
+  ) => {
     setMatter(nextMatter);
     setRunDetailsById((current) => ({ ...current, ...nextRunDetailsById }));
     setDraftMatterName(nextMatter.matter_name);
@@ -480,11 +485,11 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
     setDraftStructureProposals(nextMatter.structure_proposals);
     setSelectedRunId((current) => current ?? nextMatter.analysis_runs[0]?.run_id ?? null);
     setCompareRunId((current) => current || (nextMatter.analysis_runs[1]?.run_id ?? ""));
-  }
+  }, []);
 
-  function syncFullMatter(nextMatter: MatterRecord) {
+  const syncFullMatter = useCallback((nextMatter: MatterRecord) => {
     syncWorkspace(summarizeMatter(nextMatter), mapRunsById(nextMatter.analysis_runs));
-  }
+  }, [syncWorkspace]);
 
   const ensureRunDetail = useCallback(async (runId: string) => {
     if (runDetailsById[runId] || loadingRunIds.includes(runId)) {
@@ -533,6 +538,50 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
     setReviewerName(selectedRun?.reviewed_by ?? "");
     setReviewNote("");
   }, [selectedRun?.run_id, selectedRun?.reviewed_by]);
+
+  useEffect(() => {
+    if (!matter || !draftFacts || autoStructureAttemptedRef.current) {
+      return;
+    }
+    const latestRunId = matter.analysis_runs[0]?.run_id ?? null;
+    const viewingHistoricalRun = Boolean(
+      selectedRunId && latestRunId && selectedRunId !== latestRunId,
+    );
+    if (viewingHistoricalRun) {
+      return;
+    }
+    const hasFactsOrDocs =
+      Boolean(draftFacts.summary.trim() || draftFacts.proposed_steps.trim()) ||
+      draftDocuments.some((document) => document.content.trim().length > 0);
+    const hasConfirmedStructure =
+      matter.entities.length > 0 ||
+      matter.ownership_links.length > 0 ||
+      matter.tax_classifications.length > 0 ||
+      matter.transaction_roles.length > 0 ||
+      matter.transaction_steps.length > 0 ||
+      matter.election_items.length > 0;
+    if (!hasFactsOrDocs || hasConfirmedStructure || matter.structure_proposals.length > 0) {
+      return;
+    }
+    autoStructureAttemptedRef.current = true;
+    setBuildingStructure(true);
+    setError(null);
+    void buildMatterStructure(matter.matter_id)
+      .then((nextMatter) => {
+        syncFullMatter(nextMatter);
+        setSuccess("Initial structure proposals generated.");
+      })
+      .catch((buildError) => {
+        setError(
+          buildError instanceof Error
+            ? buildError.message
+            : "Failed to generate initial structure proposals.",
+        );
+      })
+      .finally(() => {
+        setBuildingStructure(false);
+      });
+  }, [draftDocuments, draftFacts, matter, selectedRunId, syncFullMatter]);
 
   if (loading) {
     return (

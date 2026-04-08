@@ -582,125 +582,195 @@ html[data-theme="dark"] .workspace-tab.active {
   min-width: 0;
 }
 
-.structure-diagram-lane {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(240px, 280px);
-  gap: 24px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-}
-
-.structure-diagram-column {
-  display: grid;
-  gap: 18px;
-  align-content: start;
-  position: relative;
-}
-
-.structure-diagram-column:not(:last-child)::after {
-  content: "";
-  position: absolute;
-  top: 28px;
-  right: -12px;
-  width: 24px;
-  height: 2px;
-  background: linear-gradient(90deg, var(--line-strong), transparent);
-}
-
-.structure-diagram-node-wrap {
-  display: grid;
-  gap: 10px;
-}
-
-.structure-diagram-card {
-  width: 100%;
-  text-align: left;
-  padding: 18px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  background: linear-gradient(180deg, var(--surface-muted), var(--surface));
-  display: grid;
-  gap: 10px;
-  box-shadow: var(--shadow-card);
-}
-
-.structure-diagram-card.clickable {
-  cursor: pointer;
-}
-
-.structure-diagram-card.selected,
-.structure-diagram-edge.selected,
-.structure-arrow-card.selected {
+.structure-arrow-card.selected,
+.structure-crosslink-card.selected,
+.structure-unlinked-card.selected {
   border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
-.structure-diagram-card-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
+.structure-board-shell {
+  width: 100%;
+  overflow: auto;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 80%, transparent);
+  background:
+    linear-gradient(180deg, rgba(201, 174, 137, 0.08), rgba(201, 174, 137, 0.03)),
+    color-mix(in srgb, var(--surface) 92%, #f8f0e2 8%);
+  padding: 16px;
 }
 
-.structure-diagram-card h4,
-.structure-arrow-card strong {
-  margin: 0;
-}
-
-.structure-diagram-chip-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.structure-diagram-edge-list {
-  display: grid;
-  gap: 8px;
-  padding-left: 18px;
+.structure-board-scale {
   position: relative;
 }
 
-.structure-diagram-edge-list::before {
-  content: "";
-  position: absolute;
-  top: 4px;
-  bottom: 4px;
-  left: 5px;
-  width: 1px;
-  background: var(--line);
+.structure-board-svg {
+  display: block;
 }
 
-.structure-diagram-edge {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 8px 12px;
-  background: var(--surface);
-  color: var(--muted-strong);
-  text-align: left;
+.structure-board-bg {
+  fill: color-mix(in srgb, var(--surface) 88%, #f6eddc 12%);
+  stroke: color-mix(in srgb, var(--line) 40%, transparent);
 }
 
-.structure-diagram-line {
-  width: 18px;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--line-strong);
+.structure-grid-line {
+  fill: none;
+  stroke: rgba(120, 105, 84, 0.07);
+  stroke-width: 1;
 }
 
-.structure-diagram-line-confirmed {
-  background: var(--success);
+.structure-node-shape {
+  cursor: pointer;
+  stroke-width: 2;
 }
 
-.structure-diagram-line-proposed {
-  background: var(--accent);
+.structure-node-fill-confirmed {
+  fill: color-mix(in srgb, var(--surface) 78%, #f7ecda 22%);
 }
 
-.structure-diagram-line-uncertain {
-  background: var(--warn);
+.structure-node-fill-proposed {
+  fill: color-mix(in srgb, var(--surface) 74%, var(--accent-soft) 26%);
+}
+
+.structure-node-fill-uncertain {
+  fill: color-mix(in srgb, var(--surface) 74%, var(--warn-soft) 26%);
+}
+
+.structure-node-stroke-confirmed {
+  stroke: #6f6250;
+}
+
+.structure-node-stroke-proposed {
+  stroke: var(--accent);
+  stroke-dasharray: 6 5;
+}
+
+.structure-node-stroke-uncertain {
+  stroke: var(--warn);
+  stroke-dasharray: 6 5;
+}
+
+.structure-svg-node.selected .structure-node-shape {
+  filter: drop-shadow(0 0 9px rgba(37, 99, 235, 0.22));
+}
+
+.structure-node-title {
+  font-size: 16px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.structure-node-subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--muted-strong);
+}
+
+.structure-node-caption {
+  font-size: 11px;
+  fill: var(--muted);
+}
+
+.structure-classification-badge {
+  fill: color-mix(in srgb, var(--surface) 62%, #f9f5ea 38%);
+  stroke: #7c6e59;
+  stroke-width: 1.5;
+}
+
+.structure-badge-group.clickable,
+.structure-role-pill-group.clickable {
+  cursor: pointer;
+}
+
+.structure-badge-text {
+  font-size: 10px;
+  font-weight: 700;
+  fill: var(--ink);
+}
+
+.structure-status-pill {
+  stroke: transparent;
+}
+
+.structure-status-pill-confirmed {
+  fill: var(--success-soft);
+}
+
+.structure-status-pill-proposed {
+  fill: var(--accent-soft);
+}
+
+.structure-status-pill-uncertain {
+  fill: var(--warn-soft);
+}
+
+.structure-status-text {
+  font-size: 10px;
+  font-weight: 700;
+  fill: var(--muted-strong);
+}
+
+.structure-role-pill {
+  fill: color-mix(in srgb, var(--accent-soft) 52%, var(--surface));
+  stroke: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.structure-role-pill-text {
+  font-size: 10px;
+  font-weight: 600;
+  fill: var(--accent-strong);
+}
+
+.structure-country-pill {
+  fill: color-mix(in srgb, var(--surface) 70%, #ffffff 30%);
+  stroke: color-mix(in srgb, var(--line-strong) 88%, transparent);
+}
+
+.structure-country-text {
+  font-size: 10px;
+  font-weight: 700;
+  fill: var(--muted-strong);
+}
+
+.structure-svg-edge {
+  fill: none;
+  stroke: #31291f;
+  stroke-width: 2;
+}
+
+.structure-svg-edge-proposed {
+  stroke: var(--accent);
+}
+
+.structure-svg-edge-uncertain {
+  stroke: var(--warn);
+  stroke-dasharray: 6 5;
+}
+
+.structure-svg-edge-selected {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 78%, white 22%);
+  stroke-width: 4;
+}
+
+.structure-svg-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 18;
+  cursor: pointer;
+}
+
+.structure-edge-label-box,
+.structure-arrow-label-box {
+  fill: color-mix(in srgb, var(--surface) 84%, #fff7ea 16%);
+  stroke: color-mix(in srgb, var(--line) 90%, transparent);
+}
+
+.structure-edge-label-text,
+.structure-arrow-label-text {
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--muted-strong);
 }
 
 .structure-arrow-list {
@@ -716,6 +786,55 @@ html[data-theme="dark"] .workspace-tab.active {
   border-radius: 18px;
   border: 1px dashed var(--line-strong);
   background: color-mix(in srgb, var(--surface) 92%, transparent);
+  text-align: left;
+}
+
+.structure-arrow-card strong {
+  margin: 0;
+}
+
+.structure-transaction-arrow {
+  fill: none;
+  stroke: #1f2937;
+  stroke-width: 2.5;
+  stroke-dasharray: 8 6;
+}
+
+.structure-transaction-arrow-proposed {
+  stroke: var(--accent);
+}
+
+.structure-transaction-arrow-uncertain {
+  stroke: var(--warn);
+}
+
+.structure-transaction-arrow-selected {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 78%, white 22%);
+  stroke-width: 4;
+  stroke-dasharray: 8 6;
+}
+
+.structure-arrowhead {
+  fill: currentColor;
+  color: #1f2937;
+}
+
+.structure-crosslink-list,
+.structure-unlinked-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.structure-crosslink-card,
+.structure-unlinked-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--surface);
   text-align: left;
 }
 

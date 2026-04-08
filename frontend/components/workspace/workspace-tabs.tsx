@@ -18,7 +18,7 @@ const workspaceTabs: Array<{ key: WorkspaceTab; label: string }> = [
   { key: "facts", label: "Facts" },
   { key: "documents", label: "Documents" },
   { key: "entity_structure", label: "Entity Structure" },
-  { key: "structure_map", label: "Structure Map" },
+  { key: "structure_map", label: "Structure Diagram" },
   { key: "transaction_steps", label: "Transaction Steps" },
   { key: "issues", label: "Issues" },
   { key: "authorities", label: "Authorities" },
