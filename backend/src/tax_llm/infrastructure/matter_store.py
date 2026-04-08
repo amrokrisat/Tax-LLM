@@ -481,24 +481,39 @@ class MatterStore:
         self,
         matter_id: str,
         user_id: str,
-        reviews: list[tuple[str, str]],
+        reviews: list[
+            tuple[
+                str,
+                str,
+                dict[str, str | float | int | list[str] | None] | None,
+            ]
+        ],
     ) -> MatterRecord:
         matter = self.get_matter(matter_id, user_id=user_id)
         by_id = {proposal.proposal_id: proposal for proposal in matter.structure_proposals}
         updated: list[StructureProposal] = []
-        review_map = {proposal_id: status for proposal_id, status in reviews}
+        review_map = {
+            proposal_id: (status, normalized_payload)
+            for proposal_id, status, normalized_payload in reviews
+        }
 
         for proposal in matter.structure_proposals:
-            status = review_map.get(proposal.proposal_id)
-            if not status:
+            review = review_map.get(proposal.proposal_id)
+            if not review:
                 updated.append(proposal)
                 continue
-            next_proposal = proposal.model_copy(update={"review_status": status})
+            status, normalized_payload = review
+            next_proposal = proposal.model_copy(
+                update={
+                    "review_status": status,
+                    "normalized_payload": normalized_payload or proposal.normalized_payload,
+                }
+            )
             if status == "accepted":
                 next_proposal = self._apply_structure_proposal(matter, next_proposal)
             updated.append(next_proposal)
 
-        for proposal_id, status in reviews:
+        for proposal_id, status, normalized_payload in reviews:
             if proposal_id in by_id:
                 continue
             updated.append(
@@ -507,6 +522,7 @@ class MatterStore:
                     proposal_kind="entity",
                     label=proposal_id,
                     review_status=status if status in {"accepted", "rejected", "pending"} else "pending",
+                    normalized_payload=normalized_payload or {},
                 )
             )
 

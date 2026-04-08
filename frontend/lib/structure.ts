@@ -21,6 +21,14 @@ export function normalizeStepFamily(stepType: string) {
   return aliases[stepType] ?? stepType.replaceAll("_", " ");
 }
 
+function normalizeName(value: string | null | undefined) {
+  return (value ?? "").trim().toLowerCase();
+}
+
+function entityIdFromProposal(proposal: StructureProposal) {
+  return proposal.proposal_id;
+}
+
 export function deriveIndirectOwnership(entities: Entity[], ownershipLinks: OwnershipLink[]) {
   const byId = Object.fromEntries(entities.map((entity) => [entity.entity_id, entity]));
   const children = ownershipLinks.reduce<Record<string, OwnershipLink[]>>((acc, link) => {
@@ -70,10 +78,6 @@ export function deriveIndirectOwnership(entities: Entity[], ownershipLinks: Owne
   return derived;
 }
 
-function normalizeName(value: string | null | undefined) {
-  return (value ?? "").trim().toLowerCase();
-}
-
 type MaterializedStructure = {
   entities: Entity[];
   ownershipLinks: OwnershipLink[];
@@ -101,7 +105,12 @@ export function materializeStructureRecords(
 
   const entityIdByName = new Map(mergedEntities.map((entity) => [normalizeName(entity.name), entity.entity_id]));
 
-  function ensureEntityFromName(name: string, entityType = "other", status: StructuredRecordStatus = "proposed") {
+  function ensureEntityFromName(
+    name: string,
+    entityType = "other",
+    status: StructuredRecordStatus = "proposed",
+    proposalId?: string,
+  ) {
     const normalized = normalizeName(name);
     if (!normalized) {
       return "";
@@ -110,7 +119,8 @@ export function materializeStructureRecords(
     if (existingId) {
       return existingId;
     }
-    const entityId = `proposal-entity-${normalized.replaceAll(/[^a-z0-9]+/g, "-")}`;
+    const entityId =
+      proposalId ?? `proposal-entity-${normalized.replaceAll(/[^a-z0-9]+/g, "-")}`;
     mergedEntities.push({
       entity_id: entityId,
       name,
@@ -131,6 +141,7 @@ export function materializeStructureRecords(
         String(payload.name ?? proposal.label),
         String(payload.entity_type ?? "other"),
         proposal.record_status,
+        entityIdFromProposal(proposal),
       );
     }
   }
@@ -291,8 +302,81 @@ export type StructureMapModel = {
   unlinkedNodes: StructureMapNode[];
 };
 
+export type StructureDiagramArrow = {
+  arrowId: string;
+  label: string;
+  sourceEntityId: string;
+  targetEntityId: string;
+  status: StructuredRecordStatus;
+  stepTitle: string;
+  stepType: string;
+  proposalId?: string;
+};
+
+export type StructureDiagramNode = Omit<StructureMapNode, "children"> & {
+  primaryProposalId: string | null;
+  relatedProposalIds: string[];
+  children: StructureDiagramNode[];
+};
+
+export type StructureDiagramLane = {
+  root: StructureDiagramNode;
+  columns: StructureDiagramNode[][];
+};
+
+export type StructureDiagramModel = {
+  lanes: StructureDiagramLane[];
+  multiOwnerNodes: StructureDiagramNode[];
+  unlinkedNodes: StructureDiagramNode[];
+  transactionArrows: StructureDiagramArrow[];
+  pendingProposals: StructureProposal[];
+};
+
 function statusRank(status: StructuredRecordStatus) {
   return status === "confirmed" ? 2 : status === "uncertain" ? 1 : 0;
+}
+
+function proposalEntityName(proposal: StructureProposal) {
+  const payload = proposal.normalized_payload ?? {};
+  if (proposal.proposal_kind === "entity") {
+    return String(payload.name ?? proposal.label);
+  }
+  if (proposal.proposal_kind === "tax_classification" || proposal.proposal_kind === "transaction_role") {
+    return String(payload.entity_name ?? "");
+  }
+  return "";
+}
+
+function buildProposalIndexes(proposals: StructureProposal[]) {
+  const pending = proposals.filter((proposal) => proposal.review_status === "pending");
+  const entityById = new Map<string, StructureProposal>();
+  const byEntityName = new Map<string, StructureProposal[]>();
+  const ownershipByKey = new Map<string, StructureProposal>();
+  const stepById = new Map<string, StructureProposal>();
+
+  for (const proposal of pending) {
+    if (proposal.proposal_kind === "entity") {
+      entityById.set(entityIdFromProposal(proposal), proposal);
+    }
+    const entityName = normalizeName(proposalEntityName(proposal));
+    if (entityName) {
+      byEntityName.set(entityName, [...(byEntityName.get(entityName) ?? []), proposal]);
+    }
+    if (proposal.proposal_kind === "ownership_link") {
+      const payload = proposal.normalized_payload ?? {};
+      const key = [
+        normalizeName(String(payload.parent_entity_name ?? "")),
+        normalizeName(String(payload.child_entity_name ?? "")),
+        String(payload.relationship_type ?? "owns"),
+      ].join("|");
+      ownershipByKey.set(key, proposal);
+    }
+    if (proposal.proposal_kind === "transaction_step") {
+      stepById.set(proposal.proposal_id, proposal);
+    }
+  }
+
+  return { pending, entityById, byEntityName, ownershipByKey, stepById };
 }
 
 function buildNode(
@@ -305,15 +389,29 @@ function buildNode(
   indirectOwnership: Array<{ parentName: string; childName: string; percentage: number | null }>,
   stepsByEntityId: Record<string, number>,
   electionsByEntityId: Record<string, number>,
+  proposalIndexes: ReturnType<typeof buildProposalIndexes>,
   visited: Set<string>,
-): StructureMapNode {
+): StructureDiagramNode {
   const inbound = inboundByChild[entity.entity_id] ?? [];
   const outbound = childrenByParent[entity.entity_id] ?? [];
   const classification = classificationsByEntityId[entity.entity_id];
   const nextVisited = new Set([...visited, entity.entity_id]);
-  const displayStatus = [entity.status, classification?.status, ...inbound.map((item) => item.status), ...outbound.map((item) => item.status)]
-    .filter(Boolean)
-    .sort((left, right) => statusRank(right as StructuredRecordStatus) - statusRank(left as StructuredRecordStatus))[0] as StructuredRecordStatus ?? entity.status;
+  const displayStatus =
+    (
+      [entity.status, classification?.status, ...inbound.map((item) => item.status), ...outbound.map((item) => item.status)]
+        .filter(Boolean)
+        .sort(
+          (left, right) =>
+            statusRank(right as StructuredRecordStatus) - statusRank(left as StructuredRecordStatus),
+        )[0] as StructuredRecordStatus
+    ) ?? entity.status;
+  const normalizedEntityName = normalizeName(entity.name);
+  const relatedNameProposals = proposalIndexes.byEntityName.get(normalizedEntityName) ?? [];
+  const primaryProposal =
+    proposalIndexes.entityById.get(entity.entity_id) ??
+    relatedNameProposals.find((proposal) => proposal.proposal_kind === "entity") ??
+    relatedNameProposals[0] ??
+    null;
 
   return {
     entity,
@@ -327,6 +425,8 @@ function buildNode(
     indirectChildren: indirectOwnership.filter((item) => item.parentName === entity.name),
     linkedStepCount: stepsByEntityId[entity.entity_id] ?? 0,
     linkedElectionCount: electionsByEntityId[entity.entity_id] ?? 0,
+    primaryProposalId: primaryProposal?.proposal_id ?? null,
+    relatedProposalIds: relatedNameProposals.map((proposal) => proposal.proposal_id),
     children: outbound
       .filter((link) => !nextVisited.has(link.child_entity_id))
       .map((link) =>
@@ -348,10 +448,56 @@ function buildNode(
           indirectOwnership,
           stepsByEntityId,
           electionsByEntityId,
+          proposalIndexes,
           nextVisited,
         ),
       ),
   };
+}
+
+function collectColumns(node: StructureDiagramNode, depth = 0, columns: StructureDiagramNode[][] = []) {
+  if (!columns[depth]) {
+    columns[depth] = [];
+  }
+  columns[depth].push(node);
+  for (const child of node.children) {
+    collectColumns(child, depth + 1, columns);
+  }
+  return columns;
+}
+
+function deriveTransactionArrows(
+  steps: TransactionStep[],
+  entitiesById: Record<string, Entity>,
+  stepProposalById: Map<string, StructureProposal>,
+) {
+  return [...steps]
+    .sort((left, right) => left.sequence_number - right.sequence_number)
+    .flatMap((step) => {
+      if (!["merger", "stock_purchase", "stock_sale", "distribution", "contribution", "asset_purchase", "asset_sale"].includes(step.step_type)) {
+        return [];
+      }
+      if (step.entity_ids.length < 2) {
+        return [];
+      }
+      const sourceEntityId = step.entity_ids[0];
+      const targetEntityId = step.entity_ids[step.entity_ids.length - 1];
+      if (!entitiesById[sourceEntityId] || !entitiesById[targetEntityId] || sourceEntityId === targetEntityId) {
+        return [];
+      }
+      return [
+        {
+          arrowId: `arrow-${step.step_id}`,
+          label: normalizeStepFamily(step.step_type),
+          sourceEntityId,
+          targetEntityId,
+          status: step.status,
+          stepTitle: step.title,
+          stepType: step.step_type,
+          proposalId: stepProposalById.get(step.step_id)?.proposal_id,
+        } satisfies StructureDiagramArrow,
+      ];
+    });
 }
 
 export function deriveStructureMap(
@@ -363,6 +509,31 @@ export function deriveStructureMap(
   electionItems: ElectionOrFilingItem[],
   structureProposals: StructureProposal[] = [],
 ) {
+  const diagram = deriveStructureDiagram(
+    entities,
+    ownershipLinks,
+    taxClassifications,
+    transactionRoles,
+    transactionSteps,
+    electionItems,
+    structureProposals,
+  );
+  return {
+    roots: diagram.lanes.map((lane) => lane.root),
+    multiOwnerNodes: diagram.multiOwnerNodes,
+    unlinkedNodes: diagram.unlinkedNodes,
+  } satisfies StructureMapModel;
+}
+
+export function deriveStructureDiagram(
+  entities: Entity[],
+  ownershipLinks: OwnershipLink[],
+  taxClassifications: TaxClassification[],
+  transactionRoles: TransactionRole[],
+  transactionSteps: TransactionStep[],
+  electionItems: ElectionOrFilingItem[],
+  structureProposals: StructureProposal[] = [],
+): StructureDiagramModel {
   const materialized = materializeStructureRecords(
     entities,
     ownershipLinks,
@@ -372,6 +543,7 @@ export function deriveStructureMap(
     electionItems,
     structureProposals,
   );
+  const proposalIndexes = buildProposalIndexes(structureProposals);
   const byId = Object.fromEntries(materialized.entities.map((entity) => [entity.entity_id, entity]));
   const childrenByParent = materialized.ownershipLinks.reduce<Record<string, OwnershipLink[]>>((acc, link) => {
     if (!acc[link.parent_entity_id]) {
@@ -410,7 +582,6 @@ export function deriveStructureMap(
     return acc;
   }, {});
   const indirectOwnership = deriveIndirectOwnership(materialized.entities, materialized.ownershipLinks);
-
   const multiOwnerIds = new Set(
     materialized.entities
       .filter((entity) => (inboundByChild[entity.entity_id] ?? []).length > 1)
@@ -423,21 +594,27 @@ export function deriveStructureMap(
   const linkedEntityIds = new Set(materialized.ownershipLinks.flatMap((link) => [link.parent_entity_id, link.child_entity_id]));
   const rootIds = new Set(rootEntities.map((entity) => entity.entity_id));
 
-  return {
-    roots: rootEntities.map((entity) =>
-      buildNode(
-        entity,
-        byId,
-        childrenByParent,
-        inboundByChild,
-        classificationsByEntityId,
-        rolesByEntityId,
-        indirectOwnership,
-        stepsByEntityId,
-        electionsByEntityId,
-        new Set(),
-      ),
+  const roots = rootEntities.map((entity) =>
+    buildNode(
+      entity,
+      byId,
+      childrenByParent,
+      inboundByChild,
+      classificationsByEntityId,
+      rolesByEntityId,
+      indirectOwnership,
+      stepsByEntityId,
+      electionsByEntityId,
+      proposalIndexes,
+      new Set(),
     ),
+  );
+
+  return {
+    lanes: roots.map((root) => ({
+      root,
+      columns: collectColumns(root),
+    })),
     multiOwnerNodes: materialized.entities
       .filter((entity) => multiOwnerIds.has(entity.entity_id))
       .map((entity) =>
@@ -451,6 +628,7 @@ export function deriveStructureMap(
           indirectOwnership,
           stepsByEntityId,
           electionsByEntityId,
+          proposalIndexes,
           new Set(),
         ),
       ),
@@ -467,8 +645,15 @@ export function deriveStructureMap(
           indirectOwnership,
           stepsByEntityId,
           electionsByEntityId,
+          proposalIndexes,
           new Set(),
         ),
       ),
-  } satisfies StructureMapModel;
+    transactionArrows: deriveTransactionArrows(
+      materialized.transactionSteps,
+      byId,
+      proposalIndexes.stepById,
+    ),
+    pendingProposals: proposalIndexes.pending,
+  };
 }

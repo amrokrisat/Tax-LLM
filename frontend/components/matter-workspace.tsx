@@ -602,6 +602,9 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
     JSON.stringify(draftTransactionSteps) !== JSON.stringify(matter.transaction_steps) ||
     JSON.stringify(draftElectionItems) !== JSON.stringify(matter.election_items) ||
     JSON.stringify(draftStructureProposals) !== JSON.stringify(matter.structure_proposals);
+  const structureSignalsChanged =
+    JSON.stringify(currentDraftFacts) !== JSON.stringify(matter.facts) ||
+    JSON.stringify(draftDocuments) !== JSON.stringify(matter.uploaded_documents);
   const confirmedExtractedFacts = draftDocuments.flatMap((document) =>
     (document.extracted_facts ?? []).filter((fact) => fact.status === "confirmed"),
   );
@@ -869,21 +872,21 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
   }
 
   async function persistDraftMatter() {
-      const nextMatter = await updateMatter(
-        currentMatterId,
-        createMatterInput(
-          draftMatterName,
-          currentDraftFacts,
-          draftDocuments,
-          draftEntities,
-          draftOwnershipLinks,
-          draftTaxClassifications,
-          draftTransactionRoles,
-          draftTransactionSteps,
-          draftElectionItems,
-          draftStructureProposals,
-        ),
-      );
+    const nextMatter = await updateMatter(
+      currentMatterId,
+      createMatterInput(
+        draftMatterName,
+        currentDraftFacts,
+        draftDocuments,
+        draftEntities,
+        draftOwnershipLinks,
+        draftTaxClassifications,
+        draftTransactionRoles,
+        draftTransactionSteps,
+        draftElectionItems,
+        draftStructureProposals,
+      ),
+    );
     syncFullMatter(nextMatter);
     return nextMatter;
   }
@@ -904,7 +907,25 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
       setDraftTransactionSteps(scenario.transaction_steps ?? []);
       setDraftElectionItems(scenario.election_items ?? []);
       setDraftStructureProposals(scenario.structure_proposals ?? []);
-      setActiveTab("facts");
+      const savedMatter = await updateMatter(
+        currentMatterId,
+        createMatterInput(
+          scenario.facts.transaction_name,
+          scenario.facts,
+          scenario.uploaded_documents,
+          scenario.entities ?? [],
+          scenario.ownership_links ?? [],
+          scenario.tax_classifications ?? [],
+          scenario.transaction_roles ?? [],
+          scenario.transaction_steps ?? [],
+          scenario.election_items ?? [],
+          scenario.structure_proposals ?? [],
+        ),
+      );
+      const nextMatter = await buildMatterStructure(savedMatter.matter_id);
+      syncFullMatter(nextMatter);
+      setActiveTab("structure_map");
+      setSuccess("Demo matter loaded and structure proposals refreshed.");
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load demo matter.");
     }
@@ -931,8 +952,14 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
     setSuccess(null);
 
     try {
-      await persistDraftMatter();
-      setSuccess("Matter saved.");
+      const savedMatter = await persistDraftMatter();
+      if (structureSignalsChanged) {
+        const nextMatter = await buildMatterStructure(savedMatter.matter_id);
+        syncFullMatter(nextMatter);
+        setSuccess("Matter saved and structure proposals refreshed.");
+      } else {
+        setSuccess("Matter saved.");
+      }
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : "Failed to save matter.");
     } finally {
@@ -1055,13 +1082,16 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
   async function reviewStructureProposalAction(
     proposalId: string,
     status: StructureProposalReview["status"],
+    normalizedPayload?: StructureProposalReview["normalized_payload"],
   ) {
     const endPerf = startPerf("matter-workspace.review-structure");
     setBuildingStructure(true);
     setError(null);
     setSuccess(null);
     try {
-      const nextMatter = await reviewStructureProposals(currentMatterId, [{ proposal_id: proposalId, status }]);
+      const nextMatter = await reviewStructureProposals(currentMatterId, [
+        { proposal_id: proposalId, status, normalized_payload: normalizedPayload },
+      ]);
       syncFullMatter(nextMatter);
       setSuccess(status === "accepted" ? "Structure proposal accepted." : "Structure proposal rejected.");
     } catch (reviewError) {
@@ -1324,6 +1354,10 @@ export function MatterWorkspace({ matterId, initialMatter }: MatterWorkspaceProp
                 transactionSteps={activeTransactionSteps}
                 electionItems={activeElectionItems}
                 structureProposals={activeStructureProposals}
+                readOnly={viewingHistoricalRun}
+                onReviewProposal={(proposalId, status, normalizedPayload) =>
+                  void reviewStructureProposalAction(proposalId, status, normalizedPayload)
+                }
               />
             ) : null}
 

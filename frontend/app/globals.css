@@ -571,6 +571,159 @@ html[data-theme="dark"] .workspace-tab.active {
   gap: 16px;
 }
 
+.structure-diagram-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 420px);
+  gap: 18px;
+  align-items: start;
+}
+
+.structure-diagram-main {
+  min-width: 0;
+}
+
+.structure-diagram-lane {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(240px, 280px);
+  gap: 24px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+
+.structure-diagram-column {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  position: relative;
+}
+
+.structure-diagram-column:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 28px;
+  right: -12px;
+  width: 24px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--line-strong), transparent);
+}
+
+.structure-diagram-node-wrap {
+  display: grid;
+  gap: 10px;
+}
+
+.structure-diagram-card {
+  width: 100%;
+  text-align: left;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--surface-muted), var(--surface));
+  display: grid;
+  gap: 10px;
+  box-shadow: var(--shadow-card);
+}
+
+.structure-diagram-card.clickable {
+  cursor: pointer;
+}
+
+.structure-diagram-card.selected,
+.structure-diagram-edge.selected,
+.structure-arrow-card.selected {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--line));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.structure-diagram-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.structure-diagram-card h4,
+.structure-arrow-card strong {
+  margin: 0;
+}
+
+.structure-diagram-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.structure-diagram-edge-list {
+  display: grid;
+  gap: 8px;
+  padding-left: 18px;
+  position: relative;
+}
+
+.structure-diagram-edge-list::before {
+  content: "";
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 5px;
+  width: 1px;
+  background: var(--line);
+}
+
+.structure-diagram-edge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: var(--surface);
+  color: var(--muted-strong);
+  text-align: left;
+}
+
+.structure-diagram-line {
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--line-strong);
+}
+
+.structure-diagram-line-confirmed {
+  background: var(--success);
+}
+
+.structure-diagram-line-proposed {
+  background: var(--accent);
+}
+
+.structure-diagram-line-uncertain {
+  background: var(--warn);
+}
+
+.structure-arrow-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.structure-arrow-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px dashed var(--line-strong);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  text-align: left;
+}
+
+.structure-review-panel {
+  position: sticky;
+  top: 90px;
+}
+
 .field {
   display: grid;
   gap: 8px;
@@ -1102,5 +1255,15 @@ h3 {
   .workspace-tab {
     width: calc(50% - 3px);
     justify-content: center;
+  }
+}
+
+@media (max-width: 1180px) {
+  .structure-diagram-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .structure-review-panel {
+    position: static;
   }
 }

@@ -166,6 +166,7 @@ class DocumentFactConfirmationRequest(BaseModel):
 class StructureProposalReviewInput(BaseModel):
     proposal_id: str
     status: str
+    normalized_payload: dict[str, str | float | int | list[str] | None] | None = None
 
 
 class StructureProposalReviewRequest(BaseModel):

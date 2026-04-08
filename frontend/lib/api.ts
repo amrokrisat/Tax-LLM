@@ -439,6 +439,7 @@ export type DocumentFactConfirmation = {
 export type StructureProposalReview = {
   proposal_id: string;
   status: StructureProposalStatus;
+  normalized_payload?: Record<string, string | number | string[] | null> | null;
 };
 
 export type RunReviewInput = {

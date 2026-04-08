@@ -365,7 +365,10 @@ def review_structure(
         matter = _matter_store().review_structure_proposals(
             matter_id,
             current_user_id,
-            [(item.proposal_id, item.status) for item in payload.proposals],
+            [
+                (item.proposal_id, item.status, item.normalized_payload)
+                for item in payload.proposals
+            ],
         )
     except FileNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Matter not found.") from exc
