@@ -867,6 +867,41 @@ html[data-theme="dark"] .workspace-tab.active {
   top: 90px;
 }
 
+.structure-review-chip {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.structure-review-chip.active {
+  border-color: color-mix(in srgb, var(--accent) 46%, var(--line));
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--surface));
+  color: var(--accent-strong);
+}
+
+.structure-review-sections {
+  gap: 14px;
+}
+
+.structure-review-section {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.structure-review-section h4 {
+  margin: 0;
+}
+
+.structure-inline-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+}
+
 .field {
   display: grid;
   gap: 8px;

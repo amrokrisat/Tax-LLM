@@ -1,23 +1,79 @@
 "use client";
 
-import { memo, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 
 import {
   ElectionOrFilingItem,
   Entity,
+  EntityType,
   OwnershipLink,
+  OwnershipRelationshipType,
   StructureProposal,
+  TaxClassificationType,
   TaxClassification,
   TransactionRole,
+  TransactionRoleType,
   TransactionStep,
 } from "@/lib/api";
 import {
   DiagramShape,
   deriveStructureDiagram,
   StructureDiagramArrow,
+  StructureDiagramEntityReviewGroup,
   StructureDiagramNode,
   StructureDiagramOwnershipEdge,
 } from "@/lib/structure";
+
+const ENTITY_TYPE_OPTIONS: EntityType[] = [
+  "corporation",
+  "llc",
+  "partnership",
+  "individual",
+  "trust",
+  "foreign_entity",
+  "branch",
+  "other",
+];
+
+const TAX_CLASSIFICATION_OPTIONS: TaxClassificationType[] = [
+  "c_corporation",
+  "s_corporation",
+  "partnership",
+  "disregarded_entity",
+  "grantor_trust",
+  "individual",
+  "foreign_corporation",
+  "unknown",
+];
+
+const RELATIONSHIP_TYPE_OPTIONS: OwnershipRelationshipType[] = [
+  "owns",
+  "member_of",
+  "partner_of",
+  "disregarded_owner",
+  "shareholder_of",
+];
+
+const ROLE_OPTIONS: TransactionRoleType[] = [
+  "buyer",
+  "seller",
+  "target",
+  "parent",
+  "subsidiary",
+  "merger_sub",
+  "holding_company",
+  "portfolio_company",
+  "distributing_corporation",
+  "controlled_corporation",
+  "partnership_vehicle",
+  "blocker",
+  "lender",
+  "shareholder",
+  "partner",
+  "individual_owner",
+  "rollover_holder",
+  "other",
+];
 
 function titleCase(value: string) {
   return value.replaceAll("_", " ");
@@ -195,6 +251,28 @@ function statusClass(status: string) {
   return status.replaceAll("_", "-");
 }
 
+function shapeForEntityType(entityType: Entity["entity_type"]): DiagramShape {
+  switch (entityType) {
+    case "partnership":
+      return "triangle";
+    case "trust":
+      return "diamond";
+    case "individual":
+      return "circle";
+    case "branch":
+      return "oval";
+    case "other":
+      return "rounded";
+    default:
+      return "rectangle";
+  }
+}
+
+type DiagramSelection =
+  | { kind: "entity"; entityId: string; section?: "entity" | "classification" | "roles" | "ownership" | "steps" }
+  | { kind: "ownership_edge"; edgeId: string }
+  | { kind: "arrow"; arrowId: string };
+
 function Legend() {
   return (
     <div className="chip-row">
@@ -207,7 +285,108 @@ function Legend() {
   );
 }
 
-function ProposalEditor({
+function ProposalFieldInput({
+  field,
+  value,
+  readOnly,
+  onChange,
+}: {
+  field: { key: string; label: string };
+  value: string | number | string[] | null | undefined;
+  readOnly: boolean;
+  onChange: (value: string | number | string[] | null) => void;
+}) {
+  const rendered = Array.isArray(value) ? value.join(", ") : value == null ? "" : String(value);
+
+  if (field.key === "entity_type") {
+    return (
+      <label className="field">
+        <span>{field.label}</span>
+        <select
+          disabled={readOnly}
+          value={rendered || "other"}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {ENTITY_TYPE_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {titleCase(option)}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  if (field.key === "classification_type") {
+    return (
+      <label className="field">
+        <span>{field.label}</span>
+        <select
+          disabled={readOnly}
+          value={rendered || "unknown"}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {TAX_CLASSIFICATION_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {titleCase(option)}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  if (field.key === "relationship_type") {
+    return (
+      <label className="field">
+        <span>{field.label}</span>
+        <select
+          disabled={readOnly}
+          value={rendered || "owns"}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {RELATIONSHIP_TYPE_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {titleCase(option)}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  if (field.key === "role_type") {
+    return (
+      <label className="field">
+        <span>{field.label}</span>
+        <select
+          disabled={readOnly}
+          value={rendered || "other"}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {ROLE_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {titleCase(option)}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  return (
+    <label className="field">
+      <span>{field.label}</span>
+      <input
+        disabled={readOnly}
+        value={rendered}
+        onChange={(event) => onChange(parseEditedValue(value, event.target.value))}
+      />
+    </label>
+  );
+}
+
+function GenericProposalEditor({
   proposal,
   onApprove,
   onReject,
@@ -261,21 +440,19 @@ function ProposalEditor({
       <div className="stack">
         {editableFields(proposal).map((field) => {
           const value = draftPayload[field.key];
-          const rendered = Array.isArray(value) ? value.join(", ") : value == null ? "" : String(value);
           return (
-            <label key={field.key} className="field">
-              <span>{field.label}</span>
-              <input
-                disabled={readOnly}
-                value={rendered}
-                onChange={(event) =>
-                  setDraftPayload({
-                    ...draftPayload,
-                    [field.key]: parseEditedValue(value, event.target.value),
-                  })
-                }
-              />
-            </label>
+            <ProposalFieldInput
+              key={field.key}
+              field={field}
+              value={value}
+              readOnly={readOnly}
+              onChange={(nextValue) =>
+                setDraftPayload({
+                  ...draftPayload,
+                  [field.key]: nextValue,
+                })
+              }
+            />
           );
         })}
       </div>
@@ -304,19 +481,427 @@ function ProposalEditor({
   );
 }
 
+function confidenceSummary(group: StructureDiagramEntityReviewGroup) {
+  const values = [
+    group.entityProposal?.confidence,
+    group.classificationProposal?.confidence,
+    ...group.roleProposals.map((proposal) => proposal.confidence),
+  ].filter((value): value is number => typeof value === "number");
+  if (!values.length) {
+    return null;
+  }
+  return Math.max(...values);
+}
+
+function certaintySummary(group: StructureDiagramEntityReviewGroup) {
+  const values = [
+    group.entityProposal?.certainty,
+    group.classificationProposal?.certainty,
+    ...group.roleProposals.map((proposal) => proposal.certainty),
+  ].filter(Boolean) as Array<"high" | "medium" | "low">;
+  if (values.includes("high")) {
+    return "high";
+  }
+  if (values.includes("medium")) {
+    return "medium";
+  }
+  return values[0] ?? null;
+}
+
+function EntityWorkspace({
+  node,
+  reviewGroup,
+  readOnly,
+  activeSection = "entity",
+  onFocusSection,
+  onApproveProposal,
+  onRejectProposal,
+  onEntityDraftChange,
+}: {
+  node: StructureDiagramNode;
+  reviewGroup: StructureDiagramEntityReviewGroup;
+  readOnly: boolean;
+  activeSection?: "entity" | "classification" | "roles" | "ownership" | "steps";
+  onFocusSection: (section: "entity" | "classification" | "roles" | "ownership" | "steps") => void;
+  onApproveProposal: (
+    proposalId: string,
+    payload?: Record<string, string | number | string[] | null>,
+  ) => void;
+  onRejectProposal: (proposalId: string) => void;
+  onEntityDraftChange: (entityId: string, draft: Partial<Entity>) => void;
+}) {
+  const [entityDraft, setEntityDraft] = useState({
+    name: node.entity.name,
+    entity_type: node.entity.entity_type,
+    jurisdiction: node.entity.jurisdiction ?? "",
+  });
+  const [classificationDraft, setClassificationDraft] = useState(
+    node.classification?.classification_type ?? reviewGroup.classificationProposal?.normalized_payload.classification_type ?? "unknown",
+  );
+  const [roleDrafts, setRoleDrafts] = useState<Record<string, string>>(
+    Object.fromEntries(
+      reviewGroup.roleProposals.map((proposal) => [
+        proposal.proposal_id,
+        String(proposal.normalized_payload.role_type ?? "other"),
+      ]),
+    ),
+  );
+
+  const confidence = confidenceSummary(reviewGroup);
+  const certainty = certaintySummary(reviewGroup);
+  const currentRoles = node.roles.length ? node.roles : reviewGroup.roleProposals.map((proposal) => String(proposal.normalized_payload.role_type ?? "other"));
+
+  function updateEntityDraft(next: Partial<typeof entityDraft>) {
+    const merged = { ...entityDraft, ...next };
+    setEntityDraft(merged);
+    onEntityDraftChange(node.entity.entity_id, {
+      name: merged.name,
+      entity_type: merged.entity_type as Entity["entity_type"],
+      jurisdiction: merged.jurisdiction || null,
+    });
+  }
+
+  return (
+    <div className="subpanel stack structure-review-panel">
+      <div className="row-between">
+        <div>
+          <h3>{entityDraft.name}</h3>
+          <p className="muted">Entity workspace</p>
+        </div>
+        <span className={`chip chip-status chip-status-${node.displayStatus}`}>
+          {titleCase(node.displayStatus)}
+        </span>
+      </div>
+      <div className="chip-row">
+        {confidence != null ? <span className="chip">{confidence.toFixed(2)} confidence</span> : null}
+        {certainty ? <span className="chip">{certainty} certainty</span> : null}
+        <span className="chip">{currentRoles.length} role signals</span>
+      </div>
+
+      <div className="chip-row">
+        {(["entity", "classification", "roles", "ownership", "steps"] as const).map((section) => (
+          <button
+            key={section}
+            className={`chip structure-review-chip ${activeSection === section ? "active" : ""}`}
+            onClick={() => onFocusSection(section)}
+            type="button"
+          >
+            {titleCase(section)}
+          </button>
+        ))}
+      </div>
+
+      <div className="stack structure-review-sections">
+        <section className={`structure-review-section ${activeSection === "entity" ? "active" : ""}`}>
+          <div className="row-between">
+            <h4>Entity</h4>
+            {reviewGroup.entityProposal ? (
+              <span className="chip chip-status chip-status-proposed">pending proposal</span>
+            ) : (
+              <span className="chip chip-status chip-status-confirmed">current record</span>
+            )}
+          </div>
+          <label className="field">
+            <span>Entity name</span>
+            <input
+              disabled={readOnly}
+              value={entityDraft.name}
+              onChange={(event) => updateEntityDraft({ name: event.target.value })}
+            />
+          </label>
+          <label className="field">
+            <span>Legal entity type</span>
+            <select
+              disabled={readOnly}
+              value={entityDraft.entity_type}
+              onChange={(event) =>
+                updateEntityDraft({ entity_type: event.target.value as Entity["entity_type"] })
+              }
+            >
+              {ENTITY_TYPE_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {titleCase(option)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Jurisdiction</span>
+            <input
+              disabled={readOnly}
+              value={entityDraft.jurisdiction}
+              onChange={(event) => updateEntityDraft({ jurisdiction: event.target.value })}
+            />
+          </label>
+          {!readOnly && reviewGroup.entityProposal ? (
+            <div className="button-row">
+              <button
+                className="button-subtle"
+                type="button"
+                onClick={() =>
+                  onApproveProposal(reviewGroup.entityProposal!.proposal_id, {
+                    ...reviewGroup.entityProposal!.normalized_payload,
+                    name: entityDraft.name,
+                    entity_type: entityDraft.entity_type,
+                    jurisdiction: entityDraft.jurisdiction || null,
+                  })
+                }
+              >
+                Save + approve entity changes
+              </button>
+              <button
+                className="button-ghost"
+                type="button"
+                onClick={() => onRejectProposal(reviewGroup.entityProposal!.proposal_id)}
+              >
+                Reject proposal
+              </button>
+            </div>
+          ) : (
+            <span className="chip">{reviewGroup.entityProposal ? reviewGroup.entityProposal.review_status : "no pending entity proposal"}</span>
+          )}
+        </section>
+
+        <section className={`structure-review-section ${activeSection === "classification" ? "active" : ""}`}>
+          <div className="row-between">
+            <h4>Tax classification</h4>
+            {reviewGroup.classificationProposal ? (
+              <span className="chip chip-status chip-status-proposed">pending proposal</span>
+            ) : (
+              <span className="chip chip-status chip-status-confirmed">
+                {node.classification ? "current record" : "none"}
+              </span>
+            )}
+          </div>
+          <label className="field">
+            <span>Tax classification</span>
+            <select
+              disabled={readOnly}
+              value={classificationDraft}
+              onChange={(event) => setClassificationDraft(event.target.value)}
+            >
+              {TAX_CLASSIFICATION_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {titleCase(option)}
+                </option>
+              ))}
+            </select>
+          </label>
+          {!readOnly && reviewGroup.classificationProposal ? (
+            <div className="button-row">
+              <button
+                className="button-subtle"
+                type="button"
+                onClick={() =>
+                  onApproveProposal(reviewGroup.classificationProposal!.proposal_id, {
+                    ...reviewGroup.classificationProposal!.normalized_payload,
+                    entity_name: entityDraft.name,
+                    classification_type: classificationDraft,
+                  })
+                }
+              >
+                Approve classification
+              </button>
+              <button
+                className="button-ghost"
+                type="button"
+                onClick={() => onRejectProposal(reviewGroup.classificationProposal!.proposal_id)}
+              >
+                Reject proposal
+              </button>
+            </div>
+          ) : null}
+        </section>
+
+        <section className={`structure-review-section ${activeSection === "roles" ? "active" : ""}`}>
+          <div className="row-between">
+            <h4>Transaction roles</h4>
+            <span className="chip">{currentRoles.length} current / pending</span>
+          </div>
+          {reviewGroup.roleProposals.length ? (
+            <div className="stack">
+              {reviewGroup.roleProposals.map((proposal) => (
+                <div key={proposal.proposal_id} className="structure-inline-card">
+                  <label className="field">
+                    <span>Role</span>
+                    <select
+                      disabled={readOnly}
+                      value={roleDrafts[proposal.proposal_id] ?? String(proposal.normalized_payload.role_type ?? "other")}
+                      onChange={(event) =>
+                        setRoleDrafts((current) => ({
+                          ...current,
+                          [proposal.proposal_id]: event.target.value,
+                        }))
+                      }
+                    >
+                      {ROLE_OPTIONS.map((option) => (
+                        <option key={option} value={option}>
+                          {titleCase(option)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="button-row">
+                    <button
+                      className="button-subtle"
+                      type="button"
+                      onClick={() =>
+                        onApproveProposal(proposal.proposal_id, {
+                          ...proposal.normalized_payload,
+                          entity_name: entityDraft.name,
+                          role_type: roleDrafts[proposal.proposal_id] ?? proposal.normalized_payload.role_type,
+                        })
+                      }
+                    >
+                      Approve role
+                    </button>
+                    <button
+                      className="button-ghost"
+                      type="button"
+                      onClick={() => onRejectProposal(proposal.proposal_id)}
+                    >
+                      Reject proposal
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="muted">No pending role proposals for this entity.</p>
+          )}
+        </section>
+
+        <section className={`structure-review-section ${activeSection === "ownership" ? "active" : ""}`}>
+          <div className="row-between">
+            <h4>Related ownership</h4>
+            <span className="chip">{reviewGroup.ownershipProposals.length} pending links</span>
+          </div>
+          {node.directParentNames.length ? (
+            <p className="muted">Parents: {node.directParentNames.join(", ")}</p>
+          ) : null}
+          {node.directChildNames.length ? (
+            <p className="muted">Children: {node.directChildNames.join(", ")}</p>
+          ) : null}
+          {reviewGroup.ownershipProposals.length ? (
+            <div className="stack">
+              {reviewGroup.ownershipProposals.map((proposal) => (
+                <div key={proposal.proposal_id} className="structure-inline-card">
+                  <strong>{proposal.label}</strong>
+                  <p className="muted">{proposal.rationale}</p>
+                  {!readOnly ? (
+                    <div className="button-row">
+                      <button
+                        className="button-subtle"
+                        type="button"
+                        onClick={() => onApproveProposal(proposal.proposal_id, proposal.normalized_payload)}
+                      >
+                        Approve ownership link
+                      </button>
+                      <button
+                        className="button-ghost"
+                        type="button"
+                        onClick={() => onRejectProposal(proposal.proposal_id)}
+                      >
+                        Reject proposal
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
+
+        <section className={`structure-review-section ${activeSection === "steps" ? "active" : ""}`}>
+          <div className="row-between">
+            <h4>Related step overlays</h4>
+            <span className="chip">
+              {reviewGroup.stepProposals.length + reviewGroup.electionItemProposals.length} pending items
+            </span>
+          </div>
+          {reviewGroup.stepProposals.length ? (
+            <div className="stack">
+              {reviewGroup.stepProposals.map((proposal) => (
+                <div key={proposal.proposal_id} className="structure-inline-card">
+                  <strong>{proposal.label}</strong>
+                  <p className="muted">{proposal.rationale}</p>
+                  {!readOnly ? (
+                    <div className="button-row">
+                      <button
+                        className="button-subtle"
+                        type="button"
+                        onClick={() => onApproveProposal(proposal.proposal_id, proposal.normalized_payload)}
+                      >
+                        Approve step
+                      </button>
+                      <button
+                        className="button-ghost"
+                        type="button"
+                        onClick={() => onRejectProposal(proposal.proposal_id)}
+                      >
+                        Reject proposal
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {reviewGroup.electionItemProposals.length ? (
+            <div className="stack">
+              {reviewGroup.electionItemProposals.map((proposal) => (
+                <div key={proposal.proposal_id} className="structure-inline-card">
+                  <strong>{proposal.label}</strong>
+                  <p className="muted">{proposal.rationale}</p>
+                  {!readOnly ? (
+                    <div className="button-row">
+                      <button
+                        className="button-subtle"
+                        type="button"
+                        onClick={() => onApproveProposal(proposal.proposal_id, proposal.normalized_payload)}
+                      >
+                        Approve filing item
+                      </button>
+                      <button
+                        className="button-ghost"
+                        type="button"
+                        onClick={() => onRejectProposal(proposal.proposal_id)}
+                      >
+                        Reject proposal
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </section>
+      </div>
+    </div>
+  );
+}
+
 function NodeSvg({
   node,
   selected,
-  onSelectProposal,
+  onSelect,
+  entityTypeOverride,
 }: {
   node: StructureDiagramNode;
   selected: boolean;
-  onSelectProposal: (proposalId: string | null) => void;
+  onSelect: (selection: DiagramSelection) => void;
+  entityTypeOverride?: Entity["entity_type"];
 }) {
   const nameLines = splitLabel(node.entity.name || "Unnamed entity");
-  const legalType = titleCase(node.entity.entity_type);
+  const legalType = titleCase(entityTypeOverride ?? node.entity.entity_type);
   const roles = node.roles.slice(0, 2);
-  const shapePath = outerShapePath(node.outerShape, node.x, node.y, node.width, node.height);
+  const shapePath = outerShapePath(
+    entityTypeOverride ? shapeForEntityType(entityTypeOverride) : node.outerShape,
+    node.x,
+    node.y,
+    node.width,
+    node.height,
+  );
   const fillClass = `structure-node-fill-${statusClass(node.displayStatus)}`;
   const borderClass = `structure-node-stroke-${statusClass(node.displayStatus)}`;
   const classificationX = node.x + 12;
@@ -329,14 +914,7 @@ function NodeSvg({
       <path
         d={shapePath}
         className={`structure-node-shape ${fillClass} ${borderClass}`}
-        onClick={() =>
-          onSelectProposal(
-            node.proposalIdsByKind.entity ??
-              node.proposalIdsByKind.classification ??
-              node.proposalIdsByKind.roles[0] ??
-              null,
-          )
-        }
+        onClick={() => onSelect({ kind: "entity", entityId: node.entity.entity_id, section: "entity" })}
       />
 
       <text x={node.x + node.width / 2} y={node.y + 46} className="structure-node-title" textAnchor="middle">
@@ -362,7 +940,7 @@ function NodeSvg({
           className={`structure-badge-group ${
             node.proposalIdsByKind.classification ? "clickable" : ""
           }`}
-          onClick={() => onSelectProposal(node.proposalIdsByKind.classification)}
+          onClick={() => onSelect({ kind: "entity", entityId: node.entity.entity_id, section: "classification" })}
         >
           <path
             d={badgeShapePath(node.classificationShape, classificationX, classificationY, 24)}
@@ -412,7 +990,7 @@ function NodeSvg({
           <g
             key={`${node.entity.entity_id}-${role}`}
             className={`structure-role-pill-group ${proposalId ? "clickable" : ""}`}
-            onClick={() => onSelectProposal(proposalId)}
+            onClick={() => onSelect({ kind: "entity", entityId: node.entity.entity_id, section: "roles" })}
           >
             <rect x={x} y={y} width={width} height={22} rx={11} className="structure-role-pill" />
             <text x={x + width / 2} y={y + 15} className="structure-role-pill-text" textAnchor="middle">
@@ -438,14 +1016,20 @@ function DiagramCanvas({
   nodes,
   ownershipEdges,
   transactionArrows,
-  selectedProposalId,
-  onSelectProposal,
+  selectedEdgeId,
+  selectedArrowId,
+  selectedEntityId,
+  entityTypeOverrides,
+  onSelect,
 }: {
   nodes: StructureDiagramNode[];
   ownershipEdges: StructureDiagramOwnershipEdge[];
   transactionArrows: StructureDiagramArrow[];
-  selectedProposalId: string | null;
-  onSelectProposal: (proposalId: string | null) => void;
+  selectedEntityId: string | null;
+  selectedEdgeId: string | null;
+  selectedArrowId: string | null;
+  entityTypeOverrides: Record<string, Entity["entity_type"]>;
+  onSelect: (selection: DiagramSelection) => void;
 }) {
   const nodeById = Object.fromEntries(nodes.map((node) => [node.entity.entity_id, node])) as Record<
     string,
@@ -471,13 +1055,13 @@ function DiagramCanvas({
             <path
               d={path}
               className="structure-svg-hit"
-              onClick={() => onSelectProposal(edge.proposalId)}
+              onClick={() => onSelect({ kind: "ownership_edge", edgeId: edge.edgeId })}
             />
             <rect x={labelX - 22} y={midY - 20} width={44} height={18} rx={9} className="structure-edge-label-box" />
             <text x={labelX} y={midY - 7} className="structure-edge-label-text" textAnchor="middle">
               {edge.label}
             </text>
-            {selectedProposalId === edge.proposalId && edge.proposalId ? (
+            {selectedEdgeId === edge.edgeId ? (
               <path d={path} className="structure-svg-edge-selected" />
             ) : null}
           </g>
@@ -514,13 +1098,13 @@ function DiagramCanvas({
             <path
               d={path}
               className="structure-svg-hit"
-              onClick={() => onSelectProposal(arrow.proposalId ?? null)}
+              onClick={() => onSelect({ kind: "arrow", arrowId: arrow.arrowId })}
             />
             <rect x={labelX - 42} y={labelY - 15} width={84} height={18} rx={9} className="structure-arrow-label-box" />
             <text x={labelX} y={labelY - 2} className="structure-arrow-label-text" textAnchor="middle">
               {arrow.label}
             </text>
-            {selectedProposalId === arrow.proposalId && arrow.proposalId ? (
+            {selectedArrowId === arrow.arrowId ? (
               <path d={path} className="structure-transaction-arrow-selected" markerEnd="url(#structure-arrowhead)" />
             ) : null}
           </g>
@@ -531,16 +1115,9 @@ function DiagramCanvas({
         <NodeSvg
           key={node.entity.entity_id}
           node={node}
-          selected={
-            selectedProposalId != null &&
-            [
-              node.proposalIdsByKind.entity,
-              node.proposalIdsByKind.classification,
-              ...node.proposalIdsByKind.roles,
-              ...node.proposalIdsByKind.steps,
-            ].includes(selectedProposalId)
-          }
-          onSelectProposal={onSelectProposal}
+          selected={selectedEntityId === node.entity.entity_id}
+          onSelect={onSelect}
+          entityTypeOverride={entityTypeOverrides[node.entity.entity_id]}
         />
       ))}
     </>
@@ -586,40 +1163,35 @@ export const StructureMapPane = memo(function StructureMapPane({
       ),
     [electionItems, entities, ownershipLinks, proposals, taxClassifications, transactionRoles, transactionSteps],
   );
-  const [selectedProposalId, setSelectedProposalId] = useState<string | null>(
-    diagram.pendingProposals[0]?.proposal_id ?? null,
+  const [selection, setSelection] = useState<DiagramSelection | null>(
+    diagram.primaryNodes[0]
+      ? { kind: "entity", entityId: diagram.primaryNodes[0].entity.entity_id, section: "entity" }
+      : null,
   );
   const boardRef = useRef<HTMLDivElement | null>(null);
   const [zoom, setZoom] = useState(1);
-  const primaryProposalIds = useMemo(
-    () =>
-      new Set(
-        diagram.primaryNodes.flatMap((node) => [
-          node.proposalIdsByKind.entity,
-          node.proposalIdsByKind.classification,
-          ...node.proposalIdsByKind.roles,
-          ...node.proposalIdsByKind.steps,
-        ]),
-      ),
-    [diagram.primaryNodes],
+  const [entityTypeOverrides, setEntityTypeOverrides] = useState<Record<string, Entity["entity_type"]>>({});
+  const allNodes = useMemo(
+    () => [...diagram.primaryNodes, ...diagram.secondaryNodes],
+    [diagram.primaryNodes, diagram.secondaryNodes],
   );
-  const activeProposalId = useMemo(() => {
-    if (
-      selectedProposalId &&
-      proposals.some((proposal) => proposal.proposal_id === selectedProposalId)
-    ) {
-      return selectedProposalId;
-    }
-    return (
-      diagram.pendingProposals.find((proposal) => primaryProposalIds.has(proposal.proposal_id))
-        ?.proposal_id ??
-      diagram.pendingProposals[0]?.proposal_id ??
-      null
-    );
-  }, [diagram.pendingProposals, primaryProposalIds, proposals, selectedProposalId]);
-  const selectedProposal = useMemo(
-    () => proposals.find((proposal) => proposal.proposal_id === activeProposalId) ?? null,
-    [activeProposalId, proposals],
+  const nodeById = useMemo(
+    () => Object.fromEntries(allNodes.map((node) => [node.entity.entity_id, node])) as Record<string, StructureDiagramNode>,
+    [allNodes],
+  );
+  const edgeById = useMemo(
+    () =>
+      Object.fromEntries(
+        [...diagram.primaryOwnershipEdges, ...diagram.crossLinks].map((edge) => [edge.edgeId, edge]),
+      ) as Record<string, StructureDiagramOwnershipEdge>,
+    [diagram.crossLinks, diagram.primaryOwnershipEdges],
+  );
+  const arrowById = useMemo(
+    () =>
+      Object.fromEntries(
+        [...diagram.transactionArrows, ...diagram.hiddenTransactionArrows].map((arrow) => [arrow.arrowId, arrow]),
+      ) as Record<string, StructureDiagramArrow>,
+    [diagram.hiddenTransactionArrows, diagram.transactionArrows],
   );
   const labelEntityById = useMemo(
     () =>
@@ -627,6 +1199,52 @@ export const StructureMapPane = memo(function StructureMapPane({
         [...diagram.primaryNodes, ...diagram.secondaryNodes].map((node) => [node.entity.entity_id, node.entity]),
       ) as Record<string, Entity>,
     [diagram.primaryNodes, diagram.secondaryNodes],
+  );
+  const proposalById = useMemo(
+    () => Object.fromEntries(proposals.map((proposal) => [proposal.proposal_id, proposal])) as Record<string, StructureProposal>,
+    [proposals],
+  );
+  const activeSelection = useMemo(() => {
+    if (selection?.kind === "entity" && nodeById[selection.entityId]) {
+      return selection;
+    }
+    if (selection?.kind === "ownership_edge" && edgeById[selection.edgeId]) {
+      return selection;
+    }
+    if (selection?.kind === "arrow" && arrowById[selection.arrowId]) {
+      return selection;
+    }
+    if (diagram.primaryNodes[0]) {
+      return {
+        kind: "entity" as const,
+        entityId: diagram.primaryNodes[0].entity.entity_id,
+        section: "entity" as const,
+      };
+    }
+    return null;
+  }, [arrowById, diagram.primaryNodes, edgeById, nodeById, selection]);
+
+  const selectedNode = activeSelection?.kind === "entity" ? nodeById[activeSelection.entityId] ?? null : null;
+  const selectedReviewGroup =
+    activeSelection?.kind === "entity" && selectedNode
+      ? diagram.entityReviewGroupsByEntityId[selectedNode.entity.entity_id] ?? null
+      : null;
+  const selectedEdge = activeSelection?.kind === "ownership_edge" ? edgeById[activeSelection.edgeId] ?? null : null;
+  const selectedArrow = activeSelection?.kind === "arrow" ? arrowById[activeSelection.arrowId] ?? null : null;
+  const selectedProposal =
+    selectedEdge?.proposalId != null
+      ? proposalById[selectedEdge.proposalId] ?? null
+      : selectedArrow?.proposalId != null
+        ? proposalById[selectedArrow.proposalId] ?? null
+        : null;
+  const handleEntityDraftChange = useCallback(
+    (entityId: string, draft: Partial<Entity>) => {
+      setEntityTypeOverrides((current) => ({
+        ...current,
+        [entityId]: (draft.entity_type as Entity["entity_type"]) ?? current[entityId],
+      }));
+    },
+    [],
   );
 
   function fitView() {
@@ -659,7 +1277,7 @@ export const StructureMapPane = memo(function StructureMapPane({
             <button className="button-ghost" type="button" onClick={() => setZoom((value) => Math.min(1.4, value + 0.1))}>
               Zoom in
             </button>
-            <button className="button-subtle" type="button" onClick={() => { setZoom(1); setSelectedProposalId(null); }}>
+            <button className="button-subtle" type="button" onClick={() => { setZoom(1); }}>
               Auto layout
             </button>
           </div>
@@ -715,8 +1333,11 @@ export const StructureMapPane = memo(function StructureMapPane({
                       nodes={diagram.primaryNodes}
                       ownershipEdges={diagram.primaryOwnershipEdges}
                       transactionArrows={diagram.transactionArrows}
-                      selectedProposalId={activeProposalId}
-                      onSelectProposal={setSelectedProposalId}
+                      selectedEntityId={activeSelection?.kind === "entity" ? activeSelection.entityId : null}
+                      selectedEdgeId={activeSelection?.kind === "ownership_edge" ? activeSelection.edgeId : null}
+                      selectedArrowId={activeSelection?.kind === "arrow" ? activeSelection.arrowId : null}
+                      entityTypeOverrides={entityTypeOverrides}
+                      onSelect={setSelection}
                     />
                   </svg>
                 </div>
@@ -739,8 +1360,8 @@ export const StructureMapPane = memo(function StructureMapPane({
                   <button
                     key={edge.edgeId}
                     type="button"
-                      className={`structure-crosslink-card ${activeProposalId === edge.proposalId ? "selected" : ""}`}
-                    onClick={() => setSelectedProposalId(edge.proposalId)}
+                      className={`structure-crosslink-card ${activeSelection?.kind === "ownership_edge" && activeSelection.edgeId === edge.edgeId ? "selected" : ""}`}
+                    onClick={() => setSelection({ kind: "ownership_edge", edgeId: edge.edgeId })}
                   >
                     <span className={`chip chip-status chip-status-${edge.status}`}>{titleCase(edge.status)}</span>
                     <strong>
@@ -771,23 +1392,12 @@ export const StructureMapPane = memo(function StructureMapPane({
                     key={node.entity.entity_id}
                     type="button"
                     className={`structure-unlinked-card ${
-                      activeProposalId &&
-                      [
-                        node.proposalIdsByKind.entity,
-                        node.proposalIdsByKind.classification,
-                        ...node.proposalIdsByKind.roles,
-                      ].includes(activeProposalId)
+                      activeSelection?.kind === "entity" &&
+                      activeSelection.entityId === node.entity.entity_id
                         ? "selected"
                         : ""
                     }`}
-                    onClick={() =>
-                      setSelectedProposalId(
-                        node.proposalIdsByKind.entity ??
-                          node.proposalIdsByKind.classification ??
-                          node.proposalIdsByKind.roles[0] ??
-                          null,
-                      )
-                    }
+                    onClick={() => setSelection({ kind: "entity", entityId: node.entity.entity_id, section: "entity" })}
                   >
                     <strong>{node.entity.name}</strong>
                     <span className="muted">
@@ -817,8 +1427,8 @@ export const StructureMapPane = memo(function StructureMapPane({
                   <button
                     key={arrow.arrowId}
                     type="button"
-                    className={`structure-arrow-card ${activeProposalId === arrow.proposalId ? "selected" : ""}`}
-                    onClick={() => setSelectedProposalId(arrow.proposalId ?? null)}
+                    className={`structure-arrow-card ${activeSelection?.kind === "arrow" && activeSelection.arrowId === arrow.arrowId ? "selected" : ""}`}
+                    onClick={() => setSelection({ kind: "arrow", arrowId: arrow.arrowId })}
                   >
                     <span className={`chip chip-status chip-status-${arrow.status}`}>{titleCase(arrow.status)}</span>
                     <strong>{arrow.stepTitle}</strong>
@@ -862,15 +1472,33 @@ export const StructureMapPane = memo(function StructureMapPane({
           </div>
         </div>
 
-        <ProposalEditor
-          key={selectedProposal?.proposal_id ?? "empty"}
-          proposal={selectedProposal}
-          onApprove={(proposalId, normalizedPayload) =>
-            onReviewProposal?.(proposalId, "accepted", normalizedPayload)
-          }
-          onReject={(proposalId) => onReviewProposal?.(proposalId, "rejected")}
-          readOnly={readOnly || !onReviewProposal}
-        />
+        {selectedNode && selectedReviewGroup ? (
+          <EntityWorkspace
+            key={`${selectedNode.entity.entity_id}:${selectedReviewGroup.entityProposal?.proposal_id ?? "entity"}:${selectedReviewGroup.classificationProposal?.proposal_id ?? "classification"}:${selectedReviewGroup.roleProposals.map((proposal) => proposal.proposal_id).join(",")}`}
+            node={selectedNode}
+            reviewGroup={selectedReviewGroup}
+            readOnly={readOnly || !onReviewProposal}
+            activeSection={activeSelection?.kind === "entity" ? activeSelection.section : "entity"}
+            onFocusSection={(section) =>
+              setSelection({ kind: "entity", entityId: selectedNode.entity.entity_id, section })
+            }
+            onEntityDraftChange={handleEntityDraftChange}
+            onApproveProposal={(proposalId, normalizedPayload) =>
+              onReviewProposal?.(proposalId, "accepted", normalizedPayload)
+            }
+            onRejectProposal={(proposalId) => onReviewProposal?.(proposalId, "rejected")}
+          />
+        ) : (
+          <GenericProposalEditor
+            key={selectedProposal?.proposal_id ?? "empty"}
+            proposal={selectedProposal}
+            onApprove={(proposalId, normalizedPayload) =>
+              onReviewProposal?.(proposalId, "accepted", normalizedPayload)
+            }
+            onReject={(proposalId) => onReviewProposal?.(proposalId, "rejected")}
+            readOnly={readOnly || !onReviewProposal}
+          />
+        )}
       </div>
     </div>
   );

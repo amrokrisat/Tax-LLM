@@ -398,6 +398,17 @@ export type StructureDiagramPendingReviewGroups = {
   stepsAndFilings: StructureProposal[];
 };
 
+export type StructureDiagramEntityReviewGroup = {
+  entityId: string;
+  entityName: string;
+  entityProposal: StructureProposal | null;
+  classificationProposal: StructureProposal | null;
+  roleProposals: StructureProposal[];
+  ownershipProposals: StructureProposal[];
+  stepProposals: StructureProposal[];
+  electionItemProposals: StructureProposal[];
+};
+
 export type StructureDiagramModel = {
   nodes: StructureDiagramNode[];
   ownershipEdges: StructureDiagramOwnershipEdge[];
@@ -413,6 +424,7 @@ export type StructureDiagramModel = {
   primaryNodes: StructureDiagramNode[];
   primaryOwnershipEdges: StructureDiagramOwnershipEdge[];
   secondaryNodes: StructureDiagramNode[];
+  entityReviewGroupsByEntityId: Record<string, StructureDiagramEntityReviewGroup>;
 };
 
 function statusRank(status: StructuredRecordStatus) {
@@ -622,6 +634,73 @@ function buildPendingReviewGroups(
       ["transaction_step", "election_filing_item"].includes(proposal.proposal_kind),
     ),
   };
+}
+
+function buildEntityReviewGroups(
+  entities: Entity[],
+  proposals: StructureProposal[],
+): Record<string, StructureDiagramEntityReviewGroup> {
+  return Object.fromEntries(
+    entities.map((entity) => {
+      const entityName = normalizeName(entity.name);
+      const matching = proposals.filter((proposal) => {
+        const payload = proposal.normalized_payload ?? {};
+        if (proposal.proposal_kind === "entity") {
+          return normalizeName(String(payload.name ?? proposal.label)) === entityName;
+        }
+        if (
+          proposal.proposal_kind === "tax_classification" ||
+          proposal.proposal_kind === "transaction_role"
+        ) {
+          return normalizeName(String(payload.entity_name ?? "")) === entityName;
+        }
+        if (proposal.proposal_kind === "ownership_link") {
+          return (
+            normalizeName(String(payload.parent_entity_name ?? "")) === entityName ||
+            normalizeName(String(payload.child_entity_name ?? "")) === entityName
+          );
+        }
+        if (proposal.proposal_kind === "transaction_step") {
+          return (
+            Array.isArray(payload.entity_names) &&
+            (payload.entity_names as string[]).some((name) => normalizeName(name) === entityName)
+          );
+        }
+        if (proposal.proposal_kind === "election_filing_item") {
+          return (
+            Array.isArray(payload.related_entity_names) &&
+            (payload.related_entity_names as string[]).some(
+              (name) => normalizeName(name) === entityName,
+            )
+          );
+        }
+        return false;
+      });
+
+      const group: StructureDiagramEntityReviewGroup = {
+        entityId: entity.entity_id,
+        entityName: entity.name,
+        entityProposal:
+          matching.find((proposal) => proposal.proposal_kind === "entity") ?? null,
+        classificationProposal:
+          matching.find((proposal) => proposal.proposal_kind === "tax_classification") ?? null,
+        roleProposals: matching.filter(
+          (proposal) => proposal.proposal_kind === "transaction_role",
+        ),
+        ownershipProposals: matching.filter(
+          (proposal) => proposal.proposal_kind === "ownership_link",
+        ),
+        stepProposals: matching.filter(
+          (proposal) => proposal.proposal_kind === "transaction_step",
+        ),
+        electionItemProposals: matching.filter(
+          (proposal) => proposal.proposal_kind === "election_filing_item",
+        ),
+      };
+
+      return [entity.entity_id, group];
+    }),
+  );
 }
 
 type BaseNodeData = Omit<
@@ -1242,5 +1321,9 @@ export function deriveStructureDiagram(
     primaryNodes: nodes,
     primaryOwnershipEdges: ownershipEdges,
     secondaryNodes,
+    entityReviewGroupsByEntityId: buildEntityReviewGroups(
+      materialized.entities,
+      proposalIndexes.pending,
+    ),
   };
 }
