@@ -3,6 +3,7 @@
 import { memo } from "react";
 
 import { ExtractedFact, MatterRecord } from "@/lib/api";
+import { TRANSACTION_TYPE_OPTIONS } from "@/lib/taxonomy";
 
 export const FactsPane = memo(function FactsPane({
   confirmedExtractedFacts,
@@ -57,9 +58,9 @@ export const FactsPane = memo(function FactsPane({
         <label className="field">
           <span>Transaction type</span>
           <select value={draftFacts.transaction_type} onChange={(event) => updateFact("transaction_type", event.target.value)}>
-            {["stock sale", "asset sale", "merger", "contribution transaction", "divisive transaction", "partnership transaction"].map((type) => (
-              <option key={type} value={type}>
-                {type}
+            {TRANSACTION_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </select>

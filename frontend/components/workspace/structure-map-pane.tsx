@@ -5,14 +5,10 @@ import { memo, useCallback, useMemo, useRef, useState } from "react";
 import {
   ElectionOrFilingItem,
   Entity,
-  EntityType,
   OwnershipLink,
-  OwnershipRelationshipType,
   StructureProposal,
-  TaxClassificationType,
   TaxClassification,
   TransactionRole,
-  TransactionRoleType,
   TransactionStep,
 } from "@/lib/api";
 import {
@@ -23,57 +19,19 @@ import {
   StructureDiagramNode,
   StructureDiagramOwnershipEdge,
 } from "@/lib/structure";
-
-const ENTITY_TYPE_OPTIONS: EntityType[] = [
-  "corporation",
-  "llc",
-  "partnership",
-  "individual",
-  "trust",
-  "foreign_entity",
-  "branch",
-  "other",
-];
-
-const TAX_CLASSIFICATION_OPTIONS: TaxClassificationType[] = [
-  "c_corporation",
-  "s_corporation",
-  "partnership",
-  "disregarded_entity",
-  "grantor_trust",
-  "individual",
-  "foreign_corporation",
-  "unknown",
-];
-
-const RELATIONSHIP_TYPE_OPTIONS: OwnershipRelationshipType[] = [
-  "owns",
-  "member_of",
-  "partner_of",
-  "disregarded_owner",
-  "shareholder_of",
-];
-
-const ROLE_OPTIONS: TransactionRoleType[] = [
-  "buyer",
-  "seller",
-  "target",
-  "parent",
-  "subsidiary",
-  "merger_sub",
-  "holding_company",
-  "portfolio_company",
-  "distributing_corporation",
-  "controlled_corporation",
-  "partnership_vehicle",
-  "blocker",
-  "lender",
-  "shareholder",
-  "partner",
-  "individual_owner",
-  "rollover_holder",
-  "other",
-];
+import {
+  ENTITY_TYPE_OPTIONS,
+  ELECTION_OR_FILING_TYPE_OPTIONS,
+  OWNERSHIP_RELATIONSHIP_OPTIONS,
+  TAX_CLASSIFICATION_OPTIONS,
+  TRANSACTION_STEP_PHASE_OPTIONS,
+  TRANSACTION_STEP_TYPE_OPTIONS,
+  TRANSACTION_ROLE_OPTIONS,
+  entityShapeForType,
+  entityTypeLabel,
+  taxClassificationLabel,
+  transactionRoleLabel,
+} from "@/lib/taxonomy";
 
 function titleCase(value: string) {
   return value.replaceAll("_", " ");
@@ -251,23 +209,6 @@ function statusClass(status: string) {
   return status.replaceAll("_", "-");
 }
 
-function shapeForEntityType(entityType: Entity["entity_type"]): DiagramShape {
-  switch (entityType) {
-    case "partnership":
-      return "triangle";
-    case "trust":
-      return "diamond";
-    case "individual":
-      return "circle";
-    case "branch":
-      return "oval";
-    case "other":
-      return "rounded";
-    default:
-      return "rectangle";
-  }
-}
-
 type DiagramSelection =
   | { kind: "entity"; entityId: string; section?: "entity" | "classification" | "roles" | "ownership" | "steps" }
   | { kind: "ownership_edge"; edgeId: string }
@@ -308,8 +249,8 @@ function ProposalFieldInput({
           onChange={(event) => onChange(event.target.value)}
         >
           {ENTITY_TYPE_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {titleCase(option)}
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>
@@ -327,8 +268,8 @@ function ProposalFieldInput({
           onChange={(event) => onChange(event.target.value)}
         >
           {TAX_CLASSIFICATION_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {titleCase(option)}
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>
@@ -345,9 +286,9 @@ function ProposalFieldInput({
           value={rendered || "owns"}
           onChange={(event) => onChange(event.target.value)}
         >
-          {RELATIONSHIP_TYPE_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {titleCase(option)}
+          {OWNERSHIP_RELATIONSHIP_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>
@@ -364,9 +305,66 @@ function ProposalFieldInput({
           value={rendered || "other"}
           onChange={(event) => onChange(event.target.value)}
         >
-          {ROLE_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {titleCase(option)}
+          {TRANSACTION_ROLE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  if (field.key === "step_type") {
+    return (
+      <label className="field">
+        <span>{field.label}</span>
+        <select
+          disabled={readOnly}
+          value={rendered || "other"}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {TRANSACTION_STEP_TYPE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  if (field.key === "phase") {
+    return (
+      <label className="field">
+        <span>{field.label}</span>
+        <select
+          disabled={readOnly}
+          value={rendered || "closing"}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {TRANSACTION_STEP_PHASE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  if (field.key === "item_type") {
+    return (
+      <label className="field">
+        <span>{field.label}</span>
+        <select
+          disabled={readOnly}
+          value={rendered || "other"}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          {ELECTION_OR_FILING_TYPE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>
@@ -619,11 +617,14 @@ function EntityWorkspace({
               }
             >
               {ENTITY_TYPE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {titleCase(option)}
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
+            <small className="muted">
+              {ENTITY_TYPE_OPTIONS.find((option) => option.value === entityDraft.entity_type)?.description}
+            </small>
           </label>
           <label className="field">
             <span>Jurisdiction</span>
@@ -681,8 +682,8 @@ function EntityWorkspace({
               onChange={(event) => setClassificationDraft(event.target.value)}
             >
               {TAX_CLASSIFICATION_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {titleCase(option)}
+                <option key={option.value} value={option.value}>
+                  {option.label}
                 </option>
               ))}
             </select>
@@ -734,9 +735,9 @@ function EntityWorkspace({
                         }))
                       }
                     >
-                      {ROLE_OPTIONS.map((option) => (
-                        <option key={option} value={option}>
-                          {titleCase(option)}
+                      {TRANSACTION_ROLE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
@@ -893,10 +894,10 @@ function NodeSvg({
   entityTypeOverride?: Entity["entity_type"];
 }) {
   const nameLines = splitLabel(node.entity.name || "Unnamed entity");
-  const legalType = titleCase(entityTypeOverride ?? node.entity.entity_type);
+  const legalType = entityTypeLabel(entityTypeOverride ?? node.entity.entity_type);
   const roles = node.roles.slice(0, 2);
   const shapePath = outerShapePath(
-    entityTypeOverride ? shapeForEntityType(entityTypeOverride) : node.outerShape,
+    entityTypeOverride ? entityShapeForType(entityTypeOverride) : node.outerShape,
     node.x,
     node.y,
     node.width,
@@ -981,7 +982,7 @@ function NodeSvg({
       </g>
 
       {roles.map((role, index) => {
-        const label = titleCase(role);
+        const label = transactionRoleLabel(role);
         const width = pillWidth(label);
         const x = node.x + 14 + index * (width + 8);
         const y = node.y + node.height - 38;
@@ -1401,11 +1402,11 @@ export const StructureMapPane = memo(function StructureMapPane({
                   >
                     <strong>{node.entity.name}</strong>
                     <span className="muted">
-                      {titleCase(node.entity.entity_type)}
-                      {node.classificationLabel ? ` · ${node.classificationLabel}` : ""}
+                      {entityTypeLabel(node.entity.entity_type)}
+                      {node.classificationLabel ? ` · ${taxClassificationLabel(node.classification?.classification_type ?? node.classificationLabel)}` : ""}
                     </span>
                     {node.roles.length ? (
-                      <span className="muted">{truncateList(node.roles.map(titleCase), 2)}</span>
+                      <span className="muted">{truncateList(node.roles.map(transactionRoleLabel), 2)}</span>
                     ) : null}
                   </button>
                 ))}

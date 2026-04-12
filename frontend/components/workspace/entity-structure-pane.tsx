@@ -15,61 +15,17 @@ import {
   TransactionRoleType,
 } from "@/lib/api";
 import { summarizeEntityStructure } from "@/lib/structure";
-
-const entityTypes: EntityType[] = [
-  "corporation",
-  "llc",
-  "partnership",
-  "individual",
-  "trust",
-  "disregarded_entity",
-  "foreign_entity",
-  "branch",
-  "other",
-];
-
-const classificationTypes: TaxClassificationType[] = [
-  "c_corporation",
-  "s_corporation",
-  "partnership",
-  "disregarded_entity",
-  "grantor_trust",
-  "individual",
-  "foreign_corporation",
-  "unknown",
-];
-
-const roleTypes: TransactionRoleType[] = [
-  "buyer",
-  "seller",
-  "target",
-  "parent",
-  "subsidiary",
-  "merger_sub",
-  "holding_company",
-  "portfolio_company",
-  "distributing_corporation",
-  "controlled_corporation",
-  "partnership_vehicle",
-  "blocker",
-  "lender",
-  "shareholder",
-  "partner",
-  "individual_owner",
-  "rollover_holder",
-  "other",
-];
-
-const relationshipTypes: OwnershipRelationshipType[] = [
-  "owns",
-  "member_of",
-  "partner_of",
-  "disregarded_owner",
-  "shareholder_of",
-];
-const ownershipScopes: OwnershipScope[] = ["direct", "indirect"];
-
-const recordStatuses: StructuredRecordStatus[] = ["proposed", "confirmed", "uncertain"];
+import {
+  ENTITY_TYPE_OPTIONS,
+  OWNERSHIP_RELATIONSHIP_OPTIONS,
+  OWNERSHIP_SCOPE_OPTIONS,
+  STRUCTURED_RECORD_STATUS_OPTIONS,
+  TAX_CLASSIFICATION_OPTIONS,
+  TRANSACTION_ROLE_OPTIONS,
+  ownershipRelationshipLabel,
+  taxClassificationLabel,
+  transactionRoleLabel,
+} from "@/lib/taxonomy";
 
 export const EntityStructurePane = memo(function EntityStructurePane({
   entities,
@@ -136,11 +92,11 @@ export const EntityStructurePane = memo(function EntityStructurePane({
               return (
                 <li key={entity.entity_id}>
                   <strong>{entity.name}</strong>
-                  {classification ? ` · ${classification.classification_type.replaceAll("_", " ")}` : ""}
-                  {roles.length ? ` · ${roles.map((item) => item.replaceAll("_", " ")).join(", ")}` : ""}
-                  {outbound.length ? ` · owns: ${outbound.map((item) => `${item.relationship_type.replaceAll("_", " ")} ${entityName(item.child_entity_id)}`).join("; ")}` : ""}
+                  {classification ? ` · ${taxClassificationLabel(classification.classification_type)}` : ""}
+                  {roles.length ? ` · ${roles.map(transactionRoleLabel).join(", ")}` : ""}
+                  {outbound.length ? ` · owns: ${outbound.map((item) => `${ownershipRelationshipLabel(item.relationship_type)} ${entityName(item.child_entity_id)}`).join("; ")}` : ""}
                   {indirectChildren.length ? ` · indirect: ${indirectChildren.map((item) => item.childName).join("; ")}` : ""}
-                  {inbound.length ? ` · owned by: ${inbound.map((item) => `${entityName(item.parent_entity_id)} ${item.relationship_type.replaceAll("_", " ")}`).join("; ")}` : ""}
+                  {inbound.length ? ` · owned by: ${inbound.map((item) => `${entityName(item.parent_entity_id)} ${ownershipRelationshipLabel(item.relationship_type)}`).join("; ")}` : ""}
                 </li>
               );
             })}
@@ -176,12 +132,13 @@ export const EntityStructurePane = memo(function EntityStructurePane({
                 value={entity.entity_type}
                 onChange={(event) => updateEntity(entity.entity_id, "entity_type", event.target.value as EntityType)}
               >
-                {entityTypes.map((value) => (
-                  <option key={value} value={value}>
-                    {value.replaceAll("_", " ")}
+                {ENTITY_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
+              <small className="muted">{ENTITY_TYPE_OPTIONS.find((option) => option.value === entity.entity_type)?.description}</small>
             </label>
             <label className="field">
               <span>Jurisdiction</span>
@@ -198,9 +155,9 @@ export const EntityStructurePane = memo(function EntityStructurePane({
                 value={entity.status}
                 onChange={(event) => updateEntity(entity.entity_id, "status", event.target.value as StructuredRecordStatus)}
               >
-                {recordStatuses.map((value) => (
-                  <option key={value} value={value}>
-                    {value}
+                {STRUCTURED_RECORD_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
@@ -256,9 +213,9 @@ export const EntityStructurePane = memo(function EntityStructurePane({
                     )
                   }
                 >
-                  {classificationTypes.map((value) => (
-                    <option key={value} value={value}>
-                      {value.replaceAll("_", " ")}
+                  {TAX_CLASSIFICATION_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
@@ -272,9 +229,9 @@ export const EntityStructurePane = memo(function EntityStructurePane({
                     updateTransactionRole(role.role_id, "role_type", event.target.value as TransactionRoleType)
                   }
                 >
-                  {roleTypes.map((value) => (
-                    <option key={value} value={value}>
-                      {value.replaceAll("_", " ")}
+                  {TRANSACTION_ROLE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
@@ -335,9 +292,9 @@ export const EntityStructurePane = memo(function EntityStructurePane({
                     updateOwnershipLink(link.link_id, "relationship_type", event.target.value as OwnershipRelationshipType)
                   }
                 >
-                  {relationshipTypes.map((value) => (
-                    <option key={value} value={value}>
-                      {value.replaceAll("_", " ")}
+                  {OWNERSHIP_RELATIONSHIP_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
@@ -351,9 +308,9 @@ export const EntityStructurePane = memo(function EntityStructurePane({
                     updateOwnershipLink(link.link_id, "ownership_scope", event.target.value as OwnershipScope)
                   }
                 >
-                  {ownershipScopes.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
+                  {OWNERSHIP_SCOPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>

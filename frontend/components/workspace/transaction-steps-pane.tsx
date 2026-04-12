@@ -13,31 +13,15 @@ import {
   TransactionStepType,
 } from "@/lib/api";
 import { summarizeStepPlan } from "@/lib/structure";
-
-const phases: TransactionStepPhase[] = ["pre_closing", "closing", "post_closing"];
-const stepTypes: TransactionStepType[] = [
-  "signing",
-  "pre_closing_reorganization",
-  "stock_purchase",
-  "stock_sale",
-  "asset_purchase",
-  "asset_sale",
-  "merger",
-  "contribution",
-  "distribution",
-  "spin_off",
-  "split_off",
-  "split_up",
-  "partnership_contribution",
-  "refinancing",
-  "election",
-  "filing",
-  "post_closing_integration",
-  "other",
-];
-const stepStatuses: StructuredRecordStatus[] = ["proposed", "confirmed", "uncertain"];
-const itemTypes: ElectionOrFilingType[] = ["election", "filing", "compliance", "other"];
-const itemStatuses: ElectionOrFilingStatus[] = ["possible", "required", "selected", "filed", "uncertain"];
+import {
+  ELECTION_OR_FILING_STATUS_OPTIONS,
+  ELECTION_OR_FILING_TYPE_OPTIONS,
+  STRUCTURED_RECORD_STATUS_OPTIONS,
+  TRANSACTION_STEP_PHASE_OPTIONS,
+  TRANSACTION_STEP_TYPE_OPTIONS,
+  transactionStepPhaseLabel,
+  transactionStepTypeLabel,
+} from "@/lib/taxonomy";
 
 export const TransactionStepsPane = memo(function TransactionStepsPane({
   entities,
@@ -105,7 +89,7 @@ export const TransactionStepsPane = memo(function TransactionStepsPane({
                 <div className="row-between">
                   <div className="chip-row">
                     <span className="chip">Step {step.sequence_number}</span>
-                    <span className="chip">{step.phase.replaceAll("_", " ")}</span>
+                    <span className="chip">{transactionStepPhaseLabel(step.phase)}</span>
                     <span className="chip">{step.normalizedFamily}</span>
                     <span className="chip">{step.status}</span>
                   </div>
@@ -133,9 +117,9 @@ export const TransactionStepsPane = memo(function TransactionStepsPane({
                       value={step.phase}
                       onChange={(event) => updateTransactionStep(step.step_id, "phase", event.target.value as TransactionStepPhase)}
                     >
-                      {phases.map((value) => (
-                        <option key={value} value={value}>
-                          {value.replaceAll("_", " ")}
+                      {TRANSACTION_STEP_PHASE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
@@ -147,9 +131,9 @@ export const TransactionStepsPane = memo(function TransactionStepsPane({
                       value={step.step_type}
                       onChange={(event) => updateTransactionStep(step.step_id, "step_type", event.target.value as TransactionStepType)}
                     >
-                      {stepTypes.map((value) => (
-                        <option key={value} value={value}>
-                          {value.replaceAll("_", " ")}
+                      {TRANSACTION_STEP_TYPE_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
@@ -171,9 +155,9 @@ export const TransactionStepsPane = memo(function TransactionStepsPane({
                         updateTransactionStep(step.step_id, "status", event.target.value as StructuredRecordStatus)
                       }
                     >
-                      {stepStatuses.map((value) => (
-                        <option key={value} value={value}>
-                          {value}
+                      {STRUCTURED_RECORD_STATUS_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
                         </option>
                       ))}
                     </select>
@@ -243,9 +227,9 @@ export const TransactionStepsPane = memo(function TransactionStepsPane({
                   value={item.item_type}
                   onChange={(event) => updateElectionItem(item.item_id, "item_type", event.target.value as ElectionOrFilingType)}
                 >
-                  {itemTypes.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
+                  {ELECTION_OR_FILING_TYPE_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
@@ -267,9 +251,9 @@ export const TransactionStepsPane = memo(function TransactionStepsPane({
                     updateElectionItem(item.item_id, "status", event.target.value as ElectionOrFilingStatus)
                   }
                 >
-                  {itemStatuses.map((value) => (
-                    <option key={value} value={value}>
-                      {value}
+                  {ELECTION_OR_FILING_STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
                     </option>
                   ))}
                 </select>
@@ -311,7 +295,7 @@ export const TransactionStepsPane = memo(function TransactionStepsPane({
                 >
                   {summarizedSteps.map((step) => (
                     <option key={step.step_id} value={step.step_id}>
-                      {`Step ${step.sequence_number}: ${step.title || step.step_type.replaceAll("_", " ")}`}
+                      {`Step ${step.sequence_number}: ${step.title || transactionStepTypeLabel(step.step_type)}`}
                     </option>
                   ))}
                 </select>

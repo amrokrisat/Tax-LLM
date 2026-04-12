@@ -8,6 +8,7 @@ import {
   TransactionRole,
   TransactionStep,
 } from "@/lib/api";
+import { entityShapeForType, taxClassificationLabel } from "@/lib/taxonomy";
 
 const NODE_WIDTH = 190;
 const NODE_HEIGHT = 156;
@@ -483,20 +484,7 @@ function buildProposalIndexes(proposals: StructureProposal[]) {
 }
 
 function outerShapeForEntityType(entityType: Entity["entity_type"]): DiagramShape {
-  switch (entityType) {
-    case "partnership":
-      return "triangle";
-    case "trust":
-      return "diamond";
-    case "individual":
-      return "circle";
-    case "branch":
-      return "oval";
-    case "other":
-      return "rounded";
-    default:
-      return "rectangle";
-  }
+  return entityShapeForType(entityType);
 }
 
 function classificationBadge(
@@ -504,19 +492,19 @@ function classificationBadge(
 ): { shape: StructureDiagramNode["classificationShape"]; text: string | null; label: string | null } {
   switch (classificationType) {
     case "partnership":
-      return { shape: "triangle", text: "P", label: "partnership" };
+      return { shape: "triangle", text: "P", label: taxClassificationLabel("partnership") };
     case "disregarded_entity":
-      return { shape: "oval", text: "DE", label: "disregarded entity" };
+      return { shape: "oval", text: "DE", label: taxClassificationLabel("disregarded_entity") };
     case "s_corporation":
-      return { shape: "badge", text: "S", label: "S corporation" };
+      return { shape: "badge", text: "S", label: taxClassificationLabel("s_corporation") };
     case "c_corporation":
-      return { shape: "rectangle", text: "C", label: "C corporation" };
+      return { shape: "rectangle", text: "C", label: taxClassificationLabel("c_corporation") };
     case "foreign_corporation":
-      return { shape: "rectangle", text: "FC", label: "foreign corporation" };
+      return { shape: "rectangle", text: "FC", label: taxClassificationLabel("foreign_corporation") };
     case "grantor_trust":
-      return { shape: "diamond", text: "GT", label: "grantor trust" };
+      return { shape: "diamond", text: "GT", label: taxClassificationLabel("grantor_trust") };
     case "individual":
-      return { shape: "circle", text: "I", label: "individual" };
+      return { shape: "circle", text: "I", label: taxClassificationLabel("individual") };
     case "unknown":
       return { shape: "badge", text: "?", label: "unknown" };
     default:
